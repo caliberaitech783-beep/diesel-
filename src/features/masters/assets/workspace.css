@@ -10,7 +10,6 @@
   --folder-ink: #4e2a63;
   --nav-ink: #4f4758;
   --nav-hover: #f6f3f8;
-  --nav-active: #f1eaf7;
 }
 :root[data-theme="dark"] {
   --brand-accent: #d6b2f7;
@@ -20,7 +19,6 @@
   --folder-ink: #cbd7e8;
   --nav-ink: #cbd7e8;
   --nav-hover: #17243a;
-  --nav-active: #243d62;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -50,7 +48,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .account > span { min-width: 0; overflow-wrap: anywhere; }
 .account form { margin: 0; flex: none; }
 .account form button { background: var(--surface); color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: calc(100dvh - var(--masthead-height)); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); min-height: calc(100dvh - var(--masthead-height)); }
+.layout:has(> .sidebar) { grid-template-columns: 280px minmax(0, 1fr); }
 .sidebar {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -98,13 +97,7 @@ nav a {
   line-height: 20px;
 }
 nav a:hover { background: var(--nav-hover); color: var(--folder-ink); }
-nav a[aria-current] {
-  color: var(--link);
-  font-weight: 650;
-  background: var(--nav-active);
-  box-shadow: inset 3px 0 var(--accent);
-}
-nav a[aria-current]::after, .master-group summary::after {
+.master-group summary::after {
   content: "";
   display: block;
   width: 6px;
@@ -122,8 +115,9 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 .layout h1 { margin-bottom: 12px; font-size: clamp(24px, 2.5vw, 34px); }
 .workspace-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; }
 .workspace-heading h1 { margin: 0; }
+.masters-back { align-self: flex-start; margin-bottom: 12px; color: var(--link); font-size: 14px; padding-block: 4px; }
 @media (min-width: 601px) and (max-width: 760px) {
-  .layout { grid-template-columns: 212px minmax(0, 1fr); }
+  .layout:has(> .sidebar) { grid-template-columns: 212px minmax(0, 1fr); }
   nav { padding-inline: 8px; }
   #master-list { margin-left: 12px; padding-left: 6px; }
   nav a { padding-inline: 9px; font-size: 13px; }

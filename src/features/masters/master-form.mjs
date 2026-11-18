@@ -24,10 +24,10 @@ function fieldControl(field, id) {
 
 export function masterForm({ slug, sections }) {
   const groups = sections.map(({ name, fields }, groupIndex) => {
-    return `<details class="field-group" open>
-      <summary><span>${name}</span><span class="field-count">${fields.length} fields</span></summary>
+    return `<section class="field-group">
+      <h2 class="field-group-heading">${name}</h2>
       <div class="field-grid">${fields.map((field, index) => fieldControl(field, `${slug}-${groupIndex}-${index}`)).join('')}</div>
-    </details>`;
+    </section>`;
   });
   const storageChecks = slug === 'storage-location-master' ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : '';
   const rateScript = slug === 'diesel-rate-master' ? '<script type="module" src="/masters/assets/diesel-rate.js"></script>' : '';

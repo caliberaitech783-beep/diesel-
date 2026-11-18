@@ -12,19 +12,16 @@ test('the landing page lists all masters in the sidebar and waits for a selectio
   assert.ok(group, 'the Master group is open on first load');
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
   assert.equal(summary.replace(/<[^>]*>/g, ''), 'Master');
-  const labels = Array.from(list.matchAll(/<li\b[^>]*><a\b[^>]*>([^<]+)<\/a><\/li>/g), match => match[1]);
-  assert.deepEqual(labels, masters.map(master => master.name));
+  const links = Array.from(list.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g), ([, href, name]) => [href, name]);
+  assert.deepEqual(links, masters.map(({ slug, name }) => [`/?master=${slug}`, name]));
 });
 
-test('all 20 masters open exactly one form and keep the sidebar available', () => {
+test('all 20 masters open exactly one form with a link back to the catalog', () => {
   assert.equal(new Set(masters.map(master => master.slug)).size, 20);
   for (const { name, slug } of masters) {
     const html = mastersPage({ master: slug, account: 'Guest', guest: true });
-    assert.match(html, /<aside class="sidebar" id="masters-sidebar">/);
-    assert.doesNotMatch(html, /sidebar-toggle/);
-    assert.equal((html.match(/href="\?master=/g) || []).length, 20);
-    assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
-    assert.ok(html.includes(`href="?master=${slug}" aria-current="page">${name}</a>`));
+    assert.doesNotMatch(html, /id="masters-sidebar"|sidebar-toggle/);
+    assert.match(html, /href="\/">← Back to masters<\/a>/);
     assert.ok(html.includes(`<h1 id="workspace-title">${name}</h1>`));
     assert.equal((html.match(/<form class="master-form"/g) || []).length, 1);
     assert.doesNotMatch(html, /type="file"|type="submit"|formaction=/);
@@ -87,15 +84,12 @@ for (const [slug, fieldCount, requiredCount] of templateCounts) {
   test(`${slug} preview exposes the template fields and their required state`, () => {
     const { name, sections: definition } = masters.find(master => master.slug === slug);
     const html = mastersPage({ master: slug, account: 'Guest', guest: true });
-    assert.ok(html.includes(`href="?master=${slug}" aria-current="page">${name}</a>`));
     assert.ok(html.includes(`<h1 id="workspace-title">${name}</h1>`));
     const form = html.match(/<form\b[^>]*>([\s\S]*?)<\/form>/)?.[1];
     assert.ok(form, 'the selected master has a form');
-    const sections = form.match(/<details\b[^>]*>/g) ?? [];
-    assert.equal(sections.length, definition.length, 'each template section is rendered');
-    for (const section of sections) {
-      assert.match(section, /\sopen(?=[\s=>])/, 'each section starts expanded');
-    }
+    assert.doesNotMatch(form, /<details\b/, 'all sections stay visible');
+    const headings = Array.from(form.matchAll(/<h2 class="field-group-heading">([^<]+)<\/h2>/g), ([, heading]) => heading);
+    assert.deepEqual(headings, definition.map(section => section.name));
     const fields = definition.flatMap(section => section.fields);
     assert.equal(fields.length, fieldCount);
     assert.equal(fields.filter(field => field.required).length, requiredCount);

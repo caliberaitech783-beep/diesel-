@@ -1,11 +1,10 @@
 import { masters } from './catalog.mjs';
 
-export function masterSidebar({ selectedSlug }) {
+export function masterSidebar() {
   const links = masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
-    const current = slug === selectedSlug ? ' aria-current="page"' : '';
-    return `<li data-fields="${fields}"><a href="?master=${slug}"${current}>${name}</a></li>`;
+    return `<li data-fields="${fields}"><a href="/?master=${slug}">${name}</a></li>`;
   }).join('\n');
   const shortcut = '<a class="sidebar-shortcut" href="https://pulse.cmll.in/"><span aria-hidden="true">←</span> Back to Pulse</a>';
 

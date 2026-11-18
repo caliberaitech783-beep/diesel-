@@ -17,7 +17,7 @@ export function mastersPage({ master, account, guest }) {
   ${themeHead}
   <link rel="stylesheet" href="/masters/assets/workspace.css">
   ${selected ? '<link rel="stylesheet" href="/masters/assets/master-form.css"><script type="module" src="/masters/assets/master-form.js"></script>' : ''}
-  <script type="module" src="/masters/assets/navigation.js"></script>
+  ${selected ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
 </head>
 <body${guest ? ' data-access-mode="guest"' : ''}>
   <a class="skip" href="#workspace">Skip to workspace</a>
@@ -30,8 +30,9 @@ export function mastersPage({ master, account, guest }) {
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${masterSidebar({ selectedSlug: selected?.slug })}
+    ${selected ? '' : masterSidebar()}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
+      ${selected ? '<a class="masters-back" href="/">← Back to masters</a>' : ''}
       <header class="workspace-heading">
         <h1 id="workspace-title">${heading}</h1>
         ${selected ? '<p class="required-key"><span class="required-mark" aria-hidden="true">*</span> Required fields</p>' : ''}
