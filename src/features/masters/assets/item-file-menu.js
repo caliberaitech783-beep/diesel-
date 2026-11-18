@@ -1,4 +1,5 @@
 import { readItemCsv, readItemExcel, readItemPdf, writeItemCsv, writeItemExcel, writeItemPdf } from './item-file-formats.mjs';
+import { downloadFile, fileAssets as vendor, loadPdfAssets } from './file-download.mjs';
 
 const form = document.querySelector('#record-form');
 const fileTools = document.querySelector('.item-file-tools');
@@ -9,7 +10,6 @@ const saveStatus = form.querySelector('output');
 const fields = new Map([...form.elements]
   .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea'))
   .map(control => [control.name, control]));
-const vendor = '/masters/item-files/';
 const formats = {
   xlsx: {
     accept: '.xlsx',
@@ -27,15 +27,7 @@ const formats = {
     accept: '.pdf',
     type: 'application/pdf',
     async read(bytes, names) { return readItemPdf(bytes, names, await import(vendor + 'pdf-lib.mjs')); },
-    async write(values) {
-      const [pdf, , font] = await Promise.all([
-        import(vendor + 'pdf-lib.mjs'),
-        import(vendor + 'regenerator-runtime.mjs').then(() => import(vendor + 'fontkit.mjs')),
-        fetch(vendor + 'item-font.ttf'),
-      ]);
-      if (!font.ok) throw new Error('The PDF font could not be loaded.');
-      return writeItemPdf(values, pdf, globalThis.fontkit, await font.arrayBuffer());
-    },
+    async write(values) { return writeItemPdf(values, ...await loadPdfAssets()); },
   },
 };
 
@@ -109,14 +101,7 @@ for (const button of fileTools.querySelectorAll('[data-export]')) {
     status.textContent = 'Preparing download…';
     try {
       const contents = await format.write(values);
-      const href = URL.createObjectURL(new Blob([contents], { type: format.type }));
-      const link = document.createElement('a');
-      link.href = href;
-      link.download = 'item-master' + format.accept;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(href), 1000);
+      downloadFile(contents, format.type, 'item-master' + format.accept);
       status.textContent = '';
     } catch {
       status.textContent = 'Could not export this file. Please try again.';

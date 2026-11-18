@@ -1,7 +1,7 @@
+import { needsCsvEscape, writeCsvTable, writeExcelTable } from './tabular-files.mjs';
+
 const headerKey = text => String(text ?? '').normalize('NFKC').trim().replace(/\s*\*$/, '').toLowerCase();
 const hasContent = row => row.some(value => String(value ?? '').trim());
-const formula = /^[\s\uFEFF]*[=+\-@＝＋－＠]|^[\t\r]/u;
-const dangerous = text => text.startsWith("'") || formula.test(text);
 
 export function readItemTable(rows, names, decode = String) {
   const [headers, ...data] = rows.filter(hasContent);
@@ -22,12 +22,11 @@ export function readItemCsv(bytes, names, { parse }) {
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   const rows = parse(text, { bom: true, skip_empty_lines: true, relax_column_count_less: true });
   return readItemTable(rows, names, value =>
-    value.startsWith("'") && dangerous(value.slice(1)) ? value.slice(1) : value);
+    value.startsWith("'") && needsCsvEscape(value.slice(1)) ? value.slice(1) : value);
 }
 
-export function writeItemCsv(values, { stringify }) {
-  const data = [...values.values()].map(value => dangerous(value) ? "'" + value : value);
-  return stringify([[...values.keys()], data], { bom: true, record_delimiter: 'windows' });
+export function writeItemCsv(values, csv) {
+  return writeCsvTable([...values.keys()], [[...values.values()]], csv);
 }
 
 export function readItemExcel(bytes, names, { read, utils }) {
@@ -45,13 +44,8 @@ export function readItemExcel(bytes, names, { read, utils }) {
   return readItemTable(utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '', blankrows: false }), names);
 }
 
-export function writeItemExcel(values, { utils, write }) {
-  const workbook = utils.book_new();
-  const columns = [...values.keys()];
-  const sheet = utils.aoa_to_sheet([columns, [...values.values()]]);
-  sheet['!cols'] = columns.map(name => ({ wch: Math.max(16, name.length + 3) }));
-  utils.book_append_sheet(workbook, sheet, 'Item Master');
-  return write(workbook, { bookType: 'xlsx', type: 'array', compression: true });
+export function writeItemExcel(values, xlsx) {
+  return writeExcelTable('Item Master', [...values.keys()], [[...values.values()]], xlsx);
 }
 
 export async function readItemPdf(bytes, names, { PDFDocument, PDFTextField }) {

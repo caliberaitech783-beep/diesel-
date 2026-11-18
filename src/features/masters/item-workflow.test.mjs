@@ -80,6 +80,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal(mastersPath, '/');
     const catalog = await (await request(mastersPath, maker)).text();
     assert.match(catalog, /Choose a master/);
+    assert.match(catalog, /href="\/master-data">Master Data<\/a>/);
     assert.doesNotMatch(catalog, /My item submissions/);
     for (const [label, direction] of [['Import', 'import'], ['Export', 'export']]) {
       const menu = form.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
@@ -120,6 +121,19 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal((await restarted(url, other)).status, 404);
     const records = await (await restarted('/records?master=item-master&q=TEST-001', maker)).text();
     assert.match(records, /Diesel test item/);
+    const masterData = await (await restarted('/master-data', maker)).text();
+    assert.match(masterData, /id="workspace-title">Master Data<\/h1>/);
+    assert.match(masterData, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
+    assert.match(masterData, /<dt>HSN Code<\/dt><dd>00123456<\/dd>/);
+    assert.match(masterData, /<summary>Download<\/summary>/);
+    const exportUrl = '/api/master-data/records';
+    const exported = await (await restarted(exportUrl, maker)).json();
+    assert.equal(exported.records[0].id, saved.id);
+    assert.equal(Object.fromEntries(exported.records[0].fields).Attachment, 'reference.pdf');
+    assert.equal(exported.showSite, false);
+    assert.deepEqual((await (await restarted(exportUrl, other)).json()).records, []);
+    assert.equal((await restarted(exportUrl)).status, 401);
+    assert.equal((await restarted('/master-data', undefined, { redirect: 'manual' })).status, 303);
     const file = endpoint + '/' + saved.id + '/attachments/' + saved.values.Attachment.id;
     assert.deepEqual(Buffer.from(await (await restarted(file, maker)).arrayBuffer()), pdf);
     assert.equal((await restarted(file, other)).status, 404);
@@ -157,6 +171,19 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   assert.equal(status, 'pending');
   const reopened = await (await fetch(origin + '/records?master=item-master&id=' + id)).text();
   assert.match(reopened, /Diesel test item/);
+
+  const store = createMasterStore(db);
+  for (let index = 0; index < 50; index++) {
+    store.create('item-master', { site: 'Jayant', values: { ...requiredValues, 'Item Code': 'SAMPLE-' + index } }, 'maker');
+  }
+  const data = await (await fetch(origin + '/master-data')).text();
+  assert.match(data, /aria-label="Master Data pages"/);
+  assert.match(data, /offset=50">Next<\/a>/);
+  assert.doesNotMatch(data, />TEST-001<\/a>/);
+  const finalPage = await (await fetch(origin + '/master-data?offset=50')).text();
+  assert.match(finalPage, />TEST-001<\/a>/);
+  const download = await (await fetch(origin + '/api/master-data/records')).json();
+  assert.equal(download.records.length, 51);
 });
 
 test('Item Master survives closing and reopening the SQLite file, including its optional attachment', t => {

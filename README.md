@@ -4,6 +4,8 @@ Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submi
 
 The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
+**Master Data** in the sidebar lists saved records available to your account or local workspace site. Filter by master and choose **Download** for Excel, CSV, or PDF. Downloads include every record in the selected filter with its saved field values and attachment names.
+
 ## Run locally
 
 Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://127.0.0.1:3000`. `npm run preview:masters` opens the same local workspace on port 4313. The local workspace uses sample maker and checker roles and stores records in `.local-diesel/items.sqlite`. For the Location and Storage Location workflows, load the Pulse project directory with `npm run sync:pulse-projects -- "<trusted Pulse 1 checkout>"`.

@@ -97,6 +97,16 @@ nav a {
   line-height: 20px;
 }
 nav a:hover { background: var(--nav-hover); color: var(--folder-ink); }
+.sidebar .master-data-link {
+  min-height: 44px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--folder-ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+.sidebar .master-data-link[aria-current="page"] { background: var(--folder-bg); }
 .master-group summary::after {
   content: "";
   display: block;

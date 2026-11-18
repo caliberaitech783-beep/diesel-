@@ -3,6 +3,7 @@ import { createMasterStore, readActiveMasters } from './records.mjs';
 import { pulseProject } from './pulse-projects.mjs';
 import { recordMasters, masterDefinition, MasterRecordError } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
+import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 
 function requirePermission(actor, permission) {
   if (actor[permission] !== true) throw new MasterRecordError('Your workspace role cannot perform this action.', 403);
@@ -15,6 +16,17 @@ function scoped(record, actor) {
 
 export function registerMasterRecords(app, { db, getActor = request => request.dieselActor, enabledMasters = ['item-master'] }) {
   const store = createMasterStore(db, enabledMasters);
+  async function workspaceActor(request) {
+    const actor = await getActor(request);
+    if (typeof actor?.id !== 'string' || !actor.id.trim() || typeof actor.site !== 'string' || !actor.site.trim()) {
+      throw new MasterRecordError('Choose an actor in the local workspace.', 401);
+    }
+    return actor;
+  }
+  registerMasterDataRoutes(app, {
+    enabledMasters, local: true, getActor: workspaceActor,
+    listRecords: (actor, slugs, page) => store.listSaved(slugs, { ...page, site: actor.site }),
+  });
   function enabled(slug) {
     if (!enabledMasters.includes(slug) || !recordMasters.includes(slug)) throw new MasterRecordError('Records are unavailable for this master.', 404);
   }
@@ -23,10 +35,7 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
       try {
         const slug = request.params.master ?? request.query.master ?? 'item-master';
         enabled(slug);
-        const actor = await getActor(request);
-        if (typeof actor?.id !== 'string' || !actor.id.trim() || typeof actor.site !== 'string' || !actor.site.trim()) {
-          throw new MasterRecordError('Choose an actor in the local workspace.', 401);
-        }
+        const actor = await workspaceActor(request);
         response.set('Cache-Control', 'no-store');
         await handler(request, response, actor, slug);
       } catch (error) {

@@ -41,7 +41,7 @@ export async function openItemSubmissions(directory) {
       const record = await get(actor, entry.name);
       if (normalize(record.code).includes(query) || normalize(record.name).includes(query)) records.push(record);
     }
-    return records.sort((a, b) => a.code.localeCompare(b.code)).slice(offset, offset + limit);
+    return records.sort((a, b) => a.code.localeCompare(b.code)).slice(offset, limit === undefined ? undefined : offset + limit);
   }
 
   async function create(actor, values) {
