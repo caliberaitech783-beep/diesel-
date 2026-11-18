@@ -1,11 +1,13 @@
-:root { color-scheme: light; font-family: "DM Sans", system-ui, sans-serif; color: #25163c; }
-body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #f5f0f8; }
-main { width: min(28rem, calc(100% - 2rem)); border-radius: 1.25rem; overflow: hidden; background: white; box-shadow: 0 1.25rem 4rem #2d124320; }
-header { padding: 1.5rem 2rem; color: white; background: linear-gradient(115deg, #54278b, #a12b7c); font-weight: 800; letter-spacing: .1em; }
+:root { font-family: "DM Sans", system-ui, sans-serif; color: var(--ink); }
+:root:not([data-theme="dark"]) { --page-bg: #f5f0f8; --ink: #25163c; --primary-bg: #612b8b; --danger: #9e1744; }
+body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--page-bg); }
+main { width: min(28rem, calc(100% - 2rem)); border-radius: 1.25rem; overflow: hidden; background: var(--surface); box-shadow: 0 1.25rem 4rem #2d124320; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 1.5rem clamp(1rem, 5vw, 2rem); color: white; background: linear-gradient(115deg, #54278b, #a12b7c); font-weight: 800; letter-spacing: .1em; }
+header .theme-toggle:focus-visible { outline-color: white; }
 section { padding: 2rem; }
 h1 { margin: 0; font-size: 2.5rem; }
 p { margin: .75rem 0 1.5rem; line-height: 1.5; }
-p[role="alert"] { color: #9e1744; }
-a, button { display: inline-block; padding: .8rem 1.2rem; color: white; background: #612b8b; border: 0; border-radius: .6rem; text-decoration: none; font: inherit; font-weight: 700; cursor: pointer; }
-a:hover, button:hover { background: #4b206e; }
-:focus-visible { outline: 3px solid #a12b7c; outline-offset: 4px; }
+p[role="alert"] { color: var(--danger); }
+a { display: inline-block; padding: .8rem 1.2rem; color: white; background: var(--primary-bg); border-radius: .6rem; text-decoration: none; font: inherit; font-weight: 700; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }

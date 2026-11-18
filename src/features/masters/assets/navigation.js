@@ -1,7 +1,21 @@
+const sidebar = document.querySelector('#masters-sidebar');
+const toggle = document.querySelector('.sidebar-toggle');
 const masterGroup = document.querySelector('.master-group');
-if (window.matchMedia('(max-width: 480px)').matches && new URLSearchParams(location.search).has('master')) {
-  masterGroup.open = false;
+
+function setSidebarOpen(open) {
+  sidebar.hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  if (open) masterGroup.open = true;
 }
+
+toggle.hidden = false;
+toggle.addEventListener('click', () => setSidebarOpen(sidebar.hidden));
+sidebar.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !event.defaultPrevented) {
+    setSidebarOpen(false);
+    toggle.focus();
+  }
+});
 
 const search = document.querySelector('#master-search');
 const status = document.querySelector('#search-status');
@@ -33,7 +47,8 @@ function filterMasters() {
 
 search.addEventListener('input', filterMasters);
 search.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
+  if (event.key === 'Escape' && search.value) {
+    event.preventDefault();
     search.value = '';
     filterMasters();
   } else if (event.key === 'Enter' && words(search.value).length) {

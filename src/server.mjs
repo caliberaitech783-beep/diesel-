@@ -19,6 +19,7 @@ export function createApp({ env = process.env, fetcher = fetch } = {}) {
     response.json({ status: 'ok', commit: manifest.releaseCommit ?? null });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
+  app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
   registerSignIn(app, { env, fetcher });
   return app;
 }

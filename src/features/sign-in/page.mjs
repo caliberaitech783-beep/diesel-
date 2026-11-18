@@ -1,4 +1,5 @@
 import { mastersPage } from '../masters/page.mjs';
+import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
 const escaped = value => String(value).replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -17,11 +18,12 @@ export function signInPage({ profile, message, guest, master } = {}) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Caliber Diesel</title>
+  ${themeHead}
   <link rel="stylesheet" href="/sign-in.css">
 </head>
 <body>
   <main>
-    <header>CALIBER PULSE</header>
+    <header><span>CALIBER PULSE</span>${themeToggle}</header>
     <section aria-labelledby="page-title">
       <h1 id="page-title">Diesel</h1>
       ${message ? `<p role="alert">${escaped(message)}</p>` : ''}
