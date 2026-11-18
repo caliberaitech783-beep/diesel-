@@ -20,7 +20,7 @@ test('Diesel opens as a guest without issuing a session or contacting Pulse', as
     const guestPage = await page.text();
     assert.match(guestPage, /data-access-mode="guest"/);
     assert.match(guestPage, /<h1[^>]*>Item Master<\/h1>/);
-    assert.match(guestPage, /Form preview/);
+    assert.doesNotMatch(guestPage, /Form preview|Use sample details/);
     const rate = await fetch(base + '/?master=diesel-rate-master');
     assert.match(await rate.text(), /data-field-key="invoice-rate"/);
     for (const endpoint of ['/workspace', '/entries', '/records', '/api/masters/item-master/records']) {
@@ -98,7 +98,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     const profilePage = await profile.text();
     assert.match(profilePage, /Signed in as &lt;Operator&gt;/);
     assert.match(profilePage, /<h1[^>]*>Shift Master<\/h1>/);
-    assert.match(profilePage, /Form preview/);
+    assert.doesNotMatch(profilePage, /Form preview|Use sample details/);
 
     const signOut = headers => request('/api/sign-out', { method: 'POST', headers: { Cookie, ...headers } });
     assert.equal((await signOut({ Origin: 'https://other.test' })).status, 403);

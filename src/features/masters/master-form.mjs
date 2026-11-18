@@ -32,7 +32,6 @@ export function masterForm({ slug, sections }) {
   const storageChecks = slug === 'storage-location-master' ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : '';
   const rateScript = slug === 'diesel-rate-master' ? '<script type="module" src="/masters/assets/diesel-rate.js"></script>' : '';
   return `${storageChecks}${rateScript}<form class="master-form" autocomplete="off" novalidate>
-    <p class="form-note"><strong>Form preview</strong> · Use sample details only. Your inputs stay on this page until you leave.</p>
     <p class="required-key"><span class="required-mark" aria-hidden="true">*</span> Required fields</p>
     ${groups.join('\n')}
     <div class="form-footer"><button type="button" data-check-fields>Check fields</button><output aria-live="polite"></output></div>
