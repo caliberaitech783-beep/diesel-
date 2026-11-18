@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.mjs';
 import { signInPage } from './page.mjs';
+import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -8,7 +9,7 @@ const expired = 'Your sign-in expired. Please sign in again.';
 const readCookie = (request, name) => (request.get('cookie') || '').split(';')
   .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 
-export function registerSignIn(app, { env, fetcher }) {
+export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
@@ -55,11 +56,31 @@ export function registerSignIn(app, { env, fetcher }) {
     response.redirect(303, pulse.authorizationUrl(state, verifier));
   }
 
+  function verifySession(request) {
+    const grant = readCookie(request, sessionCookie);
+    return configured && isProof(grant) ? pulse.request('validate', { grant }) : null;
+  }
+
+  if (itemSubmissions) {
+    registerItemSubmissions(app, {
+      store: itemSubmissions, publicOrigin: publicUrl.origin,
+      async getProfile(request) {
+        const result = await verifySession(request);
+        return allowed(result?.profile) ? result.profile : null;
+      },
+    });
+  }
+
   app.get('/', route(async (request, response) => {
     const grant = readCookie(request, sessionCookie);
     if (!isProof(grant)) return startSignIn(response);
-    const result = configured && await pulse.request('validate', { grant });
-    if (allowed(result?.profile)) return page(response, 200, { profile: result.profile, master: request.query.master });
+    const result = await verifySession(request);
+    if (allowed(result?.profile)) {
+      if (itemSubmissions && request.query.master === 'item-master') {
+        return response.redirect(303, '/records?master=item-master&new=1');
+      }
+      return page(response, 200, { profile: result.profile, master: request.query.master });
+    }
     if (result?.profile?.login) {
       response.clearCookie(sessionCookie, options);
       return page(response, 403, { message: denied });

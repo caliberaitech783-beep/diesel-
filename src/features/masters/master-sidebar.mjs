@@ -1,12 +1,15 @@
 import { masters } from './catalog.mjs';
 
-export function masterSidebar() {
+export function masterSidebar({ itemRecordsPath } = {}) {
   const links = masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
-    return `<li data-fields="${fields}"><a href="/?master=${slug}">${name}</a></li>`;
+    const href = itemRecordsPath && slug === 'item-master' ? itemRecordsPath : `/?master=${slug}`;
+    return `<li data-fields="${fields}"><a href="${href}">${name}</a></li>`;
   }).join('\n');
-  const shortcut = '<a class="sidebar-shortcut" href="https://pulse.cmll.in/"><span aria-hidden="true">←</span> Back to Pulse</a>';
+  const shortcut = itemRecordsPath
+    ? '<a class="sidebar-shortcut" href="/workspace">Workspace</a>'
+    : '<a class="sidebar-shortcut" href="https://pulse.cmll.in/"><span aria-hidden="true">←</span> Back to Pulse</a>';
 
   return `<aside class="sidebar" id="masters-sidebar">
       <div class="sidebar-tools">

@@ -76,14 +76,14 @@ jobs:
           origin="${DIESEL_HEALTH_ORIGIN%/}"
           for attempt in {1..12}; do
             if curl --fail --silent --max-time 10 "$origin/healthz" |
-              jq -e --arg commit "$GITHUB_SHA" '.status == "ok" and .commit == $commit' >/dev/null; then
-              if curl --fail --silent --max-time 10 "$origin/" | grep -F 'data-access-mode="guest"' >/dev/null ||
-                curl --silent --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "$origin/api/sign-in/start" |
-                grep -Eq '^303 https://[^/]+/api/diesel-sso/authorize\?'; then
+              jq -e --arg commit "$GITHUB_SHA" '.status == "ok" and .commit == $commit and .itemMaster == "ready"' >/dev/null; then
+              if curl --silent --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "$origin/api/sign-in/start" |
+                grep -Eq '^303 https://[^/]+/api/diesel-sso/authorize\?' &&
+                [ "$(curl --silent --max-time 10 -o /dev/null -w '%{http_code}' "$origin/records?master=item-master")" = 303 ]; then
                 exit 0
               fi
             fi
             sleep 5
           done
-          echo "::error::Diesel did not serve $GITHUB_SHA with guest access or Pulse sign-in available"
+          echo "::error::Diesel did not serve $GITHUB_SHA with Item Master storage and sign-in available"
           exit 1
