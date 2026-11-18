@@ -27,8 +27,7 @@ export function signInPage({ profile, message, guest, master } = {}) {
     <section aria-labelledby="page-title">
       <h1 id="page-title">Diesel</h1>
       ${message ? `<p role="alert">${escaped(message)}</p>` : ''}
-      <p>Use your Caliber Pulse account to sign in.</p>
-      <a href="/api/sign-in/start">Sign in with Pulse</a>
+      <a href="https://pulse.cmll.in/?login=diesel">Back to Diesel sign in</a>
     </section>
   </main>
 </body>
