@@ -41,6 +41,15 @@
   .field-group .master-field:has(textarea) { grid-column: span 2; }
 }
 
+.field-grid[data-columns="5"] > .master-field { display: flex; flex-direction: column; }
+.field-grid[data-columns="5"] > .master-field > label { flex: 1; }
+@container (760px <= width < 880px) {
+  .field-group .field-grid[data-columns="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 880px) {
+  .field-group .field-grid[data-columns="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
 @media (min-width: 800px) {
   .layout > main > .master-form {
     display: flex;
