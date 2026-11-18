@@ -5,6 +5,8 @@ import { mastersPage } from './page.mjs';
 
 test('Master is an expanded sidebar group containing every subtab in catalog order', () => {
   const html = mastersPage({ account: 'Guest', guest: true });
+  assert.match(html, /<aside class="sidebar" id="masters-sidebar">/);
+  assert.match(html, /aria-controls="masters-sidebar" aria-expanded="true"/);
   const group = html.match(/<details\b[^>]*\bopen[^>]*>([\s\S]*?)<\/details>/);
   assert.ok(group, 'the Master group is open on first load');
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
@@ -17,6 +19,8 @@ test('all 20 masters have distinct links and open their public previews', () => 
   assert.equal(new Set(masters.map(master => master.slug)).size, 20);
   for (const { name, slug } of masters) {
     const html = mastersPage({ master: slug, account: 'Guest', guest: true });
+    assert.match(html, /<aside class="sidebar" id="masters-sidebar" hidden>/);
+    assert.match(html, /aria-controls="masters-sidebar" aria-expanded="false"/);
     assert.equal((html.match(/href="\?master=/g) || []).length, 20);
     assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
     assert.ok(html.includes(`href="?master=${slug}" aria-current="page">${name}</a>`));
