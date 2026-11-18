@@ -32,6 +32,7 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
   const base = '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
   const home = '/records?master=' + master.slug;
+  const mastersHome = submissionsOnly ? '/' : '/records';
   const scope = record?.site ?? actor.site ?? '';
   const history = record && !submissionsOnly ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
     `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
@@ -69,7 +70,7 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
   if (approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status) && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase()) actions.push('<button type="button" data-action="approve">Approve revision</button>');
   if (editingAllowed && record && record.status !== 'pending_deactivation') actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
   const content = editing ? `
-    ${master.slug === 'item-master' && !submissionsOnly ? mastersMenuLink('/records') : `<a class="masters-back" href="${home}">← Back to records</a>`}
+    ${master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     <h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
     <form class="master-form" id="record-form" data-api="${endpoint}" data-slug="${master.slug}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}">
@@ -77,7 +78,7 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
       ${editingAllowed && record && record.status !== 'pending_deactivation' ? '<div class="master-field change-reason"><label for="change-reason">Reason for change</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
       <div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>
     </form>${history}` : `
-    ${showSidebar ? '' : mastersMenuLink(submissionsOnly ? '/' : '/records')}
+    ${showSidebar ? '' : mastersMenuLink(mastersHome)}
     <h1 id="workspace-title">${escape(master.name)}</h1>
     ${project ? `<p>Pulse 1 project · ${escape(project.name)} · ${escape(project.client)}</p>` : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}

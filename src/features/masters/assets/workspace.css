@@ -115,6 +115,7 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 .layout h1 { margin-bottom: 12px; font-size: clamp(24px, 2.5vw, 34px); }
 .workspace-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; }
 .workspace-heading h1 { margin: 0; }
+.item-submissions-link { color: var(--link); }
 .masters-back { align-self: flex-start; margin-bottom: 12px; color: var(--link); font-size: 14px; padding-block: 4px; }
 @media (min-width: 601px) and (max-width: 760px) {
   .layout:has(> .sidebar) { grid-template-columns: 212px minmax(0, 1fr); }
