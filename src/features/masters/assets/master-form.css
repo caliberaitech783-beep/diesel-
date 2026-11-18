@@ -2,8 +2,6 @@
   width: min(100%, 920px);
   color: #312838;
 }
-.form-note { color: #615768; margin: -10px 0 22px; font-size: 14px; line-height: 1.5; }
-.form-note strong { color: #5f3877; font-weight: 650; }
 .required-key { margin: 0 0 8px; color: #6a5f70; font-size: 13px; text-align: right; }
 .required-mark { color: #933953; }
 .field-group { border: 1px solid var(--border); border-radius: 9px; background: white; margin: 0 0 10px; }
