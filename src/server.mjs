@@ -1,5 +1,6 @@
 import express from 'express';
 import { pathToFileURL } from 'node:url';
+import manifest from '../package.json' with { type: 'json' };
 import { registerSignIn } from './features/sign-in/routes.mjs';
 
 export function createApp({ env = process.env, fetcher = fetch } = {}) {
@@ -14,7 +15,9 @@ export function createApp({ env = process.env, fetcher = fetch } = {}) {
     });
     next();
   });
-  app.get('/healthz', (_request, response) => response.json({ status: 'ok' }));
+  app.get('/healthz', (_request, response) => {
+    response.json({ status: 'ok', commit: manifest.releaseCommit ?? null });
+  });
   registerSignIn(app, { env, fetcher });
   return app;
 }
