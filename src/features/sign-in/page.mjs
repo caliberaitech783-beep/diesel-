@@ -12,6 +12,13 @@ export function signInPage({ profile, message, guest, master } = {}) {
     return mastersPage({ master, account, guest });
   }
 
+  return loginPage({ message });
+}
+
+export function loginPage({ message, guest } = {}) {
+  const action = guest ? '<a href="/">Open masters</a>' :
+    message ? '<a href="https://pulse.cmll.in/?login=diesel">Back to Diesel sign in</a>' :
+    '<a href="/api/sign-in/start">Sign in with Pulse</a>';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -27,7 +34,7 @@ export function signInPage({ profile, message, guest, master } = {}) {
     <section aria-labelledby="page-title">
       <h1 id="page-title">Diesel</h1>
       ${message ? `<p role="alert">${escaped(message)}</p>` : ''}
-      <a href="https://pulse.cmll.in/?login=diesel">Back to Diesel sign in</a>
+      ${action}
     </section>
   </main>
 </body>

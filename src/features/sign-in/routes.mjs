@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.mjs';
-import { signInPage } from './page.mjs';
+import { loginPage, signInPage } from './page.mjs';
 import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
@@ -12,6 +12,7 @@ const readCookie = (request, name) => (request.get('cookie') || '').split(';')
 export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
+  app.get('/login', (_request, response) => response.type('html').send(loginPage({ guest: accessMode === 'guest' })));
   if (accessMode === 'guest') {
     app.get('/', (request, response) => response.type('html').send(signInPage({ guest: true, master: request.query.master })));
     app.get('/api/sign-in/start', (_request, response) => response.redirect(303, '/'));

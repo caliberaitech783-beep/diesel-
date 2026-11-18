@@ -1,6 +1,7 @@
 import { masters } from './catalog.mjs';
 import { masterForm } from './master-form.mjs';
 import { masterSidebar } from './master-sidebar.mjs';
+import { mastersMenuLink } from './master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
 export function mastersPage({ master, account, guest }) {
@@ -32,7 +33,7 @@ export function mastersPage({ master, account, guest }) {
   <div class="layout">
     ${selected ? '' : masterSidebar()}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
-      ${selected ? '<a class="masters-back" href="/">← Back to masters</a>' : ''}
+      ${selected ? mastersMenuLink('/') : ''}
       <header class="workspace-heading">
         <h1 id="workspace-title">${heading}</h1>
         ${selected ? '<p class="required-key"><span class="required-mark" aria-hidden="true">*</span> Required fields</p>' : ''}

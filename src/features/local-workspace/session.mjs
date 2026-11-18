@@ -37,7 +37,7 @@ export function registerLocalSession(app) {
     request.dieselActor = { id: activeSite + '-' + key, role: profiles[key].name, site: activeSite, ...profiles[key] };
     next();
   });
-  app.get('/workspace', (request, response) => {
+  app.get(['/login', '/workspace'], (request, response) => {
     const actor = request.dieselActor;
     const options = Object.entries(profiles).map(([key, profile]) =>
       `<option value="${key}"${actor.role === profile.name ? ' selected' : ''}>${profile.name}</option>`).join('');

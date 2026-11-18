@@ -101,6 +101,14 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     assert.match(profilePage, /<h1[^>]*>Shift Master<\/h1>/);
     assert.doesNotMatch(profilePage, /Form preview|Use sample details/);
 
+    const catalog = await (await request('/', { headers: { Cookie } })).text();
+    const loginPath = catalog.match(/href="([^"]+)" aria-label="Back to login"/)?.[1];
+    assert.equal(loginPath, '/login');
+    const login = await request(loginPath, { headers: { Cookie } });
+    assert.equal(login.status, 200);
+    assert.equal(login.headers.get('set-cookie'), null);
+    assert.match(await login.text(), /href="\/api\/sign-in\/start">Sign in with Pulse<\/a>/);
+
     const signOut = headers => request('/api/sign-out', { method: 'POST', headers: { Cookie, ...headers } });
     assert.equal((await signOut({ Origin: 'https://other.test' })).status, 403);
     assert.equal((await signOut({ Origin: origin })).status, 303);
