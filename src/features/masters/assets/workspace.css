@@ -50,32 +50,17 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .account > span { min-width: 0; overflow-wrap: anywhere; }
 .account form { margin: 0; flex: none; }
 .account form button { background: var(--surface); color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-.sidebar-toggle {
-  flex: none;
-  min-height: 36px;
-  padding: 6px 11px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--folder-bg);
-  color: var(--folder-ink);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-.sidebar-toggle:hover { background: var(--folder-hover); }
-.sidebar-toggle[aria-expanded="true"] { border-color: var(--accent); }
-.sidebar-fallback { color: var(--link); }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: calc(100dvh - var(--masthead-height)); }
-.layout:has(> .sidebar[hidden]) { grid-template-columns: minmax(0, 1fr); }
 .sidebar {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   height: calc(100dvh - var(--masthead-height));
+  position: sticky;
+  top: 0;
   display: flex;
   flex-direction: column;
 }
-.sidebar[hidden] { display: none; }
-nav { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--control-border) transparent; padding: 16px 12px 18px; }
+nav { overflow-y: auto; scroll-padding-top: 52px; scrollbar-width: thin; scrollbar-color: var(--control-border) transparent; padding: 16px 12px 18px; }
 .master-group summary {
   position: sticky;
   z-index: 1;
@@ -154,7 +139,7 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
   .product { font-size: 15px; margin-left: 4px; padding-left: 10px; }
   .account { font-size: 12px; }
   .layout { display: flex; flex-direction: column; }
-  .sidebar { height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
   nav { max-height: 56dvh; padding: 8px 12px; }
   nav a { min-height: 40px; }
   main { padding: 22px 16px; flex: 1; }

@@ -1,6 +1,6 @@
 # Diesel
 
-Diesel on Azure opens the Pulse sign-in form directly and requires an allowed Pulse account. Local guest mode provides 20 form previews under **Master**. Selecting a master closes the sidebar. Use **Masters** in the header to reopen it, and the Day/Night switch to change the theme. Use sample details only. Inputs stay on the current page. **Check fields** checks the form without saving. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres.
+Diesel on Azure opens the Pulse sign-in form directly and requires an allowed Pulse account. Local guest mode provides 20 form previews under **Master**. Select a master in the sidebar to open its full form on one page. On narrow screens, use the **Master** group above the form to switch masters. Use the Day/Night switch to change the theme. Use sample details only. Inputs stay on the current page. **Check fields** checks the form without saving. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres.
 
 ## Run locally
 
