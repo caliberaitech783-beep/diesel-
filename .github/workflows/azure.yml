@@ -1,0 +1,58 @@
+name: Test and deploy Diesel
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          npm ci --omit=dev --prefix dist
+          (cd dist && zip -qr ../diesel.zip .)
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: diesel
+          path: diesel.zip
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AZURE_WEBAPP_NAME != ''
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency: diesel-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: diesel
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: diesel.zip
+      - name: Verify app health
+        run: curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 --max-time 10 "${DIESEL_HEALTH_ORIGIN%/}/healthz"
+        env:
+          DIESEL_HEALTH_ORIGIN: ${{ vars.DIESEL_HEALTH_ORIGIN }}
