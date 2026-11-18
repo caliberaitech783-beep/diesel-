@@ -10,6 +10,7 @@ export const costCentreVehicleMaster = [
   },
   {
     name: 'Vehicle details',
+    columns: 5,
     fields: [
       { label: 'Fleet No.', required: true },
       { label: 'Registration No.', required: true },
@@ -18,7 +19,8 @@ export const costCentreVehicleMaster = [
       { label: 'Ownership', required: true },
       { label: 'Hire party or contractor', required: false },
       { label: 'Project (location)', required: true },
-      { label: 'Chassis No. / Engine No.', required: false },
+      { label: 'Chassis No.', required: false },
+      { label: 'Engine No.', required: false },
       { label: 'Status', required: true },
     ],
   },
