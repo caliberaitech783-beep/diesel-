@@ -68,22 +68,19 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
     return `<section class="field-group"><h2 class="field-group-heading">${escape(section.name)}</h2><div class="field-grid">${fields.map(renderField).join('')}</div></section>`;
   }).join('') : '';
   const actions = [];
-  if (editable && !itemForm) actions.push('<button type="submit">Save for review</button>');
+  if (editable) actions.push('<button type="submit" data-save-for-review>Save for review</button>');
   if (approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status) && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase()) actions.push('<button type="button" data-action="approve">Approve revision</button>');
   if (editingAllowed && record && record.status !== 'pending_deactivation') actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
   const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
   const content = editing ? `
     ${master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     ${itemForm ? `<div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
-    <div class="item-form-feedback">
-      <output id="item-file-status" aria-live="polite"></output>
-      <output name="save-status" form="record-form" aria-live="polite"></output>
-    </div>` : heading}
+    <output id="item-file-status" aria-live="polite"></output>` : heading}
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
     <form class="master-form" id="record-form" data-api="${endpoint}" data-slug="${master.slug}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}">
       ${submissionsOnly ? '' : `<p class="record-meta">Site · ${escape(scope)}</p>`}${groups}
       ${editingAllowed && record && record.status !== 'pending_deactivation' ? '<div class="master-field change-reason"><label for="change-reason">Reason for change</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
-      ${!itemForm || actions.length ? `<div class="form-footer">${actions.join(' ')}${itemForm ? '' : '<output aria-live="polite"></output>'}</div>` : ''}
+      ${!itemForm || actions.length ? `<div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>` : ''}
     </form>${history}` : `
     ${showSidebar ? '' : mastersMenuLink(mastersHome)}
     <h1 id="workspace-title">${escape(master.name)}</h1>

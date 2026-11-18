@@ -84,7 +84,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
         return response.redirect(303, '/records?master=item-master&new=1');
       }
       return page(response, 200, {
-        profile: result.profile, master: request.query.master, itemSubmissionsEnabled: Boolean(itemSubmissions),
+        profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions),
       });
     }
     if (result?.profile?.login) {
