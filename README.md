@@ -1,18 +1,22 @@
 # Diesel
 
-Diesel signs users in with their Caliber Pulse account.
+Diesel currently opens in guest mode.
 
 ## Run locally
 
-Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://localhost:3000`. For Pulse sign-in, copy `.env.example` to `.env` and configure the issuer and shared secret.
+Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://localhost:3000`. To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret.
 
-Run `npm test` to test sign-in against a simulated issuer and `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`, alongside `sign-in/`.
+Run `npm test` to test guest access and sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`, alongside `sign-in/`.
 
 ## Deploy
 
-1. Set up a Linux Azure App Service in `caliber-diesel-rg` with Node.js 24 and `npm start`. Add `pulse-lll.cmll.in` using Azure’s CNAME and TXT records, then enable HTTPS with a managed certificate.
-2. Set `DIESEL_PUBLIC_ORIGIN=https://pulse-lll.cmll.in`, `PULSE_ORIGIN`, and `DIESEL_SSO_CLIENT_SECRET` on Diesel. Set the same public origin and 32-byte base64url secret on the Pulse issuer, along with `DIESEL_SSO_ENABLED=1`.
-3. Configure an Azure federated identity scoped to the app. Set GitHub Actions secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`, and variables `AZURE_WEBAPP_NAME` and `DIESEL_HEALTH_ORIGIN`. [Azure setup guide](https://learn.microsoft.com/azure/app-service/deploy-github-actions)
-4. In Actions, run [Test and deploy Diesel](.github/workflows/azure.yml) from `main`. It checks that production serves the selected commit and redirects sign-in to Pulse. Verify a full sign-in and sign-out with a Pulse account before enabling the launcher tile.
+Production runs on `caliber-diesel-783` in `caliber-diesel-rg`. It shares the Central India P2v3 plan with Pulse Fleet and the HR API. Hostinger handles the DNS for `pulse-lll.cmll.in`. Azure supplies the HTTPS certificate.
+
+1. Merge a tested change into `main`. In the Diesel Web App’s Deployment Center, select **Sync** to pull that branch. Azure builds the Node.js 24 application and starts it with `npm start`.
+2. Check the deployed commit and build result in Deployment Center. Open the [health check](https://pulse-lll.cmll.in/healthz) and verify that the homepage opens as a guest.
+
+To enable Pulse sign-in, set `DIESEL_PUBLIC_ORIGIN=https://pulse-lll.cmll.in` on both apps and `PULSE_ORIGIN=https://pulse.cmll.in` on Diesel. Set the same `DIESEL_SSO_CLIENT_SECRET` on both apps, generated from 32 random bytes encoded as base64url. Fleet also needs `DIESEL_SSO_ENABLED=1`. Once the Pulse issuer is ready, set `DIESEL_ACCESS_MODE=pulse` on Diesel and verify sign-in and sign-out with a Pulse account.
+
+The [GitHub Actions workflow](.github/workflows/azure.yml) runs tests and builds. Its optional deployment job requires a Diesel-scoped Azure federated identity, the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` secrets, and the `AZURE_WEBAPP_NAME` and `DIESEL_HEALTH_ORIGIN` variables.
 
 See [AGENTS.md](AGENTS.md) for repository rules.

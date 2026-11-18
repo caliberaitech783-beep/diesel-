@@ -9,6 +9,15 @@ const readCookie = (request, name) => (request.get('cookie') || '').split(';')
   .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 
 export function registerSignIn(app, { env, fetcher }) {
+  const accessMode = env.DIESEL_ACCESS_MODE ?? 'guest';
+  app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
+  if (accessMode === 'guest') {
+    app.get('/', (_request, response) => response.type('html').send(signInPage({ guest: true })));
+    app.get('/api/sign-in/start', (_request, response) => response.redirect(303, '/'));
+    return;
+  }
+  if (accessMode !== 'pulse') throw new Error('DIESEL_ACCESS_MODE must be guest or pulse.');
+
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
   if (!secure && !['localhost', '127.0.0.1'].includes(publicUrl.hostname)) {
@@ -33,7 +42,6 @@ export function registerSignIn(app, { env, fetcher }) {
     }
   };
 
-  app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   app.get('/', route(async (request, response) => {
     const grant = readCookie(request, sessionCookie);
     if (!isProof(grant)) return page(response, 200);
