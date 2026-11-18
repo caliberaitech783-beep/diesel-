@@ -1,4 +1,5 @@
-.master-data-download :is(button, summary) {
+.master-data-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.master-data-menu :is(button, summary) {
   min-height: 36px;
   border: 1px solid var(--control-border);
   border-radius: 6px;
@@ -8,8 +9,8 @@
   font: inherit;
   cursor: pointer;
 }
-.master-data-download { position: relative; }
-.master-data-download div {
+.master-data-menu { position: relative; }
+.master-data-menu div {
   position: absolute;
   top: calc(100% + 4px);
   inset-inline-end: 0;
@@ -21,14 +22,14 @@
   background: var(--surface);
   box-shadow: 0 6px 18px rgb(0 0 0 / 14%);
 }
-.master-data-download button {
+.master-data-menu button {
   display: block;
   width: 100%;
   border-color: transparent;
   background: transparent;
   text-align: start;
 }
-.master-data-download button:hover { background: var(--nav-hover); }
+.master-data-menu button:hover { background: var(--nav-hover); }
 .master-data-feedback { margin-block-end: 10px; font-size: 14px; }
 .master-data-feedback:empty { margin: 0; }
 .master-data-table {

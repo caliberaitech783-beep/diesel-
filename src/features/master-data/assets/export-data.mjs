@@ -1,3 +1,17 @@
+const pdfRecordPrefix = 'Diesel saved record: ';
+
+export function readSavedRecordPdf(document, slug, columns) {
+  const subject = document.getSubject();
+  if (!subject?.startsWith(pdfRecordPrefix)) return null;
+  const data = JSON.parse(subject.slice(pdfRecordPrefix.length));
+  if (data?.slug !== slug) throw new Error('Choose a PDF for this master.');
+  if (!Array.isArray(data.fields)) throw new Error('The PDF has no saved fields to import.');
+  const known = new Set(columns);
+  const fields = new Map(data.fields.filter(field => Array.isArray(field) && known.has(field[0]) && typeof field[1] === 'string'));
+  if (![...fields.values()].some(value => value.trim())) throw new Error('The PDF has no values for this master.');
+  return fields;
+}
+
 const recordColumns = [
   ['Master', 'master'], ['Record code', 'code'], ['Record name', 'name'],
   ['Record status', 'status'], ['Site', 'site'], ['Revision', 'revision'], ['Last saved (UTC)', 'updatedAt'],
@@ -94,6 +108,10 @@ function wrapText(value, width, font, size) {
 export async function writeMasterDataPdf(records, showSite, { PDFDocument, rgb }, fontkit, fontBytes, formColumns) {
   const document = await PDFDocument.create();
   document.setTitle('Diesel Master Data');
+  if (formColumns && records.length === 1 && records[0].slug) {
+    const { slug, fields } = records[0];
+    document.setSubject(pdfRecordPrefix + JSON.stringify({ slug, fields }));
+  }
   document.registerFontkit(fontkit);
   const font = await document.embedFont(fontBytes);
   const width = 595.28;

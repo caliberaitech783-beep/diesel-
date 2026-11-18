@@ -5,7 +5,7 @@ const hasContent = row => row.some(value => String(value ?? '').trim());
 
 export function readItemTable(rows, names, decode = String) {
   const [headers, ...data] = rows.filter(hasContent);
-  if (!headers || data.length !== 1) throw new Error('Use an Item Master header row followed by one item.');
+  if (!headers || data.length !== 1) throw new Error('Use a header row followed by one record.');
   const known = new Map(names.map(name => [headerKey(name), name]));
   const values = new Map();
   headers.forEach((header, column) => {
@@ -14,7 +14,7 @@ export function readItemTable(rows, names, decode = String) {
     if (values.has(name)) throw new Error('The file lists ' + name + ' twice.');
     values.set(name, decode(data[0][column] ?? ''));
   });
-  if (![...values.values()].some(value => value.trim())) throw new Error('The file has no Item Master values.');
+  if (![...values.values()].some(value => value.trim())) throw new Error('The file has no matching form values.');
   return values;
 }
 
@@ -36,10 +36,10 @@ export function readItemExcel(bytes, names, { read, utils }) {
   }
   const workbook = read(bytes, { sheets: 0, sheetRows: 51 });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet?.['!ref']) throw new Error('The first worksheet has no Item Master values.');
+  if (!sheet?.['!ref']) throw new Error('The first worksheet has no form values.');
   const range = utils.decode_range(sheet['!fullref'] ?? sheet['!ref']);
   if (range.e.r - range.s.r >= 50 || range.e.c - range.s.c >= 100) {
-    throw new Error('Use the first worksheet for one Item Master item.');
+    throw new Error('Use the first worksheet for one record.');
   }
   return readItemTable(utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '', blankrows: false }), names);
 }
@@ -50,6 +50,10 @@ export function writeItemExcel(values, xlsx) {
 
 export async function readItemPdf(bytes, names, { PDFDocument, PDFTextField }) {
   const document = await PDFDocument.load(bytes);
+  return readItemPdfFields(document, names, PDFTextField);
+}
+
+export function readItemPdfFields(document, names, PDFTextField) {
   const fields = new Map(document.getForm().getFields()
     .filter(field => field instanceof PDFTextField)
     .map(field => [field.getName(), field]));
@@ -59,7 +63,7 @@ export async function readItemPdf(bytes, names, { PDFDocument, PDFTextField }) {
     if (field) values.set(name, field.getText() ?? '');
   }
   if (![...values.values()].some(value => value.trim())) {
-    throw new Error('Fill in and save an Item Master PDF exported from Diesel.');
+    throw new Error('Choose a single-record Master Data PDF or a filled Diesel form PDF.');
   }
   return values;
 }

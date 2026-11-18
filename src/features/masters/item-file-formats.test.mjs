@@ -28,7 +28,7 @@ test('Item Master Excel and CSV preserve item codes, Unicode and formula-like va
   const csv = writeItemCsv(values, { stringify });
   assert.ok(csv.includes(",'=1+1,"));
   assert.deepEqual(readItemCsv(encode(csv), names, { parse }), values);
-  assert.throws(() => readItemCsv(encode('Item Code,Item Name\n001,First\n002,Second'), names, { parse }), /one item/);
+  assert.throws(() => readItemCsv(encode('Item Code,Item Name\n001,First\n002,Second'), names, { parse }), /one record/);
   assert.throws(() => readItemCsv(encode('Item Code,Item code\n001,002'), names, { parse }), /twice/);
 });
 

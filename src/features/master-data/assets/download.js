@@ -2,9 +2,9 @@ import { downloadFile, fileAssets, loadPdfAssets } from '/masters/assets/file-do
 import { writeCsvTable, writeExcelTable } from '/masters/assets/tabular-files.mjs';
 import { exportTable, fitExcelCells, writeMasterDataPdf } from './export-data.mjs';
 
-const menu = document.querySelector('.master-data-download');
+const tools = document.querySelector('.master-data-tools');
 const feedback = document.querySelector('.master-data-feedback');
-const buttons = [...menu.querySelectorAll('[data-format]')];
+const buttons = [...tools.querySelectorAll('[data-format]')];
 const formats = {
   xlsx: {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -32,10 +32,12 @@ for (const button of buttons) {
   button.addEventListener('click', async () => {
     for (const control of buttons) control.disabled = true;
     const extension = button.dataset.format;
+    const menu = button.closest('details');
     menu.open = false;
+    menu.querySelector('summary').focus();
     feedback.textContent = 'Preparing download…';
     try {
-      const response = await fetch(menu.dataset.exportSource);
+      const response = await fetch(tools.dataset.exportSource);
       if (response.status === 401) throw new Error('Sign in again to download Master Data.');
       if (!response.ok) throw new Error('Master Data could not be loaded. Try again.');
       const { records, showSite, columns } = await response.json();
@@ -50,8 +52,9 @@ for (const button of buttons) {
   });
 }
 
-menu.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && menu.open) {
+tools.addEventListener('keydown', event => {
+  const menu = event.target.closest('details[open]');
+  if (event.key === 'Escape' && menu) {
     menu.open = false;
     menu.querySelector('summary').focus();
   }

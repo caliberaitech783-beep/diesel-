@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { masters } from './catalog.mjs';
 
 export class MasterRecordError extends Error {
@@ -13,6 +14,12 @@ const identityFields = {
   'storage-location-master': ['Storage Loc Code', 'Storage Loc. Name'],
 };
 export const recordMasters = Object.keys(identityFields);
+
+export function recordDraftScope(actor, slug) {
+  return createHash('sha256')
+    .update(JSON.stringify([slug, actor.id, actor.site ?? '']))
+    .digest('hex');
+}
 
 export function masterDefinition(slug) {
   const master = masters.find(item => item.slug === slug);

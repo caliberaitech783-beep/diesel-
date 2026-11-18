@@ -1,3 +1,5 @@
+import { restoreImportedRecord } from './import-draft.mjs';
+
 const form = document.querySelector('#record-form');
 
 function readFile(file) {
@@ -48,6 +50,7 @@ async function save(action) {
 }
 
 if (form) {
+  restoreImportedRecord(form);
   form.addEventListener('submit', event => { event.preventDefault(); save(); });
   for (const button of form.querySelectorAll('[data-action]')) {
     button.addEventListener('click', () => save(button.dataset.action));
