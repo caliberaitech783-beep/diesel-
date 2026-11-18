@@ -10,7 +10,6 @@ function checkFields() {
     return;
   }
   status.textContent = invalidFields.length === 1 ? '1 field needs attention.' : `${invalidFields.length} fields need attention.`;
-  first.closest('details').open = true;
   first.focus();
   first.reportValidity();
 }

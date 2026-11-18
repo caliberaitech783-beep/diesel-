@@ -2,19 +2,6 @@ const masterGroup = document.querySelector('.master-group');
 const search = document.querySelector('#master-search');
 const status = document.querySelector('#search-status');
 const list = document.querySelector('#master-list');
-const selectedLink = list.querySelector('[aria-current="page"]');
-const narrowScreen = window.matchMedia('(max-width: 600px)');
-
-function showSelectedMaster() {
-  masterGroup.open = !narrowScreen.matches;
-  if (masterGroup.open) selectedLink.scrollIntoView({ block: 'nearest' });
-}
-
-if (selectedLink) {
-  showSelectedMaster();
-  narrowScreen.addEventListener('change', showSelectedMaster);
-}
-
 const words = value => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 const entries = [...list.children].map(item => ({
   item,
