@@ -32,8 +32,9 @@ export function registerSignIn(app, { env, fetcher }) {
   const stateCookie = `${prefix}diesel_state`;
   const sessionCookie = `${prefix}diesel_session`;
   const configured = isProof(env.DIESEL_SSO_CLIENT_SECRET);
+  const pulseOrigin = new URL(env.PULSE_ORIGIN || 'https://pulse.cmll.in');
   const pulse = createPulseClient({
-    origin: new URL(env.PULSE_ORIGIN || 'https://pulse.cmll.in'),
+    origin: pulseOrigin,
     secret: env.DIESEL_SSO_CLIENT_SECRET,
     fetcher,
   });
@@ -46,9 +47,17 @@ export function registerSignIn(app, { env, fetcher }) {
     }
   };
 
+  function startSignIn(response) {
+    if (!configured) return page(response, 503, { message: unavailable });
+    const state = newProof();
+    const verifier = newProof();
+    response.cookie(stateCookie, `${state}.${verifier}`, { ...options, maxAge: 600_000 });
+    response.redirect(303, pulse.authorizationUrl(state, verifier));
+  }
+
   app.get('/', route(async (request, response) => {
     const grant = readCookie(request, sessionCookie);
-    if (!isProof(grant)) return page(response, 200);
+    if (!isProof(grant)) return startSignIn(response);
     const result = configured && await pulse.request('validate', { grant });
     if (allowed(result?.profile)) return page(response, 200, { profile: result.profile, master: request.query.master });
     if (result?.profile?.login) {
@@ -56,16 +65,10 @@ export function registerSignIn(app, { env, fetcher }) {
       return page(response, 403, { message: denied });
     }
     response.clearCookie(sessionCookie, options);
-    page(response, 401, { message: expired });
+    return startSignIn(response);
   }));
 
-  app.get('/api/sign-in/start', route(async (_request, response) => {
-    if (!configured) return page(response, 503, { message: unavailable });
-    const state = newProof();
-    const verifier = newProof();
-    response.cookie(stateCookie, `${state}.${verifier}`, { ...options, maxAge: 600_000 });
-    response.redirect(303, pulse.authorizationUrl(state, verifier));
-  }));
+  app.get('/api/sign-in/start', route((_request, response) => startSignIn(response)));
 
   app.get('/api/sign-in/callback', route(async (request, response) => {
     if (!configured) return page(response, 503, { message: unavailable });
@@ -92,6 +95,6 @@ export function registerSignIn(app, { env, fetcher }) {
     const grant = readCookie(request, sessionCookie);
     if (configured && isProof(grant)) await pulse.request('revoke', { grant });
     response.clearCookie(sessionCookie, options);
-    response.redirect(303, '/');
+    response.redirect(303, pulseOrigin.origin + '/');
   }));
 }
