@@ -77,8 +77,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     await once(server, 'listening');
     const base = 'http://127.0.0.1:' + server.address().port;
     const request = (path, options) => fetch(base + path, { redirect: 'manual', ...options });
-    assert.match(await (await request('/')).text(), /Sign in with Pulse/);
-    const start = await request('/api/sign-in/start');
+    const start = await request('/');
     assert.equal(start.status, 303);
     started = new URL(start.headers.get('location'));
     assert.equal(started.pathname, '/api/diesel-sso/authorize');
@@ -104,7 +103,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     const signOut = headers => request('/api/sign-out', { method: 'POST', headers: { Cookie, ...headers } });
     assert.equal((await signOut({ Origin: 'https://other.test' })).status, 403);
     assert.equal((await signOut({ Origin: origin })).status, 303);
-    assert.equal((await request('/', { headers: { Cookie } })).status, 401);
+    assert.equal((await request('/', { headers: { Cookie } })).status, 303);
     assert.equal((await request('/healthz')).status, 200);
   } finally {
     server.close();
@@ -121,8 +120,9 @@ test('Azure requires Pulse and denies direct master access outside the explicit 
     await once(server, 'listening');
     t.after(() => server.close());
     const url = 'http://127.0.0.1:' + server.address().port + '/?master=driver-master';
-    const anonymous = await fetch(url);
-    assert.match(await anonymous.text(), /Sign in with Pulse/);
+    const anonymous = await fetch(url, { redirect: 'manual' });
+    assert.equal(anonymous.status, 303);
+    assert.equal(new URL(anonymous.headers.get('location')).pathname, '/api/diesel-sso/authorize');
     const blocked = await fetch(url, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
     assert.equal(blocked.status, 403);
     assert.doesNotMatch(await blocked.text(), /master-list/);
