@@ -9,7 +9,7 @@ test('Master is an expanded sidebar group containing every subtab in catalog ord
   assert.ok(group, 'the Master group is open on first load');
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
   assert.equal(summary.replace(/<[^>]*>/g, ''), 'Master');
-  const labels = Array.from(list.matchAll(/<li><a\b[^>]*>([^<]+)<\/a><\/li>/g), match => match[1]);
+  const labels = Array.from(list.matchAll(/<li\b[^>]*><a\b[^>]*>([^<]+)<\/a><\/li>/g), match => match[1]);
   assert.deepEqual(labels, masters.map(master => master.name));
 });
 
