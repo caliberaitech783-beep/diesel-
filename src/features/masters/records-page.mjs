@@ -109,6 +109,6 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
     <a class="skip" href="#workspace">Skip to workspace</a>
     <header class="masthead"><div class="brand"><img src="/masters/assets/pulse.png" width="36" height="36" alt=""><span class="wordmark">Caliber <strong>Pulse</strong></span><span class="product">Diesel</span></div>
     <div class="account">${themeToggle}${submissionsOnly ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
-    <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : '') }) : ''}
+    <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true }) : ''}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">${content}</main></div></body></html>`;
 }

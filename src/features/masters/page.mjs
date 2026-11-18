@@ -31,7 +31,7 @@ export function mastersPage({ master, account, guest, itemSubmissionsEnabled }) 
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${selected ? '' : masterSidebar()}
+    ${selected ? '' : masterSidebar({ masterData: itemSubmissionsEnabled })}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
       ${selected ? mastersMenuLink('/') : ''}
       <header class="workspace-heading">

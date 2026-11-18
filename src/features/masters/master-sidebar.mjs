@@ -1,6 +1,6 @@
 import { masters } from './catalog.mjs';
 
-export function masterSidebar({ itemRecordsPath } = {}) {
+export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent } = {}) {
   const links = masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
@@ -19,7 +19,8 @@ export function masterSidebar({ itemRecordsPath } = {}) {
         <p id="search-status" role="status"></p>
       </div>
       <nav aria-label="Diesel navigation">
-        <details class="master-group" open>
+        ${masterData ? `<a class="master-data-link" href="/master-data"${masterDataCurrent ? ' aria-current="page"' : ''}>Master Data</a>` : ''}
+        <details class="master-group"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>
           <ul id="master-list" aria-label="Master subtabs">${links}</ul>
         </details>

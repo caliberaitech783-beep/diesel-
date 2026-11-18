@@ -1,21 +1,29 @@
 import express from 'express';
 import { masterDefinition, MasterRecordError } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
+import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 
 const master = masterDefinition('item-master');
 const api = '/api/masters/item-master/records';
 const requiredOrigin = 'Open Diesel to make changes.';
 
 export function registerItemSubmissions(app, { store, getProfile, publicOrigin }) {
+  async function signedInActor(request) {
+    const profile = await getProfile(request);
+    return profile ? { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login } : null;
+  }
+  registerMasterDataRoutes(app, {
+    enabledMasters: [master.slug], getActor: signedInActor,
+    listRecords: (actor, _slugs, page) => store.list(actor, { ...page, search: '' }),
+  });
   function route(handler) {
     return async (request, response, next) => {
       try {
-        const profile = await getProfile(request);
-        if (!profile) {
+        const actor = await signedInActor(request);
+        if (!actor) {
           if (request.path === '/records') return response.redirect(303, '/?master=item-master');
           return response.status(401).json({ error: 'Sign in to Diesel.' });
         }
-        const actor = { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login };
         await handler(request, response, actor);
       } catch (error) {
         if (error instanceof MasterRecordError) return response.status(error.status).json({ error: error.message });

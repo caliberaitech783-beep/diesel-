@@ -256,17 +256,29 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     });
   }
 
+  function queryRecords(slugs, { search, status, site, limit, offset }) {
+    const placeholders = slugs.map(() => '?').join(',');
+    return db.prepare(`SELECT * FROM master_records WHERE master IN (${placeholders}) AND (?='' OR status=?)
+      AND (? IS NULL OR site_key=?)
+      AND (instr(lower(code),lower(?))>0 OR instr(lower(name),lower(?))>0)
+      ORDER BY master,code COLLATE NOCASE,id LIMIT ? OFFSET ?`)
+      .all(...slugs, status, status, site, site === null ? null : normalize(site), search, search, limit, offset).map(unpack);
+  }
+
   function list(slug, { search = '', status = '', site = null, limit = 100, offset = 0 } = {}) {
     definition(slug);
     if (typeof search !== 'string' || search.length > 256 || !['', 'approved', 'pending', 'pending_deactivation', 'inactive'].includes(status)) throw new MasterRecordError('Choose a valid search or status.');
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 250 || !Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Invalid page.');
-    return db.prepare(`SELECT * FROM master_records WHERE master=? AND (?='' OR status=?)
-      AND (? IS NULL OR site_key=?)
-      AND (instr(lower(code),lower(?))>0 OR instr(lower(name),lower(?))>0)
-      ORDER BY code COLLATE NOCASE,id LIMIT ? OFFSET ?`).all(slug, status, status, site, site === null ? null : normalize(site), search, search, limit, offset).map(unpack);
+    return queryRecords([slug], { search, status, site, limit, offset });
   }
 
-  return { get, list, history, snapshot, attachment, changeStatus,
+  function listSaved(slugs, { site, limit = -1, offset = 0 }) {
+    for (const slug of slugs) definition(slug);
+    if (typeof site !== 'string' || !site.trim()) throw new MasterRecordError('Choose a workspace site.', 401);
+    return queryRecords(slugs, { site, limit, offset, search: '', status: '' });
+  }
+
+  return { get, list, listSaved, history, snapshot, attachment, changeStatus,
     create: (slug, payload, actor) => atomically(db, () => save(slug, null, payload, actor)),
     update: (slug, id, payload, actor) => atomically(db, () => save(slug, id, payload, actor)),
   };
