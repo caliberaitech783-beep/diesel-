@@ -75,6 +75,12 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     const page = await request('/?master=item-master', maker);
     const form = await page.text();
     assert.match(form, /form="record-form" name="item-save">Save<\/button>/);
+    assert.doesNotMatch(form, /Back to records/);
+    const mastersPath = form.match(/href="([^"]+)" aria-label="Back to masters"[^>]*>\s*<svg\b/)?.[1];
+    assert.equal(mastersPath, '/');
+    const catalog = await (await request(mastersPath, maker)).text();
+    assert.match(catalog, /Choose a master/);
+    assert.match(catalog, /href="\/records\?master=item-master">My item submissions<\/a>/);
     assert.match(form, /<summary>Import and export<\/summary>/);
     for (const format of ['xlsx', 'csv', 'pdf']) {
       assert.ok(form.includes('data-import="' + format + '"'));
@@ -106,7 +112,10 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
 
     const restarted = await start();
     const url = '/records?master=item-master&id=' + saved.id;
-    assert.match(await (await restarted(url, maker)).text(), /Diesel test item/);
+    const reopened = await (await restarted(url, maker)).text();
+    assert.match(reopened, /Diesel test item/);
+    assert.match(reopened, /href="\/" aria-label="Back to masters"[^>]*>\s*<svg\b/);
+    assert.doesNotMatch(reopened, /Back to records/);
     assert.equal((await restarted(url, other)).status, 404);
     const records = await (await restarted('/records?master=item-master&q=TEST-001', maker)).text();
     assert.match(records, /Diesel test item/);
