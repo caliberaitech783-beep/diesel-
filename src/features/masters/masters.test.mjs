@@ -3,10 +3,11 @@ import test from 'node:test';
 import { masters } from './catalog.mjs';
 import { mastersPage } from './page.mjs';
 
-test('Master is an expanded sidebar group containing every subtab in catalog order', () => {
+test('the landing page lists all masters in the sidebar and waits for a selection', () => {
   const html = mastersPage({ account: 'Guest', guest: true });
   assert.match(html, /<aside class="sidebar" id="masters-sidebar">/);
-  assert.match(html, /aria-controls="masters-sidebar" aria-expanded="true"/);
+  assert.doesNotMatch(html, /sidebar-toggle|aria-current="page"|<form\b/);
+  assert.match(html, /<h1 id="workspace-title">Choose a master<\/h1>/);
   const group = html.match(/<details\b[^>]*\bopen[^>]*>([\s\S]*?)<\/details>/);
   assert.ok(group, 'the Master group is open on first load');
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
@@ -15,24 +16,25 @@ test('Master is an expanded sidebar group containing every subtab in catalog ord
   assert.deepEqual(labels, masters.map(master => master.name));
 });
 
-test('all 20 masters have distinct links and open their public previews', () => {
+test('all 20 masters open exactly one form and keep the sidebar available', () => {
   assert.equal(new Set(masters.map(master => master.slug)).size, 20);
   for (const { name, slug } of masters) {
     const html = mastersPage({ master: slug, account: 'Guest', guest: true });
-    assert.match(html, /<aside class="sidebar" id="masters-sidebar" hidden>/);
-    assert.match(html, /aria-controls="masters-sidebar" aria-expanded="false"/);
+    assert.match(html, /<aside class="sidebar" id="masters-sidebar">/);
+    assert.doesNotMatch(html, /sidebar-toggle/);
     assert.equal((html.match(/href="\?master=/g) || []).length, 20);
     assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
     assert.ok(html.includes(`href="?master=${slug}" aria-current="page">${name}</a>`));
     assert.ok(html.includes(`<h1 id="workspace-title">${name}</h1>`));
-    assert.match(html, /<form class="master-form"/);
+    assert.equal((html.match(/<form class="master-form"/g) || []).length, 1);
     assert.doesNotMatch(html, /type="file"|type="submit"|formaction=/);
   }
 });
 
-test('an unknown master opens the first tab', () => {
+test('an unknown master returns to the selection page', () => {
   const html = mastersPage({ master: 'unknown', account: 'Guest', guest: true });
-  assert.ok(html.includes('<h1 id="workspace-title">Item Master</h1>'));
+  assert.match(html, /<h1 id="workspace-title">Choose a master<\/h1>/);
+  assert.doesNotMatch(html, /aria-current="page"|<form\b/);
 });
 
 test('the final template additions keep their labels and required markers', () => {
