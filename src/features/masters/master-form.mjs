@@ -4,7 +4,7 @@ function fieldControl(field, id) {
   const attributes = `id="${id}"${required}${description}${field.key ? ` data-field-key="${field.key}"` : ''}`;
   let control;
   if (field.type === 'file') {
-    control = `<input ${attributes} type="text" disabled placeholder="Attachments are disabled in this preview">`;
+    control = `<input ${attributes} type="text" disabled placeholder="Unavailable" title="Attachments are disabled in this preview">`;
   } else if (field.options) {
     const options = field.options.map(option => `<option>${option}</option>`).join('');
     control = `<select ${attributes}><option value="">Select…</option>${options}</select>`;
