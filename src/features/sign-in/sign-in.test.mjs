@@ -4,6 +4,31 @@ import { once } from 'node:events';
 import test from 'node:test';
 import { createApp } from '../../server.mjs';
 
+test('Diesel opens as a guest without issuing a session or contacting Pulse', async () => {
+  const app = createApp({
+    env: { DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+    fetcher() {
+      assert.fail('Guest access must not contact Pulse');
+    },
+  });
+  const server = app.listen(0, '127.0.0.1');
+  try {
+    await once(server, 'listening');
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const page = await fetch(base, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /data-access-mode="guest"/);
+    assert.equal(page.headers.get('set-cookie'), null);
+
+    const start = await fetch(base + '/api/sign-in/start', { redirect: 'manual' });
+    assert.equal(start.status, 303);
+    assert.equal(start.headers.get('location'), '/');
+    assert.equal(start.headers.get('set-cookie'), null);
+  } finally {
+    server.close();
+  }
+});
+
 test('Pulse authorization creates a Diesel session, rejects cross-browser callbacks and revokes on sign-out', async () => {
   const secret = 's'.repeat(43);
   const grant = 'g'.repeat(43);
@@ -11,7 +36,12 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
   const origin = 'https://diesel.test';
   let started, exchanged, revoked;
   const app = createApp({
-    env: { DIESEL_PUBLIC_ORIGIN: origin, PULSE_ORIGIN: 'https://pulse.test', DIESEL_SSO_CLIENT_SECRET: secret },
+    env: {
+      DIESEL_ACCESS_MODE: 'pulse',
+      DIESEL_PUBLIC_ORIGIN: origin,
+      PULSE_ORIGIN: 'https://pulse.test',
+      DIESEL_SSO_CLIENT_SECRET: secret,
+    },
     async fetcher(url, options) {
       assert.equal(url.origin, 'https://pulse.test');
       assert.equal(options.headers.Authorization, 'Bearer ' + secret);
