@@ -9,7 +9,7 @@ const readCookie = (request, name) => (request.get('cookie') || '').split(';')
   .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 
 export function registerSignIn(app, { env, fetcher }) {
-  const accessMode = env.DIESEL_ACCESS_MODE ?? 'guest';
+  const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
     app.get('/', (request, response) => response.type('html').send(signInPage({ guest: true, master: request.query.master })));
@@ -18,6 +18,10 @@ export function registerSignIn(app, { env, fetcher }) {
   }
   if (accessMode !== 'pulse') throw new Error('DIESEL_ACCESS_MODE must be guest or pulse.');
 
+  const allowedLogins = new Set((env.DIESEL_ALLOWED_PULSE_LOGINS ?? '')
+    .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
+  const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
+  const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
   if (!secure && !['localhost', '127.0.0.1'].includes(publicUrl.hostname)) {
@@ -46,7 +50,11 @@ export function registerSignIn(app, { env, fetcher }) {
     const grant = readCookie(request, sessionCookie);
     if (!isProof(grant)) return page(response, 200);
     const result = configured && await pulse.request('validate', { grant });
-    if (result?.profile?.login) return page(response, 200, { profile: result.profile, master: request.query.master });
+    if (allowed(result?.profile)) return page(response, 200, { profile: result.profile, master: request.query.master });
+    if (result?.profile?.login) {
+      response.clearCookie(sessionCookie, options);
+      return page(response, 403, { message: denied });
+    }
     response.clearCookie(sessionCookie, options);
     page(response, 401, { message: expired });
   }));
@@ -69,6 +77,12 @@ export function registerSignIn(app, { env, fetcher }) {
     response.clearCookie(stateCookie, options);
     const result = await pulse.request('exchange', { code, state, verifier });
     if (!isProof(result?.grant)) return page(response, 401, { message: expired });
+    const verified = await pulse.request('validate', { grant: result.grant });
+    if (!allowed(verified?.profile)) {
+      response.clearCookie(sessionCookie, options);
+      await pulse.request('revoke', { grant: result.grant });
+      return page(response, 403, { message: denied });
+    }
     response.cookie(sessionCookie, result.grant, options);
     response.redirect(303, '/');
   }));
