@@ -12,7 +12,7 @@ export function registerSignIn(app, { env, fetcher }) {
   const accessMode = env.DIESEL_ACCESS_MODE ?? 'guest';
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
-    app.get('/', (_request, response) => response.type('html').send(signInPage({ guest: true })));
+    app.get('/', (request, response) => response.type('html').send(signInPage({ guest: true, master: request.query.master })));
     app.get('/api/sign-in/start', (_request, response) => response.redirect(303, '/'));
     return;
   }
@@ -46,7 +46,7 @@ export function registerSignIn(app, { env, fetcher }) {
     const grant = readCookie(request, sessionCookie);
     if (!isProof(grant)) return page(response, 200);
     const result = configured && await pulse.request('validate', { grant });
-    if (result?.profile?.login) return page(response, 200, { profile: result.profile });
+    if (result?.profile?.login) return page(response, 200, { profile: result.profile, master: request.query.master });
     response.clearCookie(sessionCookie, options);
     page(response, 401, { message: expired });
   }));

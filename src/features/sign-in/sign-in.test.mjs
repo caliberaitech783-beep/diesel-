@@ -17,7 +17,15 @@ test('Diesel opens as a guest without issuing a session or contacting Pulse', as
     const base = 'http://127.0.0.1:' + server.address().port;
     const page = await fetch(base, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /data-access-mode="guest"/);
+    const guestPage = await page.text();
+    assert.match(guestPage, /data-access-mode="guest"/);
+    assert.match(guestPage, /<h1[^>]*>Item Master<\/h1>/);
+    assert.match(guestPage, /Form preview/);
+    const rate = await fetch(base + '/?master=diesel-rate-master');
+    assert.match(await rate.text(), /data-field-key="invoice-rate"/);
+    for (const endpoint of ['/workspace', '/entries', '/records', '/api/masters/item-master/records']) {
+      assert.equal((await fetch(base + endpoint)).status, 404);
+    }
     assert.equal(page.headers.get('set-cookie'), null);
 
     const start = await fetch(base + '/api/sign-in/start', { redirect: 'manual' });
@@ -86,8 +94,11 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     const sessionHeader = finish.headers.getSetCookie().find(header => header.startsWith('__Host-diesel_session='));
     assert.match(sessionHeader, /HttpOnly; Secure; SameSite=Lax/);
     const Cookie = sessionHeader.split(';', 1)[0];
-    const profile = await request('/', { headers: { Cookie } });
-    assert.match(await profile.text(), /Signed in as &lt;Operator&gt;/);
+    const profile = await request('/?master=shift-master', { headers: { Cookie } });
+    const profilePage = await profile.text();
+    assert.match(profilePage, /Signed in as &lt;Operator&gt;/);
+    assert.match(profilePage, /<h1[^>]*>Shift Master<\/h1>/);
+    assert.match(profilePage, /Form preview/);
 
     const signOut = headers => request('/api/sign-out', { method: 'POST', headers: { Cookie, ...headers } });
     assert.equal((await signOut({ Origin: 'https://other.test' })).status, 403);
