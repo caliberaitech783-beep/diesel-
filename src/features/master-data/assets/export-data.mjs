@@ -7,7 +7,14 @@ function metadata(showSite) {
   return showSite ? recordColumns : recordColumns.filter(([, key]) => key !== 'site');
 }
 
-export function exportTable(records, showSite) {
+export function exportTable(records, showSite, formColumns) {
+  if (formColumns) {
+    const rows = records.map(record => {
+      const values = new Map(record.fields);
+      return formColumns.map(label => values.get(label) ?? '');
+    });
+    return { columns: formColumns, rows };
+  }
   const summary = metadata(showSite);
   const fields = [...new Set(records.flatMap(record => record.fields.map(([name]) => name)))];
   const labels = summary.map(([label]) => label);
@@ -84,7 +91,7 @@ function wrapText(value, width, font, size) {
   return lines;
 }
 
-export async function writeMasterDataPdf(records, showSite, { PDFDocument, rgb }, fontkit, fontBytes) {
+export async function writeMasterDataPdf(records, showSite, { PDFDocument, rgb }, fontkit, fontBytes, formColumns) {
   const document = await PDFDocument.create();
   document.setTitle('Diesel Master Data');
   document.registerFontkit(fontkit);
@@ -128,7 +135,8 @@ export async function writeMasterDataPdf(records, showSite, { PDFDocument, rgb }
   for (const record of records) {
     if (y < 180) addPage();
     startRecord(record);
-    const entries = [...metadata(showSite).map(([label, key]) => [label, record[key]]), ...record.fields];
+    const entries = formColumns ? record.fields
+      : [...metadata(showSite).map(([label, key]) => [label, record[key]]), ...record.fields];
     for (const [label, value] of entries) {
       if (value === '') continue;
       const labels = wrapText(label, fieldWidth, font, textSize);

@@ -82,7 +82,8 @@ nav { overflow-y: auto; scroll-padding-top: 52px; scrollbar-width: thin; scrollb
 .master-group summary:hover { background: var(--folder-hover); }
 .folder-icon { position: relative; width: 17px; height: 12px; margin-top: 2px; border: 1.5px solid currentColor; border-radius: 2px; }
 .folder-icon::before { content: ""; position: absolute; top: -4px; left: -1.5px; width: 7px; height: 3px; border: 1.5px solid currentColor; border-bottom: 0; border-radius: 2px 3px 0 0; }
-#master-list { list-style: none; margin: 8px 0 0 20px; padding: 0 0 0 8px; border-left: 1px solid var(--border); }
+.master-group ul { list-style: none; margin: 8px 0 0 20px; padding: 0 0 0 8px; border-left: 1px solid var(--border); }
+.master-group + .master-group { margin-top: 8px; }
 nav a {
   display: flex;
   align-items: center;
@@ -97,16 +98,6 @@ nav a {
   line-height: 20px;
 }
 nav a:hover { background: var(--nav-hover); color: var(--folder-ink); }
-.sidebar .master-data-link {
-  min-height: 44px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--folder-ink);
-  font-size: 15px;
-  font-weight: 650;
-}
-.sidebar .master-data-link[aria-current="page"] { background: var(--folder-bg); }
 .master-group summary::after {
   content: "";
   display: block;
@@ -129,7 +120,7 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 @media (min-width: 601px) and (max-width: 760px) {
   .layout:has(> .sidebar) { grid-template-columns: 212px minmax(0, 1fr); }
   nav { padding-inline: 8px; }
-  #master-list { margin-left: 12px; padding-left: 6px; }
+  .master-group ul { margin-left: 12px; padding-left: 6px; }
   nav a { padding-inline: 9px; font-size: 13px; }
   main { padding: 22px 16px; }
 }

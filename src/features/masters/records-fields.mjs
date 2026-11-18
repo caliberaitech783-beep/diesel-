@@ -25,7 +25,7 @@ export function masterDefinition(slug) {
     key: labels.indexOf(field.label) === labels.lastIndexOf(field.label) ? field.label : section.name + ' / ' + field.label,
     controlKey: field.key,
   })));
-  return { ...master, fields };
+  return { ...master, fields, codeField: identityFields[slug]?.[0] };
 }
 
 export function recordIdentity(slug, values) {

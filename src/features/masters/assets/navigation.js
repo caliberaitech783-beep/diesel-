@@ -1,17 +1,23 @@
-const masterGroup = document.querySelector('.master-group');
 const search = document.querySelector('#master-search');
 const status = document.querySelector('#search-status');
-const list = document.querySelector('#master-list');
 const words = value => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-const entries = [...list.children].map(item => ({
-  item,
-  name: words(item.textContent),
-  fields: words(item.dataset.fields),
-}));
+const sections = [...document.querySelectorAll('.master-group')].map(group => {
+  const list = group.querySelector('ul');
+  const entries = [...list.children].map(item => ({
+    item,
+    name: words(item.textContent),
+    fields: words(item.dataset.fields),
+  }));
+  return { group, list, entries };
+});
+let lastOpen = sections.find(section => section.group.open) ?? sections[0];
+function activeSection() {
+  lastOpen = sections.find(section => section.group.open) ?? lastOpen;
+  return lastOpen;
+}
 search.hidden = false;
 
-function filterMasters() {
-  const query = words(search.value);
+function filterList({ list, entries }, query) {
   const byName = [];
   const byField = [];
   const hidden = [];
@@ -22,9 +28,19 @@ function filterMasters() {
     group.push(entry.item);
   }
   list.append(...byName, ...byField, ...hidden);
-  const count = byName.length + byField.length;
+  return byName.length + byField.length;
+}
+
+function filterMasters() {
+  const query = words(search.value);
+  const active = activeSection();
+  let count;
+  for (const section of sections) {
+    const matches = filterList(section, query);
+    if (section === active) count = matches;
+  }
   status.textContent = !query.length ? '' : count ? count + (count === 1 ? ' matching master' : ' matching masters') : 'No matching masters';
-  if (query.length) masterGroup.open = true;
+  if (query.length) active.group.open = true;
 }
 
 search.addEventListener('input', filterMasters);
@@ -34,6 +50,6 @@ search.addEventListener('keydown', event => {
     search.value = '';
     filterMasters();
   } else if (event.key === 'Enter' && words(search.value).length) {
-    list.querySelector('li:not([hidden]) a')?.click();
+    activeSection().list.querySelector('li:not([hidden]) a')?.click();
   }
 });

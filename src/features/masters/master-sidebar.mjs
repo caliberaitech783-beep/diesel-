@@ -1,11 +1,10 @@
 import { masters } from './catalog.mjs';
 
 export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent } = {}) {
-  const links = masters.map(({ name, slug, sections }) => {
+  const masterLinks = link => masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
-    const href = itemRecordsPath && slug === 'item-master' ? itemRecordsPath : `/?master=${slug}`;
-    return `<li data-fields="${fields}"><a href="${href}">${name}</a></li>`;
+    return `<li data-fields="${fields}"><a href="${link(slug)}">${name}</a></li>`;
   }).join('\n');
 
   return `<aside class="sidebar" id="masters-sidebar">
@@ -15,14 +14,17 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent }
             <path d="M19 12H5m7-7-7 7 7 7"/>
           </svg>
         </a>
-        <input id="master-search" type="search" placeholder="Search masters or fields" aria-label="Search masters or fields" aria-controls="master-list" autocomplete="off" hidden>
+        <input id="master-search" type="search" placeholder="Search masters or fields" aria-label="Search masters or fields" aria-controls="master-list${masterData ? ' master-data-list' : ''}" autocomplete="off" hidden>
         <p id="search-status" role="status"></p>
       </div>
       <nav aria-label="Diesel navigation">
-        ${masterData ? `<a class="master-data-link" href="/master-data"${masterDataCurrent ? ' aria-current="page"' : ''}>Master Data</a>` : ''}
-        <details class="master-group"${masterDataCurrent ? '' : ' open'}>
+        ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
+          <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>
+          <ul id="master-data-list" aria-label="Master Data subtabs">${masterLinks(slug => '/master-data?master=' + slug)}</ul>
+        </details>` : ''}
+        <details class="master-group" name="diesel-sidebar"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>
-          <ul id="master-list" aria-label="Master subtabs">${links}</ul>
+          <ul id="master-list" aria-label="Master subtabs">${masterLinks(slug => slug === 'item-master' && itemRecordsPath ? itemRecordsPath : '/?master=' + slug)}</ul>
         </details>
       </nav>
     </aside>`;
