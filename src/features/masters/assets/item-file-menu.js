@@ -1,10 +1,11 @@
 import { readItemCsv, readItemExcel, readItemPdf, writeItemCsv, writeItemExcel, writeItemPdf } from './item-file-formats.mjs';
 
 const form = document.querySelector('#record-form');
-const menu = document.querySelector('#item-file-menu');
+const fileTools = document.querySelector('.item-file-tools');
 const picker = document.querySelector('#item-file-input');
 const status = document.querySelector('#item-file-status');
-const save = form.elements.namedItem('item-save');
+const save = form.querySelector('[data-save-for-review]');
+const saveStatus = form.querySelector('output');
 const fields = new Map([...form.elements]
   .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea'))
   .map(control => [control.name, control]));
@@ -56,14 +57,20 @@ function fillFields(values) {
   for (const [control, value] of changes) control.value = value;
 }
 
+function closeMenu(menu, restoreFocus = false) {
+  menu.open = false;
+  if (restoreFocus) menu.querySelector('summary').focus();
+}
+
 let pendingFormat;
 let working = false;
-for (const button of menu.querySelectorAll('[data-import]')) {
+for (const button of fileTools.querySelectorAll('[data-import]')) {
   button.addEventListener('click', () => {
     if (working || save.disabled) return;
     pendingFormat = button.dataset.import;
     picker.accept = formats[pendingFormat].accept;
     picker.value = '';
+    closeMenu(button.closest('details'), true);
     picker.click();
   });
 }
@@ -71,18 +78,17 @@ picker?.addEventListener('change', async () => {
   const [file] = picker.files;
   if (!file || working || save.disabled) return;
   const format = formats[pendingFormat];
-  menu.open = false;
   working = true;
   save.disabled = true;
   form.dataset.importing = 'true';
-  form.elements.namedItem('save-status').textContent = '';
+  saveStatus.textContent = '';
   status.textContent = 'Importing…';
   try {
     if (file.size > 2 * 1024 * 1024) throw new Error('Choose a file up to 2 MiB.');
     if (!file.name.toLowerCase().endsWith(format.accept)) throw new Error('Choose a ' + format.accept + ' file.');
     const values = await format.read(await file.arrayBuffer(), [...fields.keys()]);
     fillFields(values);
-    status.textContent = 'Item fields imported. Review them and select Save.';
+    status.textContent = 'Item fields imported. Review them and select Save for review.';
   } catch (error) {
     const help = pendingFormat === 'pdf' ? ' Use a filled Item Master PDF exported from Diesel.' : '';
     status.textContent = 'Could not import this file. ' + (error.message || 'Check the file and try again.') + help;
@@ -93,12 +99,12 @@ picker?.addEventListener('change', async () => {
   }
 });
 
-for (const button of menu.querySelectorAll('[data-export]')) {
+for (const button of fileTools.querySelectorAll('[data-export]')) {
   button.addEventListener('click', async () => {
     if (working) return;
     const format = formats[button.dataset.export];
     const values = new Map([...fields].map(([name, control]) => [name, control.value]));
-    menu.open = false;
+    closeMenu(button.closest('details'), true);
     working = true;
     status.textContent = 'Preparing download…';
     try {
@@ -120,9 +126,13 @@ for (const button of menu.querySelectorAll('[data-export]')) {
   });
 }
 
-menu.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && menu.open) {
-    menu.open = false;
-    menu.querySelector('summary').focus();
-  }
+fileTools.addEventListener('keydown', event => {
+  const menu = event.target.closest('details[open]');
+  if (event.key === 'Escape' && menu) closeMenu(menu, true);
+});
+
+document.addEventListener('click', event => {
+  if (fileTools.contains(event.target)) return;
+  const menu = fileTools.querySelector('details[open]');
+  if (menu) closeMenu(menu);
 });

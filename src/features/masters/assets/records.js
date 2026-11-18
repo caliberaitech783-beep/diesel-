@@ -12,7 +12,7 @@ function readFile(file) {
 
 async function save(action) {
   if (form.dataset.importing) return;
-  const status = form.elements.namedItem('save-status') ?? form.querySelector('output');
+  const status = form.querySelector('output');
   const buttons = [...form.elements].filter(control => control.tagName === 'BUTTON');
   const reason = form.querySelector('#change-reason');
   if (reason && action !== 'approve' && !reason.reportValidity()) return;
