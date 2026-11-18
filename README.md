@@ -1,6 +1,6 @@
 # Diesel
 
-Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save for review**. **Back to records** lists that account’s pending submissions. The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres.
+Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save for review**. **Back to records** lists that account’s pending submissions. The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open Diesel sign-in.
 
 ## Run locally
 

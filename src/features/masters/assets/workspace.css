@@ -141,8 +141,16 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 }
 
 .sidebar-tools { padding: 8px 12px 0; }
-.sidebar-shortcut { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: var(--link); font-size: 14px; font-weight: 600; text-decoration: none; }
-.sidebar-shortcut:hover { text-decoration: underline; }
+.navigation-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--link);
+}
+.navigation-icon:hover { background: var(--nav-hover); }
 #master-search { width: 100%; padding: 9px 12px; font: inherit; font-size: 14px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--control-bg); color: var(--ink); }
 #master-search:focus-visible { outline: 2px solid var(--accent); }
 #search-status { margin: 6px 0 0; color: var(--muted); font-size: 13px; }

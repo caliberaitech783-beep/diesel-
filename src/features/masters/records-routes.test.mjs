@@ -38,7 +38,7 @@ test('Item records enforce workspace roles and site scope on the page, writes, r
   assert.match(catalog, /href="\/records\?master=item-master&amp;new=1"/);
   const page = await (await request('/records?new=1')).text();
   assert.match(page, /Save for review/);
-  assert.match(page, /href="\/records">← Back to records<\/a>/);
+  assert.match(page, /href="\/records" aria-label="Back to masters"[^>]*>\s*<svg\b/);
   assert.doesNotMatch(page, /id="masters-sidebar"|<details\b/);
   const values = Object.fromEntries(itemMaster.flatMap(section => section.fields).filter(field => field.required).map(field =>
     [field.label, field.options?.[0] ?? (field.type === 'number' ? '820' : 'Sample')]));
