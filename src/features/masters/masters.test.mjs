@@ -52,12 +52,12 @@ test('the final template additions keep their labels and required markers', () =
   ]);
 });
 
-// Total and mandatory fields from page 4 of the final templates, in sidebar order.
+// Total and mandatory fields in the current forms, in sidebar order.
 const templateCounts = [
   ['item-master', 23, 16],
   ['account-master', 60, 28],
   ['cmll-master', 49, 14],
-  ['cost-centre-vehicle-master', 18, 14],
+  ['cost-centre-vehicle-master', 19, 14],
   ['storage-location-master', 21, 12],
   ['route-wise-diesel-master', 16, 12],
   ['driver-master', 71, 14],

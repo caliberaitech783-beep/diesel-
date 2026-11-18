@@ -23,10 +23,11 @@ function fieldControl(field, id) {
 }
 
 export function masterForm({ slug, sections }) {
-  const groups = sections.map(({ name, fields }, groupIndex) => {
+  const groups = sections.map(({ name, fields, columns }, groupIndex) => {
+    const columnLayout = columns ? ` data-columns="${columns}"` : '';
     return `<section class="field-group">
       <h2 class="field-group-heading">${name}</h2>
-      <div class="field-grid">${fields.map((field, index) => fieldControl(field, `${slug}-${groupIndex}-${index}`)).join('')}</div>
+      <div class="field-grid"${columnLayout}>${fields.map((field, index) => fieldControl(field, `${slug}-${groupIndex}-${index}`)).join('')}</div>
     </section>`;
   });
   const storageChecks = slug === 'storage-location-master' ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : '';
