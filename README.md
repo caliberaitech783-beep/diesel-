@@ -1,6 +1,8 @@
 # Diesel
 
-Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save for review**. **Back to records** lists that account’s pending submissions. The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open Diesel sign-in.
+Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save**. The **Import and export** dropdown transfers the fields for one item. Excel (`.xlsx`) and CSV use the Item Master field names as column headers and one data row. For PDF import, use a fillable PDF exported from Item Master. Imports fill the current form for review before saving. **Back to records** lists the account’s pending submissions.
+
+The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open Diesel sign-in.
 
 ## Run locally
 
@@ -16,7 +18,7 @@ Production runs on `caliber-diesel-783` in `caliber-diesel-rg`. It shares the Ce
 
 1. Merge the tested change into `main`.
 2. In [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml), select **Test and deploy Diesel**, choose **Run workflow** on `main`, and wait for the `deploy` job. From an authenticated GitHub CLI session, run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
-3. Check that the workflow verified the expected commit and `itemMaster: ready` at the [production health endpoint](https://pulse-lll.cmll.in/healthz). Open Item Master with an allowed Pulse account and check for **Save for review**.
+3. Check that the workflow verified the expected commit and `itemMaster: ready` at the [production health endpoint](https://pulse-lll.cmll.in/healthz). Open Item Master with an allowed Pulse account and check for **Import and export** and **Save**.
 
 If the GitHub deployment workflow is unavailable, select **Sync** in the Diesel app’s Azure Deployment Center. Confirm the expected commit in the deployment log and check that the live site responds.
 
