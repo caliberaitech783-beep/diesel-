@@ -10,7 +10,7 @@ Run `npm test` to test sign-in against a simulated issuer and `npm run build` to
 
 ## Deploy
 
-1. Set up a Linux Azure App Service in `caliber-diesel-rg` with Node.js 24 and `npm start`. Add `pulse-lll.cmll.in` using Azure’s CNAME and TXT records, then enable HTTPS with a managed certificate.
+1. Deploy to `caliber-diesel-783`, the Linux Web App in `caliber-diesel-rg` on the existing Central India Pulse Fleet and HR plan (`ASP-coalminefleetmaintenancerg-b234`). Use Node.js 24 and `npm start`. Add `pulse-lll.cmll.in` using Azure’s CNAME and TXT records, then enable HTTPS with a managed certificate.
 2. Set `DIESEL_PUBLIC_ORIGIN=https://pulse-lll.cmll.in`, `PULSE_ORIGIN`, and `DIESEL_SSO_CLIENT_SECRET` on Diesel. Set the same public origin and 32-byte base64url secret on the Pulse issuer, along with `DIESEL_SSO_ENABLED=1`.
 3. Configure an Azure federated identity scoped to the app. Set GitHub Actions secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`, and variables `AZURE_WEBAPP_NAME` and `DIESEL_HEALTH_ORIGIN`. The [workflow](.github/workflows/azure.yml) tests, builds, and deploys `main` and checks `/healthz`. [Azure setup guide](https://learn.microsoft.com/azure/app-service/deploy-github-actions)
 4. Verify sign-in and sign-out with a Pulse account before enabling the Diesel launcher tile.

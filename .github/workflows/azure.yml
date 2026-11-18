@@ -32,7 +32,7 @@ jobs:
           path: diesel.zip
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AZURE_WEBAPP_NAME != ''
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AZURE_WEBAPP_NAME != '' && vars.DIESEL_HEALTH_ORIGIN != ''
     needs: build
     runs-on: ubuntu-latest
     concurrency: diesel-production

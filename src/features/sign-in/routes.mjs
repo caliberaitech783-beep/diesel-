@@ -66,10 +66,12 @@ export function registerSignIn(app, { env, fetcher }) {
   }));
 
   app.post('/api/sign-out', route(async (request, response) => {
-    if (request.get('origin') !== publicUrl.origin) return response.sendStatus(403);
+    if (request.get('origin') !== publicUrl.origin && request.get('sec-fetch-site') !== 'same-origin') {
+      return response.sendStatus(403);
+    }
     const grant = readCookie(request, sessionCookie);
-    if (configured && isProof(grant)) await pulse.request('revoke', { grant });
     response.clearCookie(sessionCookie, options);
+    if (configured && isProof(grant)) await pulse.request('revoke', { grant });
     response.redirect(303, '/');
   }));
 }
