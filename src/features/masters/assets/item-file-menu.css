@@ -19,26 +19,21 @@
   min-height: 36px;
   cursor: pointer;
 }
-.item-file-tools .item-save { background: var(--primary-bg); border-color: transparent; color: white; font-weight: 650; padding-inline: 20px; }
-.item-file-tools button:disabled { opacity: .6; cursor: default; }
+.form-footer [data-save-for-review]:disabled { opacity: .6; cursor: default; }
 .item-file-options {
   position: absolute;
   inset-inline-end: 0;
   top: calc(100% + 5px);
   z-index: 3;
-  min-width: max-content;
+  inline-size: 100%;
   display: grid;
-  gap: 7px;
-  padding: 10px;
+  gap: 2px;
+  padding: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 8px;
   box-shadow: 0 6px 18px rgb(0 0 0 / 15%);
 }
-.item-file-options [role="group"] { display: grid; grid-template-columns: 3.7em repeat(3, 1fr); gap: 5px; align-items: center; }
-.item-file-options span { color: var(--muted); font-size: 13px; }
-.item-file-options button { padding-inline: 8px; }
-.item-form-feedback { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 14px; }
-@media (max-width: 600px) {
-  .item-file-options { inset-inline: 0 auto; }
-}
+.item-file-options button { border-color: transparent; text-align: start; }
+.item-file-options button:hover { background: var(--nav-hover); }
+#item-file-status { font-size: 14px; }

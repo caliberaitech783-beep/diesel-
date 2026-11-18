@@ -37,7 +37,7 @@ test('Item records enforce workspace roles and site scope on the page, writes, r
   const catalog = await (await request('/records')).text();
   assert.match(catalog, /href="\/records\?master=item-master&amp;new=1"/);
   const page = await (await request('/records?new=1')).text();
-  assert.match(page, /form="record-form" name="item-save">Save<\/button>/);
+  assert.match(page, /<div class="form-footer"><button type="submit" data-save-for-review>Save for review<\/button>/);
   assert.match(page, /href="\/records" aria-label="Back to masters"[^>]*>\s*<svg\b/);
   assert.doesNotMatch(page, /id="masters-sidebar"|class="master-group"/);
   const values = Object.fromEntries(itemMaster.flatMap(section => section.fields).filter(field => field.required).map(field =>
@@ -75,6 +75,6 @@ test('Item records enforce workspace roles and site scope on the page, writes, r
   assert.equal(history.find(event => event.action === 'deactivate').reason, 'Replaced');
   const historical = await (await request('/records?id=' + record.id + '&revision=1')).text();
   assert.ok(historical.includes('Revision 1') && historical.includes('Open current record'));
-  assert.doesNotMatch(historical, /name="item-save"|data-import=/);
+  assert.doesNotMatch(historical, /data-save-for-review|<summary>Import<\/summary>|data-import=/);
   assert.match(historical, /data-export="xlsx"/);
 });

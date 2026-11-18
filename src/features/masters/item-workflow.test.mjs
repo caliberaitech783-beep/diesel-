@@ -74,17 +74,18 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal((await (await request('/healthz')).json()).itemMaster, 'ready');
     const page = await request('/?master=item-master', maker);
     const form = await page.text();
-    assert.match(form, /form="record-form" name="item-save">Save<\/button>/);
+    assert.match(form, /<div class="form-footer"><button type="submit" data-save-for-review>Save for review<\/button>/);
     assert.doesNotMatch(form, /Back to records/);
     const mastersPath = form.match(/href="([^"]+)" aria-label="Back to masters"[^>]*>\s*<svg\b/)?.[1];
     assert.equal(mastersPath, '/');
     const catalog = await (await request(mastersPath, maker)).text();
     assert.match(catalog, /Choose a master/);
     assert.match(catalog, /href="\/records\?master=item-master">My item submissions<\/a>/);
-    assert.match(form, /<summary>Import and export<\/summary>/);
-    for (const format of ['xlsx', 'csv', 'pdf']) {
-      assert.ok(form.includes('data-import="' + format + '"'));
-      assert.ok(form.includes('data-export="' + format + '"'));
+    for (const [label, direction] of [['Import', 'import'], ['Export', 'export']]) {
+      const menu = form.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
+      assert.ok(menu, label + ' has its own dropdown');
+      assert.deepEqual([...menu.matchAll(/data-(import|export)="([^"]+)"/g)].map(([, action, format]) => [action, format]),
+        ['xlsx', 'csv', 'pdf'].map(format => [direction, format]));
     }
     for (const file of ['xlsx.mjs', 'csv-parse.mjs', 'csv-stringify.mjs', 'pdf-lib.mjs', 'fontkit.mjs', 'regenerator-runtime.mjs', 'item-font.ttf']) {
       const asset = await request('/masters/item-files/' + file, undefined, { method: 'HEAD' });
@@ -142,7 +143,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   const itemPage = await fetch(origin + itemLink.replaceAll('&amp;', '&'));
   assert.equal(itemPage.status, 200);
   const form = await itemPage.text();
-  assert.match(form, /form="record-form" name="item-save">Save<\/button>/);
+  assert.match(form, /<div class="form-footer"><button type="submit" data-save-for-review>Save for review<\/button>/);
   const directLink = await fetch(origin + '/?master=item-master');
   assert.equal(directLink.url, itemPage.url);
 
