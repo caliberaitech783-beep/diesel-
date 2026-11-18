@@ -1,0 +1,18 @@
+.record-tools, .pager { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.record-meta { margin: 0 0 8px; }
+.record-meta { color: var(--muted); font-size: 14px; }
+.record-tools label { display: grid; gap: 5px; font-size: 14px; }
+.record-tools :is(input, select, button) { border: 1px solid var(--control-border); border-radius: 6px; padding: 9px; background: var(--control-bg); color: inherit; font: inherit; }
+.record-primary { display: inline-block; background: var(--primary-bg); color: white; padding: 9px 13px; border-radius: 6px; text-decoration: none; }
+.record-list { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.record-list table { border-collapse: collapse; width: 100%; }
+.record-list td, .record-list th { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
+main a:not(.record-primary), .masthead a { color: var(--link); }
+.pager, .change-reason { margin-block: 15px; }
+.revisions li { margin-block: 7px; }
+.master-field input[type=checkbox] { width: auto; height: auto; }
+main h2 { font-size: 20px; }
+
+@media (min-width: 800px) {
+  #record-form > .record-meta, #record-form > .change-reason { margin: 0; padding: 10px 12px; }
+}

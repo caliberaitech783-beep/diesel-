@@ -5,7 +5,9 @@
   "type": "module",
   "engines": { "node": "24.x" },
   "scripts": {
-    "dev": "node --env-file-if-exists=.env --watch src/server.mjs",
+    "dev": "node --env-file-if-exists=.env --watch scripts/dev.mjs",
+    "preview:masters": "node --watch scripts/dev.mjs --preview",
+    "sync:pulse-projects": "node scripts/sync-pulse-projects.mjs",
     "start": "node src/server.mjs",
     "test": "node --test",
     "build": "node scripts/build.mjs"
