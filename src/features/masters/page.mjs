@@ -4,8 +4,8 @@ import { masterForm } from './master-form.mjs';
 export function mastersPage({ master, account, guest }) {
   const selected = masters.find(entry => entry.slug === master) ?? masters[0];
   const form = masterForm(selected);
-  const links = masters.map(({ name, slug }) =>
-    `<li><a href="?master=${slug}"${slug === selected.slug ? ' aria-current="page"' : ''}>${name}</a></li>`
+  const links = masters.map(({ name, slug, sections }) =>
+    `<li data-fields="${sections.flatMap(section => section.fields.map(field => field.label)).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ')}"><a href="?master=${slug}"${slug === selected.slug ? ' aria-current="page"' : ''}>${name}</a></li>`
   ).join('\n');
 
   return `<!doctype html>
@@ -32,6 +32,11 @@ export function mastersPage({ master, account, guest }) {
   </header>
   <div class="layout">
     <aside class="sidebar">
+      <div class="sidebar-tools">
+        <a class="back-to-pulse" href="https://pulse.cmll.in/"><span aria-hidden="true">←</span> Back to Pulse</a>
+        <input id="master-search" type="search" placeholder="Search masters or fields" aria-label="Search masters or fields" aria-controls="master-list" autocomplete="off" hidden>
+        <p id="search-status" role="status"></p>
+      </div>
       <nav aria-label="Diesel navigation">
         <details class="master-group" open>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>
