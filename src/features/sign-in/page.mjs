@@ -17,8 +17,7 @@ export function signInPage({ profile, message, guest, master } = {}) {
 
 export function loginPage({ message, guest } = {}) {
   const action = guest ? '<a href="/">Open masters</a>' :
-    message ? '<a href="https://pulse.cmll.in/?login=diesel">Back to Diesel sign in</a>' :
-    '<a href="/api/sign-in/start">Sign in with Pulse</a>';
+    '<a href="https://pulse.cmll.in/?login=diesel">Back to Diesel sign in</a>';
   return `<!doctype html>
 <html lang="en">
 <head>

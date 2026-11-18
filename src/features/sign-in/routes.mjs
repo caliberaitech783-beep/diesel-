@@ -12,8 +12,8 @@ const readCookie = (request, name) => (request.get('cookie') || '').split(';')
 export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
-  app.get('/login', (_request, response) => response.type('html').send(loginPage({ guest: accessMode === 'guest' })));
   if (accessMode === 'guest') {
+    app.get('/login', (_request, response) => response.type('html').send(loginPage({ guest: true })));
     app.get('/', (request, response) => response.type('html').send(signInPage({ guest: true, master: request.query.master })));
     app.get('/api/sign-in/start', (_request, response) => response.redirect(303, '/'));
     return;
@@ -35,6 +35,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   const sessionCookie = `${prefix}diesel_session`;
   const configured = isProof(env.DIESEL_SSO_CLIENT_SECRET);
   const pulseOrigin = new URL(env.PULSE_ORIGIN || 'https://pulse.cmll.in');
+  // Pulse uses login=1 to show sign-in even with a saved session.
+  const pulseLogin = new URL('/?login=1', pulseOrigin);
+  app.get('/login', (_request, response) => response.redirect(303, pulseLogin.href));
   const pulse = createPulseClient({
     origin: pulseOrigin,
     secret: env.DIESEL_SSO_CLIENT_SECRET,
