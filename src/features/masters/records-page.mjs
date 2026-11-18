@@ -1,5 +1,6 @@
 import { masterSidebar } from './master-sidebar.mjs';
 import { mastersMenuLink } from './master-navigation.mjs';
+import { itemFileMenu } from './item-file-menu.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -36,6 +37,7 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
   const history = record && !submissionsOnly ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
     `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
   const editing = Boolean(record || creating);
+  const itemForm = editing && master.slug === 'item-master';
   const showSidebar = !editing && !masterSelected;
   const editable = editingAllowed && !['inactive', 'pending_deactivation'].includes(record?.status);
   const actorId = typeof actor === 'string' ? actor : actor.id;
@@ -65,17 +67,22 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
     return `<section class="field-group"><h2 class="field-group-heading">${escape(section.name)}</h2><div class="field-grid">${fields.map(renderField).join('')}</div></section>`;
   }).join('') : '';
   const actions = [];
-  if (editable) actions.push('<button type="submit">Save for review</button>');
+  if (editable && !itemForm) actions.push('<button type="submit">Save for review</button>');
   if (approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status) && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase()) actions.push('<button type="button" data-action="approve">Approve revision</button>');
   if (editingAllowed && record && record.status !== 'pending_deactivation') actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
+  const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
   const content = editing ? `
     ${master.slug === 'item-master' && !submissionsOnly ? mastersMenuLink('/records') : `<a class="masters-back" href="${home}">← Back to records</a>`}
-    <h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>
+    ${itemForm ? `<div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
+    <div class="item-form-feedback">
+      <output id="item-file-status" aria-live="polite"></output>
+      <output name="save-status" form="record-form" aria-live="polite"></output>
+    </div>` : heading}
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
     <form class="master-form" id="record-form" data-api="${endpoint}" data-slug="${master.slug}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}">
       ${submissionsOnly ? '' : `<p class="record-meta">Site · ${escape(scope)}</p>`}${groups}
       ${editingAllowed && record && record.status !== 'pending_deactivation' ? '<div class="master-field change-reason"><label for="change-reason">Reason for change</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
-      <div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>
+      ${!itemForm || actions.length ? `<div class="form-footer">${actions.join(' ')}${itemForm ? '' : '<output aria-live="polite"></output>'}</div>` : ''}
     </form>${history}` : `
     ${showSidebar ? '' : mastersMenuLink(submissionsOnly ? '/' : '/records')}
     <h1 id="workspace-title">${escape(master.name)}</h1>
@@ -91,9 +98,11 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
     <div class="pager">${[...(offset > 0 ? [[Math.max(0, offset - limit), 'Previous']] : []), ...(rows.length === limit ? [[offset + limit, 'Next']] : [])]
       .map(([next, title]) => `<a href="${home}&amp;q=${encodeURIComponent(search)}&amp;status=${status}&amp;offset=${next}">${title}</a>`).join(' ')}</div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(master.name)} records · Diesel</title>
+    <link rel="icon" href="/masters/assets/pulse.png">
     ${themeHead}
     <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/masters/assets/master-form.css"><link rel="stylesheet" href="/masters/assets/records.css">
     <script type="module" src="/masters/assets/records.js"></script>
+    ${itemForm ? '<link rel="stylesheet" href="/masters/assets/item-file-menu.css"><script type="module" src="/masters/assets/item-file-menu.js"></script>' : ''}
     ${isStorage && editing ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : ''}
     ${showSidebar ? '<script type="module" src="/masters/assets/navigation.js"></script>' : ''}</head><body>
     <a class="skip" href="#workspace">Skip to workspace</a>

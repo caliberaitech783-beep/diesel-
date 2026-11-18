@@ -2,6 +2,7 @@ import express from 'express';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import manifest from '../package.json' with { type: 'json' };
 import { openItemSubmissions } from './features/masters/item-submissions.mjs';
+import { registerItemFileAssets } from './features/masters/item-file-assets.mjs';
 import { registerSignIn } from './features/sign-in/routes.mjs';
 
 export function createApp({ env = process.env, fetcher = fetch, itemSubmissions } = {}) {
@@ -21,6 +22,7 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions 
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
+  registerItemFileAssets(app);
   registerSignIn(app, { env, fetcher, itemSubmissions });
   return app;
 }

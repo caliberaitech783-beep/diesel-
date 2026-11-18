@@ -74,7 +74,17 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal((await (await request('/healthz')).json()).itemMaster, 'ready');
     const page = await request('/?master=item-master', maker);
     const form = await page.text();
-    assert.match(form, /Save for review/);
+    assert.match(form, /form="record-form" name="item-save">Save<\/button>/);
+    assert.match(form, /<summary>Import and export<\/summary>/);
+    for (const format of ['xlsx', 'csv', 'pdf']) {
+      assert.ok(form.includes('data-import="' + format + '"'));
+      assert.ok(form.includes('data-export="' + format + '"'));
+    }
+    for (const file of ['xlsx.mjs', 'csv-parse.mjs', 'csv-stringify.mjs', 'pdf-lib.mjs', 'fontkit.mjs', 'regenerator-runtime.mjs', 'item-font.ttf']) {
+      const asset = await request('/masters/item-files/' + file, undefined, { method: 'HEAD' });
+      assert.equal(asset.status, 200, file);
+      assert.match(asset.headers.get('content-type'), file.endsWith('.ttf') ? /^font\/ttf/ : /^text\/javascript/);
+    }
     const [, endpoint] = form.match(/data-api="([^"]+)"/);
     const pdf = Buffer.from('%PDF-1.4\n% Item specification\n%%EOF\n');
     const values = { ...requiredValues, Attachment: { name: 'reference.pdf', base64: pdf.toString('base64') } };
@@ -123,7 +133,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   const itemPage = await fetch(origin + itemLink.replaceAll('&amp;', '&'));
   assert.equal(itemPage.status, 200);
   const form = await itemPage.text();
-  assert.match(form, /<button type="submit">Save for review<\/button>/);
+  assert.match(form, /form="record-form" name="item-save">Save<\/button>/);
   const directLink = await fetch(origin + '/?master=item-master');
   assert.equal(directLink.url, itemPage.url);
 
