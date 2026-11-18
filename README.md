@@ -1,12 +1,12 @@
 # Diesel
 
-Diesel currently opens in guest mode.
+Diesel opens in guest mode with 20 form previews under **Master**. Use sample details only. Inputs stay on the current page. **Check fields** checks the form without saving. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres.
 
 ## Run locally
 
 Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://localhost:3000`. To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret.
 
-Run `npm test` to test guest access and sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`, alongside `sign-in/`.
+Run `npm test` to check the master previews, invoice rate calculation, guest access and sign-in against a simulated issuer. The master names and order are in `src/features/masters/catalog.mjs`. Each master has a field definition in that directory. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`, alongside `sign-in/`.
 
 ## Deploy
 

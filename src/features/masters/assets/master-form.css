@@ -1,0 +1,33 @@
+.master-form {
+  width: min(100%, 920px);
+  color: #312838;
+}
+.form-note { color: #615768; margin: -10px 0 22px; font-size: 14px; line-height: 1.5; }
+.form-note strong { color: #5f3877; font-weight: 650; }
+.required-key { margin: 0 0 8px; color: #6a5f70; font-size: 13px; text-align: right; }
+.required-mark { color: #933953; }
+.field-group { border: 1px solid var(--border); border-radius: 9px; background: white; margin: 0 0 10px; }
+.field-group summary { display: flex; align-items: center; gap: 12px; padding: 15px 20px; min-height: 52px; cursor: pointer; font-size: 16px; font-weight: 650; list-style: none; }
+.field-group summary::-webkit-details-marker { display: none; }
+.field-group summary::after { content: ''; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); flex: none; }
+.field-group[open] summary::after { transform: rotate(45deg); }
+.field-count { margin-left: auto; white-space: nowrap; color: #6c6372; font-size: 12px; font-weight: 400; }
+.field-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 24px; padding: 18px 20px 22px; border-top: 1px solid var(--border); }
+.master-field { min-width: 0; }
+.master-field label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 550; }
+.field-hint { display: block; margin-top: 6px; color: #615768; font-size: 13px; }
+.master-field :is(input,select,textarea) { width: 100%; min-width: 0; height: 40px; box-sizing: border-box; border: 1px solid #cfc8d5; border-radius: 5px; padding: 6px 10px; background: white; color: inherit; font: inherit; }
+.master-field textarea { height: auto; min-height: 4.5em; resize: vertical; }
+.master-field input[type="file"] { height: auto; min-height: 40px; }
+.master-field input[readonly] { background: #f6f5f8; }
+.master-field [aria-invalid="true"] { border-color: #a33754; }
+.master-field :is(input,select,textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.form-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 0 0; }
+.form-footer button { border: 0; border-radius: 6px; padding: 11px 18px; background: #613784; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.form-footer output { font-size: 14px; }
+@media (max-width: 780px) {
+  .field-grid { grid-template-columns: minmax(0,1fr); }
+  .field-group summary, .field-grid { padding-inline: 14px; }
+  .field-group summary { font-size: 15px; }
+  .field-count { font-size: 12px; }
+}

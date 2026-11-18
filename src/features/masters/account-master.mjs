@@ -1,0 +1,107 @@
+export const accountMaster = [
+  {
+    name: 'Account details',
+    fields: [
+      { label: 'A/C Code', required: true },
+      { label: 'A/C Name', required: true },
+      { label: 'Short Name', required: false },
+      { label: 'A/C Under', required: true },
+      { label: 'Parent Group', required: true },
+      { label: 'Dr/Cr Nature', required: true },
+      { label: 'Cost Centre', required: false },
+    ],
+  },
+  {
+    name: 'Company and account classification',
+    fields: [
+      { label: 'Is Company Account', required: false, options: ['Yes', 'No'] },
+      { label: 'Is Market Petrol Pump', required: true, options: ['Yes', 'No'] },
+      { label: 'Company Group', required: false },
+    ],
+  },
+  {
+    name: 'Vendor and contact details',
+    fields: [
+      { label: 'Registration No.', required: false },
+      { label: 'Vendor Name', required: false },
+      { label: 'Legal Status', required: false },
+      { label: 'Trade Type', required: false },
+      { label: 'Business Nature', required: false },
+      { label: 'Vendor Class', required: false },
+      { label: 'Industry Type', required: false },
+      { label: 'MSME', required: true },
+      { label: 'Tax Reg. Type', required: true },
+      { label: 'Credit Days', required: true, type: 'number' },
+      { label: 'Credit Amt', required: false, type: 'number' },
+      { label: 'Owner', required: false },
+      { label: 'Contact Person', required: true },
+      { label: 'Contact No.', required: true, type: 'tel' },
+      { label: 'Maintain Balance Bill By Bill', required: true, options: ['Yes', 'No'] },
+    ],
+  },
+  {
+    name: 'Office Address',
+    fields: [
+      { label: 'Office Address 1', required: true },
+      { label: 'Office Address 2', required: false },
+      { label: 'Office City', required: true },
+      { label: 'Office State', required: true },
+      { label: 'Office Phone No', required: false, type: 'tel' },
+      { label: 'Office Mobile No', required: false, type: 'tel' },
+      { label: 'Office Email Id', required: true, type: 'email' },
+      { label: 'Office Pin Code', required: true },
+    ],
+  },
+  {
+    name: 'Work Address',
+    fields: [
+      { label: 'Work Address 1', required: false },
+      { label: 'Work Address 2', required: false },
+      { label: 'Work City', required: false },
+      { label: 'Work State', required: false },
+      { label: 'Work Phone No', required: false, type: 'tel' },
+      { label: 'Work Mobile No', required: false, type: 'tel' },
+      { label: 'Work Email Id', required: false, type: 'email' },
+      { label: 'Work Pin Code', required: false },
+    ],
+  },
+  {
+    name: 'TDS and TCS',
+    fields: [
+      { label: 'TDS / TCS Applicable', required: true, options: ['Yes', 'No'] },
+      { label: 'TDS Nature', required: true },
+      { label: 'TDS Payee Category', required: true },
+      { label: 'Income Tax Return Till Date', required: false, type: 'date' },
+      { label: 'Eligible For TDS Deduction Under 194Q From First Day', required: true, options: ['Yes', 'No'] },
+    ],
+  },
+  {
+    name: 'Attributes',
+    fields: [
+      { label: 'Attribute Name', required: false },
+      { label: 'Attribute Value', required: false },
+      { label: 'Attachment', required: true, type: 'file' },
+    ],
+  },
+  {
+    name: 'Bank account details',
+    fields: [
+      { label: 'Bank Name', required: true },
+      { label: 'IFSC Code', required: true },
+      { label: 'Account Type', required: false },
+      { label: 'Account No', required: true },
+      { label: 'Attachment', required: true, type: 'file' },
+      { label: 'Y/N', required: false, options: ['Yes', 'No'] },
+      { label: 'Remark', required: false },
+    ],
+  },
+  {
+    name: 'Recovery and verification',
+    fields: [
+      { label: 'Recovery rate basis (hire parties, contractors)', required: false },
+      { label: 'Bank details verified by', required: true },
+      { label: 'Status', required: true },
+      { label: 'iBoss A/C Code', required: false },
+    ],
+  },
+];

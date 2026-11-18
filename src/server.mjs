@@ -1,5 +1,5 @@
 import express from 'express';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import manifest from '../package.json' with { type: 'json' };
 import { registerSignIn } from './features/sign-in/routes.mjs';
 
@@ -9,7 +9,7 @@ export function createApp({ env = process.env, fetcher = fetch } = {}) {
   app.use((_request, response, next) => {
     response.set({
       'Cache-Control': 'no-store',
-      'Content-Security-Policy': "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       'Referrer-Policy': 'no-referrer',
       'X-Content-Type-Options': 'nosniff',
     });
@@ -18,6 +18,7 @@ export function createApp({ env = process.env, fetcher = fetch } = {}) {
   app.get('/healthz', (_request, response) => {
     response.json({ status: 'ok', commit: manifest.releaseCommit ?? null });
   });
+  app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   registerSignIn(app, { env, fetcher });
   return app;
 }
