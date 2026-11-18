@@ -12,11 +12,14 @@ Run `npm test` to check the master previews, invoice rate calculation, guest acc
 
 Production runs on `caliber-diesel-783` in `caliber-diesel-rg`. It shares the Central India P2v3 plan with Pulse Fleet and the HR API. Hostinger handles the DNS for `pulse-lll.cmll.in`. Azure supplies the HTTPS certificate.
 
-1. Merge a tested change into `main`. In the Diesel Web App’s Deployment Center, select **Sync** to pull that branch. Azure builds the Node.js 24 application and starts it with `npm start`.
-2. Check the deployed commit and build result in Deployment Center. Open the [health check](https://pulse-lll.cmll.in/healthz) and verify that the homepage and direct master links require Pulse sign-in.
+1. Merge the tested change into `main`.
+2. In [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml), select **Test and deploy Diesel**, choose **Run workflow** on `main`, and wait for the `deploy` job. From an authenticated GitHub CLI session, run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
+3. Check that the workflow verified the expected commit at the [production health endpoint](https://pulse-lll.cmll.in/healthz) and that the homepage offers Pulse sign-in.
+
+If the GitHub deployment workflow is unavailable, select **Sync** in the Diesel app’s Azure Deployment Center. Confirm the expected commit in the deployment log and check that the live site responds.
 
 To enable Pulse sign-in, set `DIESEL_PUBLIC_ORIGIN=https://pulse-lll.cmll.in` on both apps and `PULSE_ORIGIN=https://pulse.cmll.in` on Diesel. Set the same `DIESEL_SSO_CLIENT_SECRET` on both apps, generated from 32 random bytes encoded as base64url. Fleet also needs `DIESEL_SSO_ENABLED=1`. Configure the comma-separated Diesel app setting `DIESEL_ALLOWED_PULSE_LOGINS` with the approved Pulse usernames. An empty list denies all accounts. Azure always requires Pulse. Once the Pulse issuer is ready, set `DIESEL_ACCESS_MODE=pulse` on Diesel and verify sign-in and sign-out with a Pulse account.
 
-The [GitHub Actions workflow](.github/workflows/azure.yml) runs tests and builds. Its optional deployment job requires a Diesel-scoped Azure federated identity, the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` secrets, and the `AZURE_WEBAPP_NAME` and `DIESEL_HEALTH_ORIGIN` variables.
+GitHub Actions deploys with a federated identity scoped to the Diesel Web App and trusted for `main`. It uses the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` secrets and the `AZURE_WEBAPP_NAME` and `DIESEL_HEALTH_ORIGIN` variables. The deployment workflow uses these repository settings from any Diesel chat.
 
 See [AGENTS.md](AGENTS.md) for repository rules.
