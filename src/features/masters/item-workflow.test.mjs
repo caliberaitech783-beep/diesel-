@@ -134,11 +134,20 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.deepEqual(columnNames(masterData), expectedColumns);
     assert.match(masterData, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
     assert.match(masterData, /<td>00123456<\/td>/);
-    assert.match(masterData, /<summary>Download<\/summary>/);
+    for (const label of ['Download', 'Import', 'Export']) {
+      const menu = masterData.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
+      assert.ok(menu, label + ' has its own dropdown');
+      for (const format of ['Excel', 'CSV', 'PDF']) assert.match(menu, new RegExp('aria-label="' + label + ' ' + format + '"'));
+    }
+    const newForm = await (await restarted('/records?master=item-master&new=1', maker)).text();
+    const scope = masterData.match(/data-scope="([a-f0-9]+)"/)?.[1];
+    assert.ok(scope);
+    assert.ok(newForm.includes('data-import-scope="' + scope + '"'));
     const emptyMaster = await (await restarted(tableUrl, other)).text();
     assert.deepEqual(columnNames(emptyMaster), expectedColumns);
     assert.match(emptyMaster, /No saved records for this master/);
     assert.doesNotMatch(emptyMaster, /TEST-001/);
+    assert.ok(!emptyMaster.includes(scope));
     const preview = await (await restarted('/master-data?master=account-master', maker)).text();
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
     assert.ok(columnNames(preview).length > 0);

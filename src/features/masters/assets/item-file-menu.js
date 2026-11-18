@@ -1,5 +1,6 @@
 import { readItemCsv, readItemExcel, readItemPdf, writeItemCsv, writeItemExcel, writeItemPdf } from './item-file-formats.mjs';
 import { downloadFile, fileAssets as vendor, loadPdfAssets } from './file-download.mjs';
+import { fillImportedFields } from './import-draft.mjs';
 
 const form = document.querySelector('#record-form');
 const fileTools = document.querySelector('.item-file-tools');
@@ -31,24 +32,6 @@ const formats = {
   },
 };
 
-function fillFields(values) {
-  const changes = [];
-  for (const [name, value] of values) {
-    const control = fields.get(name);
-    if (control.disabled || control.readOnly) continue;
-    const copy = control.cloneNode(true);
-    const trimmed = value.trim();
-    if (control.matches('select')) {
-      copy.value = [...control.options].find(option => option.value.toLowerCase() === trimmed.toLowerCase())?.value ?? '';
-    } else {
-      copy.value = control.type === 'number' ? trimmed.replace(/^\+/, '') : value;
-    }
-    if (value.trim() && !copy.value) throw new Error('Enter a valid value for ' + name + ' in the file.');
-    changes.push([control, copy.value]);
-  }
-  for (const [control, value] of changes) control.value = value;
-}
-
 function closeMenu(menu, restoreFocus = false) {
   menu.open = false;
   if (restoreFocus) menu.querySelector('summary').focus();
@@ -79,7 +62,7 @@ picker?.addEventListener('change', async () => {
     if (file.size > 2 * 1024 * 1024) throw new Error('Choose a file up to 2 MiB.');
     if (!file.name.toLowerCase().endsWith(format.accept)) throw new Error('Choose a ' + format.accept + ' file.');
     const values = await format.read(await file.arrayBuffer(), [...fields.keys()]);
-    fillFields(values);
+    fillImportedFields(form, values);
     status.textContent = 'Item fields imported. Review them and select Save for review.';
   } catch (error) {
     const help = pendingFormat === 'pdf' ? ' Use a filled Item Master PDF exported from Diesel.' : '';
