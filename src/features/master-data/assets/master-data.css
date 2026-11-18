@@ -1,12 +1,4 @@
-.master-data-tools, .master-data-tools form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.master-data-tools { justify-content: space-between; margin-block: 0 12px; }
-.master-data-tools label { font-weight: 600; }
-.master-data-tools :is(button, select, summary) {
+.master-data-download :is(button, summary) {
   min-height: 36px;
   border: 1px solid var(--control-border);
   border-radius: 6px;
@@ -45,19 +37,20 @@
   border-radius: 8px;
   background: var(--surface);
 }
-.master-data-table table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.master-data-table :is(td, th) { padding: 10px 12px; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+.master-data-table table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 14px; }
+.master-data-table :is(td, th) {
+  min-width: 8rem;
+  max-width: 18rem;
+  padding: 10px 12px;
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  border-inline-end: 1px solid var(--border);
+}
+.master-data-table td { white-space: pre-wrap; }
+.master-data-table :is(td, th):last-child { border-inline-end: 0; }
 .master-data-table thead { background: var(--folder-bg); color: var(--folder-ink); }
 .master-data-table tbody tr + tr { border-top: 1px solid var(--border); }
 .master-data-table a { color: var(--link); }
-.master-data-table :is(time, summary) { white-space: nowrap; }
-.master-data-status { text-transform: capitalize; }
-.saved-fields summary { color: var(--link); cursor: pointer; }
-.saved-fields dl { width: min(340px, 70vw); margin: 8px 0 0; }
-.saved-fields dt { color: var(--muted); font-size: 13px; margin-top: 5px; }
-.saved-fields dd { margin: 0 0 3px; white-space: pre-wrap; }
 .master-data-pager { display: flex; gap: 8px; padding-inline: 0; }
-.master-data-empty { margin: 0; padding: 15px; border: 1px solid var(--border); border-radius: 7px; }
-@media (max-width: 480px) {
-  .master-data-download div { inset-inline: 0 auto; }
-}
+.master-data-empty td { color: var(--muted); }

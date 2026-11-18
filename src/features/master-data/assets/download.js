@@ -8,22 +8,22 @@ const buttons = [...menu.querySelectorAll('[data-format]')];
 const formats = {
   xlsx: {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    async write(records, showSite) {
-      const { columns, rows } = fitExcelCells(exportTable(records, showSite));
+    async write(records, showSite, formColumns) {
+      const { columns, rows } = fitExcelCells(exportTable(records, showSite, formColumns));
       return writeExcelTable('Master Data', columns, rows, await import(fileAssets + 'xlsx.mjs'));
     },
   },
   csv: {
     type: 'text/csv;charset=utf-8',
-    async write(records, showSite) {
-      const { columns, rows } = exportTable(records, showSite);
+    async write(records, showSite, formColumns) {
+      const { columns, rows } = exportTable(records, showSite, formColumns);
       return writeCsvTable(columns, rows, await import(fileAssets + 'csv-stringify.mjs'));
     },
   },
   pdf: {
     type: 'application/pdf',
-    async write(records, showSite) {
-      return writeMasterDataPdf(records, showSite, ...await loadPdfAssets());
+    async write(records, showSite, formColumns) {
+      return writeMasterDataPdf(records, showSite, ...await loadPdfAssets(), formColumns);
     },
   },
 };
@@ -38,9 +38,9 @@ for (const button of buttons) {
       const response = await fetch(menu.dataset.exportSource);
       if (response.status === 401) throw new Error('Sign in again to download Master Data.');
       if (!response.ok) throw new Error('Master Data could not be loaded. Try again.');
-      const { records, showSite } = await response.json();
+      const { records, showSite, columns } = await response.json();
       const format = formats[extension];
-      downloadFile(await format.write(records, showSite), format.type, 'master-data.' + extension);
+      downloadFile(await format.write(records, showSite, columns), format.type, 'master-data.' + extension);
       feedback.textContent = '';
     } catch (error) {
       feedback.textContent = error.message;

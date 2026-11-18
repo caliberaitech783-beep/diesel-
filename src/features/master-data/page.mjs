@@ -1,42 +1,47 @@
 import { masterSidebar } from '../masters/master-sidebar.mjs';
+import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
-const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+function savedTable(master, rows, canSave) {
+  const records = rows.map(row => {
+    const href = '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
+    const values = new Map(row.fields);
+    const cells = master.fields.map(({ key }) => {
+      const value = escape(values.get(key));
+      return key === master.codeField
+        ? `<th scope="row"><a href="${escape(href)}">${value}</a></th>`
+        : `<td>${value}</td>`;
+    });
+    return `<tr>${cells.join('')}</tr>`;
+  }).join('');
+  const empty = canSave ? 'No saved records for this master.' : 'This master is available as a form preview.';
+  return `<div class="master-data-table" role="region" aria-label="${escape(master.name)} records" tabindex="0">
+    <table>
+      <thead><tr>${master.fields.map(field => `<th scope="col">${escape(field.key)}</th>`).join('')}</tr></thead>
+      <tbody>${records || `<tr class="master-data-empty"><td colspan="${master.fields.length}">${empty}</td></tr>`}</tbody>
+    </table>
+  </div>`;
+}
 
-export function masterDataPage({ actor, master, masters, rows, offset, pageSize, hasMore, local }) {
-  const pageLink = position => '/master-data?' + new URLSearchParams({ master, offset: position });
-  const exportPath = '/api/master-data/records?' + new URLSearchParams({ master });
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local }) {
+  const heading = master?.name ?? 'Master Data';
+  const pageLink = position => '/master-data?' + new URLSearchParams({ master: master.slug, offset: position });
+  const exportPath = master && '/api/master-data/records?' + new URLSearchParams({ master: master.slug });
   const account = local ? `<a href="/workspace">${escape(actor.name ?? actor.id)}</a>`
     : `<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>`;
   const itemRecordsPath = local ? '/records?master=item-master' + (actor.canEditMasters ? '&amp;new=1' : '') : undefined;
-  const records = rows.map(row => {
-    const href = '/records?' + new URLSearchParams({ master: row.slug, id: row.id });
-    const updated = dateFormat.format(new Date(row.updatedAt));
-    const fields = row.fields.filter(([, value]) => value !== '').map(([label, value]) =>
-      `<dt>${escape(label)}</dt><dd>${escape(value)}</dd>`).join('');
-    return `<tr>
-      <td>${escape(row.master)}</td>
-      <th scope="row"><a href="${escape(href)}">${escape(row.code)}</a></th>
-      <td>${escape(row.name)}</td>
-      ${local ? `<td>${escape(row.site)}</td>` : ''}
-      <td class="master-data-status">${escape(row.status)}</td>
-      <td>${row.revision}</td>
-      <td><time datetime="${escape(row.updatedAt)}">${escape(updated)}</time></td>
-      <td><details class="saved-fields"><summary>View fields</summary><dl>${fields}</dl></details></td>
-    </tr>`;
-  }).join('');
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Master Data · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
+  <title>${master ? escape(heading) + ' · ' : ''}Master Data · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
   ${themeHead}
   <link rel="stylesheet" href="/masters/assets/workspace.css">
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
-  <script type="module" src="/masters/assets/navigation.js"></script>
-  <script type="module" src="/master-data/assets/download.js"></script>
+  ${master ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
+  ${canSave ? '<script type="module" src="/master-data/assets/download.js"></script>' : ''}
 </head><body>
   <a class="skip" href="#workspace">Skip to Master Data</a>
   <header class="masthead">
@@ -45,36 +50,22 @@ export function masterDataPage({ actor, master, masters, rows, offset, pageSize,
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true })}
+    ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true })}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
-      <header class="workspace-heading"><h1 id="workspace-title">Master Data</h1></header>
-      <div class="master-data-tools">
-        <form action="/master-data" method="get">
-          <label for="master-data-filter">Master</label>
-          <select id="master-data-filter" name="master"><option value="">All masters</option>
-            ${masters.map(item => `<option value="${escape(item.slug)}"${master === item.slug ? ' selected' : ''}>${escape(item.name)}</option>`).join('')}
-          </select>
-          <button type="submit">Filter</button>
-        </form>
-        <details class="master-data-download" data-export-source="${escape(exportPath)}">
+      ${master ? mastersMenuLink('/master-data', 'Back to Master Data') : ''}
+      <header class="workspace-heading">
+        <h1 id="workspace-title">${escape(heading)}</h1>
+        ${canSave ? `<details class="master-data-download" data-export-source="${escape(exportPath)}">
           <summary>Download</summary>
           <div>
             ${[['Excel', 'xlsx'], ['CSV', 'csv'], ['PDF', 'pdf']].map(([name, format]) =>
               `<button type="button" data-format="${format}">${name}</button>`).join('')}
           </div>
-        </details>
-      </div>
-      <output class="master-data-feedback" aria-live="polite"></output>
-      ${records ? `<div class="master-data-table" role="region" aria-label="Saved master records" tabindex="0">
-        <table>
-          <thead><tr><th scope="col">Master</th><th scope="col">Code</th><th scope="col">Name</th>
-            ${local ? '<th scope="col">Site</th>' : ''}
-            <th scope="col">Status</th><th scope="col">Revision</th><th scope="col">Last saved</th><th scope="col">Fields</th>
-          </tr></thead>
-          <tbody>${records}</tbody>
-        </table>
-      </div>` : '<p class="master-data-empty">No saved records in this view.</p>'}
-      ${offset || hasMore ? `<nav class="master-data-pager" aria-label="Master Data pages">
+        </details>` : ''}
+      </header>
+      ${canSave ? '<output class="master-data-feedback" aria-live="polite"></output>' : ''}
+      ${master ? savedTable(master, rows, canSave) : '<p>Choose a master from the sidebar to view its saved records.</p>'}
+      ${master && (offset || hasMore) ? `<nav class="master-data-pager" aria-label="Master Data pages">
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}
         ${hasMore ? `<a href="${escape(pageLink(offset + pageSize))}">Next</a>` : ''}
       </nav>` : ''}

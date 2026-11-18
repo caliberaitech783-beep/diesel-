@@ -4,7 +4,7 @@ Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submi
 
 The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
-**Master Data** in the sidebar lists saved records available to your account or local workspace site. Filter by master and choose **Download** for Excel, CSV, or PDF. Downloads include every record in the selected filter with its saved field values and attachment names.
+Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. Choose **Download** for Excel, CSV, or PDF with the selected master's saved records and attachment names.
 
 ## Run locally
 

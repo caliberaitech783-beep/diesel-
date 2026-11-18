@@ -10,6 +10,7 @@ import { openDieselDatabase } from '../../data/database.mjs';
 import { createLocalWorkspace } from '../local-workspace/app.mjs';
 import { createApp } from '../../server.mjs';
 import { openItemSubmissions } from './item-submissions.mjs';
+import { masterDefinition } from './records-fields.mjs';
 import { createMasterStore, readActiveMasters } from './records.mjs';
 
 const master = 'item-master';
@@ -80,7 +81,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal(mastersPath, '/');
     const catalog = await (await request(mastersPath, maker)).text();
     assert.match(catalog, /Choose a master/);
-    assert.match(catalog, /href="\/master-data">Master Data<\/a>/);
+    assert.match(catalog, /href="\/master-data\?master=item-master">Item Master<\/a>/);
     assert.doesNotMatch(catalog, /My item submissions/);
     for (const [label, direction] of [['Import', 'import'], ['Export', 'export']]) {
       const menu = form.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
@@ -121,13 +122,30 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal((await restarted(url, other)).status, 404);
     const records = await (await restarted('/records?master=item-master&q=TEST-001', maker)).text();
     assert.match(records, /Diesel test item/);
-    const masterData = await (await restarted('/master-data', maker)).text();
-    assert.match(masterData, /id="workspace-title">Master Data<\/h1>/);
+    const directoryPage = await (await restarted('/master-data', maker)).text();
+    assert.match(directoryPage, /id="workspace-title">Master Data<\/h1>/);
+    const tableUrl = '/master-data?master=item-master';
+    const masterData = await (await restarted(tableUrl, maker)).text();
+    assert.match(masterData, /id="workspace-title">Item Master<\/h1>/);
+    assert.match(masterData, /href="\/master-data" aria-label="Back to Master Data"/);
+    assert.doesNotMatch(masterData, /id="masters-sidebar"/);
+    const expectedColumns = masterDefinition('item-master').fields.map(field => field.key);
+    const columnNames = page => [...page.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(([, name]) => name);
+    assert.deepEqual(columnNames(masterData), expectedColumns);
     assert.match(masterData, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
-    assert.match(masterData, /<dt>HSN Code<\/dt><dd>00123456<\/dd>/);
+    assert.match(masterData, /<td>00123456<\/td>/);
     assert.match(masterData, /<summary>Download<\/summary>/);
-    const exportUrl = '/api/master-data/records';
+    const emptyMaster = await (await restarted(tableUrl, other)).text();
+    assert.deepEqual(columnNames(emptyMaster), expectedColumns);
+    assert.match(emptyMaster, /No saved records for this master/);
+    assert.doesNotMatch(emptyMaster, /TEST-001/);
+    const preview = await (await restarted('/master-data?master=account-master', maker)).text();
+    assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
+    assert.ok(columnNames(preview).length > 0);
+    assert.match(preview, /This master is available as a form preview/);
+    const exportUrl = '/api/master-data/records?master=item-master';
     const exported = await (await restarted(exportUrl, maker)).json();
+    assert.deepEqual(exported.columns, expectedColumns);
     assert.equal(exported.records[0].id, saved.id);
     assert.equal(Object.fromEntries(exported.records[0].fields).Attachment, 'reference.pdf');
     assert.equal(exported.showSite, false);
@@ -153,7 +171,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   });
   const origin = 'http://127.0.0.1:' + server.address().port;
   const catalog = await (await fetch(origin)).text();
-  const [, itemLink] = catalog.match(/href="([^"]+)">Item Master<\/a>/);
+  const [, itemLink] = catalog.match(/href="(\/records\?[^"]+)">Item Master<\/a>/);
   const itemPage = await fetch(origin + itemLink.replaceAll('&amp;', '&'));
   assert.equal(itemPage.status, 200);
   const form = await itemPage.text();
@@ -176,11 +194,11 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   for (let index = 0; index < 50; index++) {
     store.create('item-master', { site: 'Jayant', values: { ...requiredValues, 'Item Code': 'SAMPLE-' + index } }, 'maker');
   }
-  const data = await (await fetch(origin + '/master-data')).text();
+  const data = await (await fetch(origin + '/master-data?master=item-master')).text();
   assert.match(data, /aria-label="Master Data pages"/);
   assert.match(data, /offset=50">Next<\/a>/);
   assert.doesNotMatch(data, />TEST-001<\/a>/);
-  const finalPage = await (await fetch(origin + '/master-data?offset=50')).text();
+  const finalPage = await (await fetch(origin + '/master-data?master=item-master&offset=50')).text();
   assert.match(finalPage, />TEST-001<\/a>/);
   const download = await (await fetch(origin + '/api/master-data/records')).json();
   assert.equal(download.records.length, 51);

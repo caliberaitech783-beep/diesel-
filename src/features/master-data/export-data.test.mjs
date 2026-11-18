@@ -35,6 +35,11 @@ test('Master Data exports each record with fields from all selected masters', ()
   const workbook = xlsx.read(writeExcelTable('Master Data', columns, cells, xlsx));
   assert.deepEqual(xlsx.utils.sheet_to_json(workbook.Sheets['Master Data'], { header: 1 }), [columns, ...cells]);
   assert.ok(!exportTable(rows, false).columns.includes('Site'));
+  const formColumns = ['Category', 'HSN Code', 'Bulk Density'];
+  assert.deepEqual(exportTable(rows.slice(0, 1), false, formColumns), {
+    columns: formColumns, rows: [['=1+1', '00123456', '']],
+  });
+  assert.deepEqual(exportTable([], false, formColumns), { columns: formColumns, rows: [] });
   const long = 'a'.repeat(32766) + '🛢' + 'b'.repeat(33000);
   const split = fitExcelCells({ columns: ['Remark'], rows: [[long], ['short']] });
   const exported = xlsx.read(writeExcelTable('Master Data', split.columns, split.rows, xlsx));
