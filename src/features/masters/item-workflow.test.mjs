@@ -80,7 +80,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal(mastersPath, '/');
     const catalog = await (await request(mastersPath, maker)).text();
     assert.match(catalog, /Choose a master/);
-    assert.match(catalog, /href="\/records\?master=item-master">My item submissions<\/a>/);
+    assert.doesNotMatch(catalog, /My item submissions/);
     for (const [label, direction] of [['Import', 'import'], ['Export', 'export']]) {
       const menu = form.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
       assert.ok(menu, label + ' has its own dropdown');

@@ -1,6 +1,6 @@
 # Diesel
 
-Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save for review** at the bottom of the form. The separate **Import** and **Export** dropdowns transfer the fields for one item. Excel (`.xlsx`) and CSV use the Item Master field names as column headers and one data row. For PDF import, use a fillable PDF exported from Item Master. Imports fill the current form for review before saving. **My item submissions** on the Master tab lists the account’s pending submissions.
+Diesel on Azure requires an allowed Pulse account. Open **Item Master** to submit an item with **Save for review** at the bottom of the form. The separate **Import** and **Export** dropdowns transfer the fields for one item. Excel (`.xlsx`) and CSV use the Item Master field names as column headers and one data row. For PDF import, use a fillable PDF exported from Item Master. Imports fill the current form for review before saving.
 
 The other masters are form previews. Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
