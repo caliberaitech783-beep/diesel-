@@ -46,6 +46,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
   const app = createApp({
     env: {
       DIESEL_ACCESS_MODE: 'pulse',
+      DIESEL_ALLOWED_PULSE_LOGINS: ' Test , another ',
       DIESEL_PUBLIC_ORIGIN: origin,
       PULSE_ORIGIN: 'https://pulse.test',
       DIESEL_SSO_CLIENT_SECRET: secret,
@@ -107,5 +108,23 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     assert.equal((await request('/healthz')).status, 200);
   } finally {
     server.close();
+  }
+});
+
+test('Azure requires Pulse and denies direct master access outside the explicit username list', async t => {
+  for (const logins of ['', 'different, test2']) {
+    const app = createApp({
+      env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_ACCESS_MODE: 'guest', DIESEL_ALLOWED_PULSE_LOGINS: logins, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+      fetcher: async () => Response.json({ profile: { login: 'test', name: 'different' } }),
+    });
+    const server = app.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => server.close());
+    const url = 'http://127.0.0.1:' + server.address().port + '/?master=driver-master';
+    const anonymous = await fetch(url);
+    assert.match(await anonymous.text(), /Sign in with Pulse/);
+    const blocked = await fetch(url, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
+    assert.equal(blocked.status, 403);
+    assert.doesNotMatch(await blocked.text(), /master-list/);
   }
 });
