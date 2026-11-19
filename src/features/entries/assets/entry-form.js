@@ -2,6 +2,7 @@ const actor=document.body.dataset.actor;
 const offlineScope=document.body.dataset.offlineScope || undefined;
 const form=document.querySelector('#entry-form');
 const syncStatus=document.querySelector('#sync-status');
+const offlineEntries=document.querySelector('#offline-entries');
 const navigationToggle = document.querySelector('#nav-toggle');
 if (navigationToggle) {
   navigationToggle.hidden = false;
@@ -40,6 +41,7 @@ function useTag() {
   if (matches.length===1) {
     const [{select,option}]=matches;
     select.value=option.value;
+    select.dispatchEvent(new Event('change',{bubbles:true}));
     syncStatus.textContent='Tag selected · '+option.text;
   } else syncStatus.textContent=matches.length?'This tag matches multiple records. Choose the correct record.':'Unknown tag for this site.';
 }
@@ -69,14 +71,26 @@ async function transmit(item) {
   return data.url;
 }
 let flushing = false;
+function showOfflineEntries(items) {
+  if (!offlineEntries) return;
+  offlineEntries.hidden = !items.length;
+  const list=offlineEntries.querySelector('ul');
+  list.replaceChildren(...items.map(item=>{
+    const row=document.createElement('li');
+    row.textContent=[item.type,item.action,item.data?.vehicle||item.data?.truck,item.day].filter(Boolean).join(' · ');
+    return row;
+  }));
+}
 async function flush() {
   if(!offlineEnabled || flushing) return;
   flushing = true;
   try {
     const queued=(await outbox('getAll')).filter(r=>r.actor===actor && r.offlineScope===offlineScope).sort((a,b)=>a.queued-b.queued);
+    showOfflineEntries(queued);
     for(const [index,item] of queued.entries()) {
       syncStatus.textContent=(queued.length-index)+' actions waiting to sync.';
       try { const url=await transmit(item);await outbox('delete',item.token);
+        showOfflineEntries(queued.slice(index+1));
         const a=document.createElement('a');a.href=url;a.textContent='Open synced entry';syncStatus.replaceChildren(a);
       } catch(e){
         const retry=document.createElement('button');
@@ -92,8 +106,36 @@ function runSync() {
 }
 async function fileData(f) {
   if(f.size>5*1024*1024)throw Error('Choose files up to 5 MB each.');
+  let file=f, name=f.name;
+  if (['image/jpeg','image/png'].includes(f.type) && f.size>500_000 && typeof createImageBitmap==='function') {
+    try {
+      const {canvas}=await imageCanvas(f,1600);
+      const compressed=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));
+      if (compressed && compressed.size<f.size) {
+        file=compressed;
+        name=f.name.replace(/\.[^.]+$/,'')+'.jpg';
+      }
+    } catch { /* Keep the original photo when the device cannot decode it for compression. */ }
+  }
   return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('Cannot read this file.'));
-    reader.onload=()=>resolve({name:f.name,base64:reader.result.split(',')[1]});reader.readAsDataURL(f);});
+    reader.onload=()=>resolve({name,base64:reader.result.split(',')[1]});reader.readAsDataURL(file);});
+}
+async function imageCanvas(file, maxSide) {
+  if (!file || !['image/png','image/jpeg','image/webp'].includes(file.type) || file.size>5*1024*1024) {
+    throw Error('Choose a PNG, JPEG or WebP photo up to 5 MB.');
+  }
+  const bitmap=await createImageBitmap(file);
+  try {
+    const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+    canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+    return {canvas,ctx};
+  } finally { bitmap.close(); }
 }
 form?.addEventListener('submit',async event=>{
   event.preventDefault();

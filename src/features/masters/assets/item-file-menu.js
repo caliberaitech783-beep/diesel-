@@ -9,7 +9,7 @@ const status = document.querySelector('#item-file-status');
 const save = form.querySelector('[data-save-for-review]');
 const saveStatus = form.querySelector('output');
 const fields = new Map([...form.elements]
-  .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea'))
+  .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea, [data-attribute-import]'))
   .map(control => [control.name, control]));
 const formats = {
   xlsx: {

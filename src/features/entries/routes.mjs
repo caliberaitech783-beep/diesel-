@@ -9,9 +9,9 @@ import { registerPage,detailPage,approvalsPage,alertsPage,roleHomePage } from '.
 import { createLocalApproval } from './local-approval.mjs';
 import { pilotEntry } from './entry-access.mjs';
 import { entryPolicy } from './entry-policy.mjs';
-import { businessDay } from './entry-rules.mjs';
 import { entryAlerts } from './entry-alerts.mjs';
-import { registerFilters, filterRegister, entryCsv } from './entry-register.mjs';
+import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows } from './entry-register.mjs';
+import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
 import { approvedPolicyReader, siteEntryWorkspace } from './site-entry-workspace.mjs';
@@ -29,13 +29,16 @@ export function registerEntries(app,masterDb,siteDb) {
   app.use('/entries',createEntriesRouter(siteDb??masterDb,options));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,approvalOptions } = {}) {
-  const store=createEntryStore(db,{policyFor,siteFor});
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions } = {}) {
+  const store=createEntryStore(db,{policyFor,siteFor,calendarFor});
   const inbox=assigned||opening ? null : createLocalApproval(db,store);
   const allowedType = type => Object.hasOwn(byId,type)
     && (opening ? siteEntryTypes.includes(type) : !assigned || pilotEntry(type));
   const router=express.Router();
-  const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor});
+  const enforceVisibility = Boolean(assigned && opening);
+  const canRead = (doc, actor) => !enforceVisibility || mayViewEntry(doc,actor);
+  const visibleRecords = actor => store.list(actor.site).filter(doc=>canRead(doc,actor));
+  const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor,dayFor:store.dayFor});
   if (remoteApproval) registerRemoteApproval(router, remoteApproval);
   if (opening) {
     registerOpeningStock(router,opening,mastersFor);
@@ -54,19 +57,35 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     finally { readingInvoice = false; }
   });
   if (!hosted) router.get('/offline-worker.js',(_req,res)=>res.type('text/javascript').sendFile(fileURLToPath(new URL('./assets/offline-worker.js',import.meta.url))));
-  router.get('/',(req,res)=>res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),null,req.query)));
-  router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,store.list(req.dieselActor.site))));
+  router.use((req,_res,next)=>{
+    req.dieselActor.businessDay=store.dayFor(req.dieselActor.site);
+    next();
+  });
+  router.get('/',(req,res)=>{
+    const actor=req.dieselActor, sources=store.list(actor.site);
+    res.send(registerPage(actor,sources.filter(doc=>canRead(doc,actor)),null,req.query,sources));
+  });
+  router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
   function withAlerts(render) {
     return (req,res) => {
-      const actor = req.dieselActor, rows = store.list(actor.site);
-      res.send(render(actor, rows, entryAlerts(rows, actor, policyFor(actor.site, businessDay()))));
+      const actor = req.dieselActor, rows = visibleRecords(actor);
+      const policy = policyFor(actor.site,actor.businessDay);
+      if (opening) policy.calibrations=mastersFor(actor.site).instruments;
+      if (policy.alerts.has('Days of stock') && (!opening || siteFor(actor.site))) {
+        policy.daysOfStock=store.stockPicture(actor.site)['Days of stock'];
+      }
+      res.send(render(actor, rows, entryAlerts(rows, actor, policy)));
     };
   }
   router.get('/alerts',withAlerts((actor, _rows, alerts) => alertsPage(actor, alerts)));
   router.get('/home',withAlerts(roleHomePage));
   router.get('/type/:type',(req,res)=>{
     if (!allowedType(req.params.type)) return res.sendStatus(404);
-    res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),req.params.type,req.query));
+    const actor=req.dieselActor, sources=store.list(actor.site), rows=sources.filter(doc=>canRead(doc,actor));
+    if (enforceVisibility && !mayViewEntryType(req.params.type,actor) && !rows.some(row=>row.type===req.params.type)) {
+      return res.sendStatus(403);
+    }
+    res.send(registerPage(actor,rows,req.params.type,req.query,sources));
   });
   router.get('/new/:type',(req,res)=>{
     const a=req.dieselActor, t=byId[req.params.type];
@@ -77,6 +96,9 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     if (opening) {
       const config=siteFor(a.site);
       if (!config) return res.redirect(303,'/entries/opening-stock');
+      if (t.id==='E5'&&!config.receiptScenarios.length) {
+        return res.status(409).send('Approve the receipt scenario in Location Master before allowing a tanker in.');
+      }
       if (t.id==='E11'&&(!config.vehicles.length||!config.drivers.length||!config.storage.some(row=>row.type==='Bowser'))) {
         return res.status(409).send('Approve vehicles and drivers for this site and include a bowser in opening stock before recording a fuel issue.');
       }
@@ -90,6 +112,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const a=req.dieselActor;
     try {
       const doc = store.read(req.params.id,a.site);
+      if (!canRead(doc,a)) return res.sendStatus(404);
       const picture = doc.type==='E1'&&['Draft','Returned'].includes(doc.status) ? store.stockPicture(a.site,doc.day) : null;
       res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),picture,store.definition(doc.type,a.site),
         remoteApproval?.enabled(doc,a)));
@@ -97,7 +120,12 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     catch { res.sendStatus(404); }
   });
   router.get('/file/:id',(req,res)=>{
-    try { const f=store.file(req.params.id,req.dieselActor.site);res.attachment(f.name).type(f.mime).send(Buffer.from(f.bytes)); }
+    try {
+      const actor = req.dieselActor;
+      const f=store.file(req.params.id,actor.site);
+      if (!canRead(store.read(f.doc,actor.site),actor)) return res.sendStatus(404);
+      res.attachment(f.name).type(f.mime).send(Buffer.from(f.bytes));
+    }
     catch { res.sendStatus(404); }
   });
   router.get('/bank-file/:id',(req,res)=>{
@@ -115,10 +143,13 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       res.sendStatus(404);
     } catch(e) {res.status(422).json({error:e.message});}
   });
-  router.get('/export.csv',(req,res)=>{
-    const rows=filterRegister(store.list(req.dieselActor.site),req.query.type,registerFilters(req.query));
-    const data=[['Document','Entry','Site','Date','Status','Details','Results'],...rows.map(r=>[r.number,byId[r.type].name,r.site,r.day,r.status,JSON.stringify(r.data),JSON.stringify(r.result)])];
-    res.attachment('diesel-entries.csv').type('text/csv').send(entryCsv(data));
+  for (const [extension,mime,serialize] of [
+    ['csv','text/csv',rows=>entryCsv(entryCsvRows(rows))],
+    ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(entryExportRows(rows,sources))],
+  ]) router.get('/export.'+extension,(req,res)=>{
+    const actor=req.dieselActor,sources=store.list(actor.site);
+    const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
+    res.attachment('diesel-entries.'+extension).type(mime).send(serialize(rows,sources));
   });
   router.get('/accounting/:id.csv',(req,res)=>{
     const actor = req.dieselActor;

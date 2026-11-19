@@ -8,6 +8,8 @@ import { mayApproveEntry } from './approval-roles.mjs';
 import { filterRegister, registerFilters, traceEntries } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
+import { localReadingTime } from './entry-calendar.mjs';
+import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -50,42 +52,53 @@ export function roleHomePage(actor, rows, alerts) {
     `<div class="phone-tasks">${links.map(([label, href]) => `<a href="${href}">${esc(label)}</a>`).join('')}</div>`);
 }
 
-export function registerPage(actor,rows,type,query={}) {
+export function registerPage(actor,rows,type,query={},sources=rows) {
   const meta=byId[type], path=meta?'/entries/type/'+type:'/entries';
   const filters=registerFilters(query);
   const { q: text, status, from, to, truck, vehicle } = filters;
-  const relevant=filterRegister(rows, type, filters);
+  const relevant=filterRegister(rows, type, filters,sources);
   const actorRole=entryRole(actor);
   const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
   const title = meta?.name ?? 'Entry register';
-  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group)+' <span> / </span> '+meta.id : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date(businessDay()+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
-    ${!meta ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
-  const exportUrl='/entries/export.csv?'+new URLSearchParams({type:type??'',...filters});
+  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group)+' <span> / </span> '+meta.id : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
+    ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
+      ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
+  const exportQuery=new URLSearchParams({type:type??'',...filters});
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
     ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
       : meta.maker ? (canChooseRole(actor, actor.site, roleKey(meta.maker)) ? switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker) : '')
       : '<span>Generated after an accepted tank inspection or approved empty confirmation.</span>'}</div>`:''}
     ${!meta?`<div class="counts">${[['Draft','Drafts','draft'],['Awaiting approval','Awaiting approval','waiting'],['Posted','Posted','posted']].map(([value,label,tone])=>
       `<a class="${tone}" href="/entries?status=${encodeURIComponent(value)}" ${status===value?'aria-current="true"':''}><span class="count-label">${label}</span><strong>${rows.filter(r=>r.status===value).length}</strong><i class="metric-symbol" aria-hidden="true"></i></a>`).join('')}</div>`:''}
-    <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><a class="export" href="${esc(exportUrl)}"><span aria-hidden="true">↓</span> Export CSV</a></div>
+    <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
+    <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
+    <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a></div></div>
     <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${['','Draft','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded'].map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
-    ${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,rows)}</section>
+    ${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources)}</section>
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {
   const raw=d.data[f.key]??'',value=f.oldOptions?.get(raw)??raw,opts=f.type==='link'?sourceChoices(f,d,rows,actor)
     .map(r=>[r.id,r.number+' · '+byId[r.type].name]):f.options?.map(v=>[v,v]);
   const label=esc(f.label);
+  const fuelIssues = d.type==='E11' && actor.siteEntryTypes && ['vehicle','bowser'].includes(f.key)
+    ? rows.filter(row=>row.type==='E11'&&row.status==='Posted'&&row.day<=d.day) : [];
   if (opts) return `<label>${label}<select name="${f.key}">${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>{
     const tag=f.optionTags?.get(v);
-    return `<option value="${esc(v)}"${tag?` data-tag="${esc(tag)}"`:''}${v===value || (!value&&opts.length===1&&!f.optional)?' selected':''}>${esc(f.optionLabels?.get(v)??n)}</option>`;
-  }).join('')}</select></label>`;
+    const vehicle=f.vehicleDetails?.get(v);
+    const reading=vehicle ? fuelIssues.find(row=>row.data.vehicle===v)?.data.reading??vehicle.firstReading : null;
+    const meterEnd=f.key==='bowser' ? fuelIssues.find(row=>row.data.bowser===v)?.data.end : undefined;
+    const context = vehicle ? ` data-capacity="${esc(vehicle.capacity)}" data-vehicle-type="${esc(vehicle.vehicleType)}"
+      data-owner="${esc(vehicle.owner)}" data-cost-centre="${esc(vehicle.costCentre)}" data-last-reading="${esc(reading)}"` : '';
+    return `<option value="${esc(v)}"${tag?` data-tag="${esc(tag)}"`:''}${context}${meterEnd===undefined?'':` data-last-end="${esc(meterEnd)}"`}${v===value || (!value&&opts.length===1&&!f.optional)?' selected':''}>${esc(f.optionLabels?.get(v)??n)}</option>`;
+  }).join('')}</select>${f.vehicleDetails ? '<output data-vehicle-info aria-live="polite"></output>' : ''}</label>`;
   if (f.type==='file') return `<label>${label}<input type="file" name="${f.key}" accept="image/png,image/jpeg,application/pdf" multiple data-saved="${esc(JSON.stringify(Array.isArray(value)?value:[]))}">${Array.isArray(value)?value.map(file=>esc(file.name)).join(', '):''}</label>
     ${f.key==='billPhoto' ? '<button type="button" id="read-invoice">Read invoice photo</button>' : ''}`;
-  return `<label>${label}<input name="${f.key}" type="${f.type}" ${f.type==='number'?'step="any"':''} value="${esc(value)}"></label>`;
+  return `<label>${label}<input name="${f.key}" type="${f.type}" ${f.type==='number'?'step="any"':''} value="${esc(value)}">${d.type==='E11'&&actor.siteEntryTypes&&f.key==='end'
+    ? '<output data-fuel-preview aria-live="polite"></output>' : ''}</label>`;
 }
 function display(value) {
   if (Array.isArray(value)) return value.map(display).join(', ');
@@ -93,7 +106,9 @@ function display(value) {
   return typeof value==='number'?esc(value.toLocaleString('en-IN',{maximumFractionDigits:4})):esc(value??'—');
 }
 function editableFields(meta, doc, rows, actor) {
-  const dateControl = `<label>Business day<input name="day" type="date" max="${businessDay()}" value="${doc.day}"></label>`;
+  const readingControl = actor.siteEntryTypes && ['E11','E15'].includes(doc.type)
+    ? `<label>Reading time (IST)<input name="readingTime" type="datetime-local" value="${localReadingTime(doc.readingAt)}"></label>` : '';
+  const dateControl = `<label>Business day<input name="day" type="date" max="${actor.businessDay??businessDay()}" value="${doc.day}"></label>`+readingControl;
   const render = fields => fields.map(field=>fieldControl(field,doc,rows,actor)).join('');
   const steps = formSteps(meta);
   if (!steps) return `<div class="fields">${dateControl}${render(meta.fields)}</div>`;
@@ -120,17 +135,23 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     if(!receipt||role!==needed) switchForm=switchTo(roleKey(needed),d.result.destination,back,'Open at '+d.result.destination+' as '+needed);
   }
   const submitButton=name=>`<button class="primary" type="submit" value="${name}">${name}</button>`;
-  const displayValue=v=> typeof v==='string' && rows.some(r=>r.id===v)?`<a href="/entries/record/${v}">${esc(rows.find(r=>r.id===v).number)}</a>`:display(v);
+  const displayValue=v=>{
+    const source = typeof v==='string' && rows.find(row=>row.id===v);
+    if (!source) return display(v);
+    return actor.siteEntryTypes && actor.assignments && !mayViewEntry(source,actor) ? esc(source.number)
+      : `<a href="/entries/record/${source.id}">${esc(source.number)}</a>`;
+  };
   const inputRows=meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>{
     const value = d.data[f.key];
     const label = actor.siteEntryTypes&&d.type==='E12'&&f.key==='to'
-      ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination) : value;
+      ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination)
+      : f.key==='routeStandard' ? f.optionLabels?.get(value)??d.result.routeStandard??value : value;
     return `<dt>${esc(f.label)}</dt><dd>${displayValue(label)}</dd>`;
   }).join('');
   const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN','telegramAllowed'].includes(k)).map(([k,v])=>
     `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(v)}</dd>`).join('');
   return page(meta.name,actor,d.type,back,`<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
-    <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}</span></div>
+    <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture?`<section><h2>Site stock</h2><dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl></section>`:''}
     ${editable?`<section><h2>Entry details</h2>${editableFields(meta,d,rows,actor)}
@@ -147,5 +168,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     <output id="entry-message" role="status"></output></form>${switchForm}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time></li>`).join('')}</ol></section>`:''}`, undefined, remoteApproval);
+    ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
+      ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
+      </li>`).join('')}</ol></section>`:''}`, undefined, remoteApproval);
 }

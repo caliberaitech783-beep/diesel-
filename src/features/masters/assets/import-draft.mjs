@@ -3,7 +3,7 @@ const fragment = '#imported-record';
 
 export function fillImportedFields(form, values) {
   const fields = new Map([...form.elements]
-    .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea'))
+    .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea, [data-attribute-import]'))
     .map(control => [control.name, control]));
   const changes = [];
   for (const [name, value] of values) {
@@ -11,6 +11,15 @@ export function fillImportedFields(form, values) {
     if (!control || control.disabled || control.readOnly) continue;
     const copy = control.cloneNode(true);
     const trimmed = value.trim();
+    if (trimmed && control.matches('[data-attribute-import]')) {
+      let attributes;
+      try { attributes=JSON.parse(trimmed); } catch { /* Report a clear import error below. */ }
+      if (!Array.isArray(attributes) || attributes.length>Number(control.closest('[data-attributes]').dataset.limit)
+        || attributes.some(attribute=>!attribute || typeof attribute!=='object' || Array.isArray(attribute)
+          || ['name','value','reference','validFrom','validTo'].some(key=>attribute[key]!=null && typeof attribute[key]!=='string'))) {
+        throw new Error('Use the dated attributes column from a Diesel export.');
+      }
+    }
     if (control.matches('select')) {
       copy.value = [...control.options].find(option => option.value.toLowerCase() === trimmed.toLowerCase())?.value ?? '';
     } else {

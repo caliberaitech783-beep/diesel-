@@ -1,4 +1,5 @@
 import { restoreImportedRecord } from './import-draft.mjs';
+import { collectAttributes, setupAttributeInputs } from './attribute-fields.js';
 
 const form = document.querySelector('#record-form');
 
@@ -27,7 +28,7 @@ async function save(action) {
     if (!action) {
       payload.values = {};
       for (const control of form.querySelectorAll('[name]')) {
-        if (control.disabled) continue;
+        if (control.disabled || control.matches('[data-attribute-import]')) continue;
         if (control.type === 'file') {
           if (control.files.length) payload.values[control.name] = await readFile(control.files[0]);
           else if (control.dataset.fileId && !form.querySelector(`[data-remove-for="${control.id}"]`)?.checked) {
@@ -35,6 +36,7 @@ async function save(action) {
           }
         } else payload.values[control.name] = control.value;
       }
+      payload.attributes=await collectAttributes(form,readFile);
     }
     const response = await fetch(action ? api + '/' + action : api, {
       method: action || !record ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -52,6 +54,7 @@ async function save(action) {
 }
 
 if (form) {
+  setupAttributeInputs(form);
   restoreImportedRecord(form);
   form.addEventListener('submit', event => { event.preventDefault(); save(); });
   for (const button of form.querySelectorAll('[data-action]')) {

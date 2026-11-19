@@ -1,7 +1,8 @@
 import { review, litresAtDip } from './review-masters.mjs';
-import { requireValue as check, round, money } from './entry-rules.mjs';
+import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { gateContext } from './receiving.mjs';
 import { transferTarget } from './transfer-destination.mjs';
+import { vehicleRouteStandard } from './vehicle-route-standards.mjs';
 
 function meter(d) {
   check(d.end>d.start,'Meter end must be higher than the start.');
@@ -46,12 +47,36 @@ export const stockEntries = {
     check(last || d.reading>=(vehicle.firstReading??0),'Reading cannot be below the approved go-live reading.');
     check(!last || d.reading>=last.data.reading,'Vehicle meter cannot go backwards.');
     const delta=last?d.reading-last.data.reading:0;
-    const hours=last?(Date.parse(c.doc.created)-Date.parse(last.created))/3600000:null;
+    const currentAt = c.doc.readingAt ?? c.doc.created;
+    const hours=last?(Date.parse(currentAt)-Date.parse(last.readingAt??last.created))/3600000:null;
     const efficiency=delta>0?round(litres/delta):null;
     const meterJump=vehicle.meterType!=='Kilometre meter' && delta>c.limits.meterJump*Math.max(1,Math.ceil(hours/24));
-    const exception=last && (hours<(vehicle.repeatHours??c.limits.repeatHours) || meterJump || efficiency>vehicle.standard);
+    const repeatFill=Boolean(last && hours<(vehicle.repeatHours??c.limits.repeatHours));
+    let efficiencyLimit = vehicle.standard;
+    let standardDetails = {};
+    if (c.siteConfig && c.doc.vehicleChecksVersion) {
+      if (last?.readingAt && c.doc.readingAt) check(hours>=0,'This fill is earlier than the vehicle’s last recorded fill.');
+      const standard=vehicleRouteStandard(c.siteConfig.routeStandards,vehicle,c.doc.day,d.routeStandard);
+      check(!d.routeStandard || standard,'Choose an effective route standard for this vehicle type or model.');
+      if (standard?.perTrip) {
+        check(Number.isSafeInteger(d.loadedTrips??0) && Number.isSafeInteger(d.emptyTrips??0)
+          && (d.loadedTrips??0)+(d.emptyTrips??0)>0,'Enter the loaded and empty trip counts for this route.');
+        const expected = (d.loadedTrips??0)*standard.loaded+(d.emptyTrips??0)*standard.empty;
+        standardDetails = { routeStandard:standard.code, expectedLitres:round(expected),
+          aboveStandard:litres>expected*(1+standard.tolerance/100) };
+      } else if (standard && vehicle.meterType==='Hour meter') {
+        efficiencyLimit = standard.hourly*(1+standard.tolerance/100);
+        standardDetails = { routeStandard:standard.code, litresPerHourLimit:round(efficiencyLimit) };
+      }
+    }
+    const aboveStandard=standardDetails.aboveStandard ?? (efficiency!==null && efficiency>efficiencyLimit);
+    const exception=(last && (repeatFill || meterJump || aboveStandard)) || standardDetails.aboveStandard;
     check(!exception || d.reason,'Select a reason for a repeat fill or meter override.');
-    return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals:exception?['Site In-charge']:[],moves:[{storage:d.bowser,litres:-litres}] };
+    const approvals=exception?['Site In-charge']:[];
+    if (c.doc.vehicleChecksVersion && repeatFill && issues.some(issue=>issue.data.vehicle===d.vehicle&&issue.result.repeatFill
+      && issue.day>=dayBefore(c.doc.day,6))) approvals.push('Project Manager');
+    return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals,moves:[{storage:d.bowser,litres:-litres}],
+      ...(c.doc.vehicleChecksVersion ? {...standardDetails,repeatFill,meterJump,aboveStandard} : {}) };
   },
   E12(d,c) {
     check(d.sent>0,'Enter dispatched litres.');

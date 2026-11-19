@@ -12,7 +12,7 @@ export function telegramApprovalPath(path) {
   return typeof path === 'string' && /^\/entries\/telegram\/[a-f0-9]{32}\/(approve|return)$/.test(path);
 }
 
-export function createRemoteApproval(db, store, { delivery, secret, policyFor, now = Date.now }) {
+export function createRemoteApproval(db, store, { delivery, secret, policyFor, now = Date.now, dayFor = () => businessDay() }) {
   db.exec(`CREATE TABLE IF NOT EXISTS entry_approval_challenges (
     reviewer TEXT PRIMARY KEY, ticket TEXT NOT NULL, scope TEXT NOT NULL, doc TEXT NOT NULL,
     rev INTEGER NOT NULL, contact TEXT NOT NULL, created INTEGER NOT NULL,
@@ -39,7 +39,7 @@ export function createRemoteApproval(db, store, { delivery, secret, policyFor, n
 
   function enabled(doc, actor) {
     if (!actor.approvalContact || !mayApproveEntry(doc, actor) || doc.result.telegramAllowed !== true) return false;
-    const rule = policyFor(doc.site, businessDay()).approvals(doc, { ...doc.result, telegramAllowed: false });
+    const rule = policyFor(doc.site, dayFor(doc.site)).approvals(doc, { ...doc.result, telegramAllowed: false });
     const expected = doc.result.approvals;
     return rule.telegramAllowed === true && rule.approvals.length === expected.length
       && expected.every((role, index) => role === rule.approvals[index]);
