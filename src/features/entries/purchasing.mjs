@@ -1,6 +1,7 @@
 import { review, ratePerKL } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
+import { calculatedDeduction, financialYearStart, tdsRuleFor } from './tds-deduction.mjs';
 
 function siteOrder(data,c) {
   const config=c.siteConfig, day=c.doc.day;
@@ -25,6 +26,20 @@ export function approvedDeduction(amount,account,input) {
   if (!account?.tds) check(!input,'The approved account is outside the deduction workflow.');
   else check(input!==undefined && input>=0 && input<=amount,'Enter the deduction amount approved by Accounts, including zero if applicable.');
   return money(input??0);
+}
+
+// An approved Tax Master (TDS) rule works the deduction out. Without one, Accounts enters its approved amount.
+export function accountDeduction(c,account,kind,base,ceiling,input) {
+  const rule=account?.tds ? tdsRuleFor(c.siteConfig.tdsRules,account,kind,c.doc.day) : null;
+  if (!rule) return { tds:approvedDeduction(ceiling,account,input) };
+  check(input===undefined,'Leave the deduction blank. The approved Tax Master (TDS) rule works it out.');
+  const [type,party,value]=kind==='purchase' ? ['E3','supplier',row=>row.result.valueBeforeVat??row.result.amount] : ['E9','party',row=>row.result.freight];
+  const prior=c.all.filter(row=>row.id!==c.doc.id&&row.type===type&&row.status==='Posted'&&row.day>=financialYearStart(c.doc.day)
+    &&row.day<=c.doc.day&&row.result[party]===account.code);
+  const total=rows=>rows.reduce((sum,row)=>sum+value(row),0);
+  const deduction=calculatedDeduction({rule,account,kind,base,priorBase:total(prior),priorUntaxed:total(prior.filter(row=>!row.result.tds))});
+  check(deduction.tds<=ceiling,'The calculated deduction exceeds this payment. Review earlier untaxed bills with Accounts.');
+  return deduction;
 }
 
 export const purchasing = {
@@ -66,8 +81,9 @@ export const purchasing = {
     if (c.siteConfig) {
       const supplier=c.siteConfig.accounts.find(account=>account.code===po.data.supplier);
       check(supplier?.bankVerified,'Verify the supplier bank record in the approved Account Master.');
-      const tds=approvedDeduction(d.amount,supplier,d.tds);
-      return { supplier:supplier.code,bank:'Verified supplier account',amount:d.amount,tds,net:money(d.amount-tds),
+      const valueBeforeVat=money(d.amount/(1+(po.result.vat??0)/100));
+      const deduction=accountDeduction(c,supplier,'purchase',valueBeforeVat,d.amount,d.tds);
+      return { supplier:supplier.code,bank:'Verified supplier account',amount:d.amount,valueBeforeVat,...deduction,net:money(d.amount-deduction.tds),
         approvals:['Head – Accounts','CFO'] };
     }
     const yearStart=Number(c.doc.day.slice(0,4))-(c.doc.day.slice(5,7)<'04'?1:0)+'-04-01';

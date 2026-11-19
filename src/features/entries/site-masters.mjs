@@ -69,9 +69,9 @@ export function siteDefinition(type, config) {
   }
   const extra = {
     E1:[{key:'evidence',label:'Reason evidence',type:'file',optional:true}],
-    E3:[{key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
+    E3:[{key:'tds',label:'Accounts-approved deduction (₹) when no Tax Master rule applies',type:'number',optional:true}],
     E9:[{key:'gst',label:'Approved freight GST code',type:'select',optional:true},
-      {key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
+      {key:'tds',label:'Accounts-approved deduction (₹) when no Tax Master rule applies',type:'number',optional:true}],
     E11:[{key:'routeStandard',label:'Operating route standard',type:'select',optional:true},
       {key:'loadedTrips',label:'Loaded trips since last fill',type:'number',optional:true},
       {key:'emptyTrips',label:'Empty trips since last fill',type:'number',optional:true}],
