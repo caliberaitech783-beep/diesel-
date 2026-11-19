@@ -29,6 +29,10 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
       ...(env.WEBSITE_SITE_NAME || entryReviewDirectory ? {
         openingStock: (env.WEBSITE_SITE_NAME || env.DIESEL_ENTRY_ACCESS_MODE==='site-stock')
           && entryReviewDirectory && masterSource && approvedLocationDirectory(masterSource).length ? 'ready' : 'setup',
+        // Names the missing step without exposing any record.
+        entrySetup: !entryReviewDirectory || !masterSource ? 'approved master data cannot be read'
+          : approvedLocationDirectory(masterSource).length ? 'ready'
+            : 'no approved Location Master record in ' + (env.DIESEL_SITE_MASTER_DB ? 'the separate site master file' : 'shared Master Data'),
       } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));

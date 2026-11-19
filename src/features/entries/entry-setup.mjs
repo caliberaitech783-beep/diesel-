@@ -2,7 +2,16 @@ import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
 const pending = 'Diesel Entry is awaiting site setup.';
 
-function setupPage() {
+// Why Entry is still closed, in the words a master maker can act on.
+export const setupReasons = {
+  location: ['No Location Master record is approved yet.',
+    'Open Masters, add the Location Master record for the site and have the Master Checker approve it. Then approve the Item and Storage Location masters.'],
+  source: ['Entry cannot read the approved master data.',
+    'Ask IT to check the Diesel app’s master data storage and its DIESEL_SITE_MASTER_DB setting, then restart the app.'],
+};
+
+function setupPage(reason) {
+  const [cause, action] = setupReasons[reason] ?? [];
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -18,6 +27,7 @@ function setupPage() {
     <section aria-labelledby="page-title">
       <h1 id="page-title">Entry setup</h1>
       <p>${pending}</p>
+      ${cause ? `<p><strong>${cause}</strong> ${action}</p>` : ''}
       <p>Entry opens after the site’s approved master data and verified Pulse roles are connected. The Site In-charge then records measured opening stock for the Project Manager to approve.</p>
       <a href="/">Back to Masters</a>
     </section>
@@ -26,12 +36,12 @@ function setupPage() {
 </html>`;
 }
 
-export function sendEntrySetup(req,res) {
+export function sendEntrySetup(req,res,reason) {
   if (!['GET','HEAD'].includes(req.method) || req.accepts(['html','json']) !== 'html') {
     return res.status(503).json({ error: pending });
   }
   const overview = req.path === '/' || req.path === '/opening-stock';
-  return res.status(overview ? 200 : 503).type('html').send(setupPage());
+  return res.status(overview ? 200 : 503).type('html').send(setupPage(reason));
 }
 
 export function registerEntrySetup(app, { publicOrigin, startSignIn, getProfile }) {
@@ -46,6 +56,6 @@ export function registerEntrySetup(app, { publicOrigin, startSignIn, getProfile 
       if (page) return startSignIn(res, req.path === '/opening-stock' ? '/entries/opening-stock' : '/entries');
       return res.sendStatus(401);
     }
-    return sendEntrySetup(req,res);
+    return sendEntrySetup(req,res,'source');
   });
 }
