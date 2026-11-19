@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { byId } from './catalog.mjs';
 import { businessDay,evaluate,validateFields,validDate,requireValue as check,round,money } from './entry-rules.mjs';
 import { entryRole, otherSite, review, roleKey } from './review-masters.mjs';
+import { mayApproveEntry } from './approval-roles.mjs';
 
 const unpack = row => row && JSON.parse(row.document);
 const finalStates = ['Posted','Superseded'];
@@ -163,7 +164,7 @@ export function createEntryStore(db) {
           if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
       } else if (action==='Approve' || action==='Return') {
-        check(doc.status==='Awaiting approval' && doc.site===actor.site && doc.maker!==actor.id && doc.result.approvals[doc.stage]===role,'This action belongs to another reviewer or stage.');
+        check(mayApproveEntry(doc,actor),'This action belongs to another reviewer or stage.');
         checkLocks(doc);
         if (action==='Return') { check(typeof body.reason==='string' && body.reason.trim() && body.reason.length<=2000,'Give a return reason.'); doc.status='Returned';log+=' · '+body.reason.trim(); }
         else {

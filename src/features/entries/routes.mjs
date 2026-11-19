@@ -3,28 +3,32 @@ import { fileURLToPath } from 'node:url';
 import { byId } from './catalog.mjs';
 import { entryRole } from './review-masters.mjs';
 import { createEntryStore } from './entry-store.mjs';
-import { registerPage,detailPage } from './entry-page.mjs';
+import { registerPage,detailPage,approvalsPage } from './entry-page.mjs';
 import { createLocalApproval } from './local-approval.mjs';
+import { pilotEntry } from './entry-access.mjs';
 
 export function registerEntries(app,db) {
   app.use('/entries',createEntriesRouter(db));
 }
 
-export function createEntriesRouter(db, { hosted = false } = {}) {
+export function createEntriesRouter(db, { hosted = false, assigned = false } = {}) {
   const store=createEntryStore(db);
-  const inbox=createLocalApproval(db,store);
+  const inbox=assigned ? null : createLocalApproval(db,store);
+  const allowedType = type => Object.hasOwn(byId,type) && (!assigned || pilotEntry(type));
   const router=express.Router();
   router.use('/assets',express.static(fileURLToPath(new URL('./assets/',import.meta.url))));
   if (!hosted) router.get('/offline-worker.js',(_req,res)=>res.type('text/javascript').sendFile(fileURLToPath(new URL('./assets/offline-worker.js',import.meta.url))));
   router.get('/',(req,res)=>res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),null,req.query)));
+  if (assigned) router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,store.list(req.dieselActor.site))));
   router.get('/type/:type',(req,res)=>{
-    if (!Object.hasOwn(byId,req.params.type)) return res.sendStatus(404);
+    if (!allowedType(req.params.type)) return res.sendStatus(404);
     res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),req.params.type,req.query));
   });
   router.get('/new/:type',(req,res)=>{
     const a=req.dieselActor, t=byId[req.params.type];
-    if (!t?.maker) return res.sendStatus(404);
-    if (t.id!=='E16' && t.maker!==entryRole(a)) return res.status(403).send('Select the initiator role in the entry register.');
+    if (!allowedType(req.params.type) || !t.maker) return res.sendStatus(404);
+    if (t.id!=='E16' && t.maker!==entryRole(a)) return res.status(403).send(assigned
+      ? 'Your selected role cannot create this entry.' : 'Select the initiator role in the entry register.');
     res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],t.id==='E1'?store.stockPicture(a.site):null));
   });
   router.get('/record/:id',(req,res)=>{
@@ -43,7 +47,7 @@ export function createEntriesRouter(db, { hosted = false } = {}) {
       res.attachment(d.number+'-review.csv').type('text/csv').send('Advice,Supplier,Review account,Net INR\r\n'+[d.number,d.result.supplier,d.result.bank,d.result.net].join(',')+'\r\n');
     } catch {res.sendStatus(404);}
   });
-  router.post('/approval/:id/:step',express.json({limit:'4kb'}),(req,res)=>{
+  if (inbox) router.post('/approval/:id/:step',express.json({limit:'4kb'}),(req,res)=>{
     try {
       if(req.params.step==='request') return res.json({code:inbox.issue(req.params.id,req.dieselActor)});
       if(req.params.step==='confirm') return res.json({url:'/entries/record/'+inbox.confirm(req.params.id,req.dieselActor,req.body.code).id});
@@ -59,7 +63,8 @@ export function createEntriesRouter(db, { hosted = false } = {}) {
   });
   router.post('/record/:id',express.json({limit:'40mb'}),(req,res)=>{
     const actor=req.dieselActor;
-    if (req.body?.actor!==actor.id) return res.status(403).json({error:'Switch back to the site and role that prepared this action.'});
+    if (req.body?.actor!==(actor.actionContext ?? actor.id)) return res.status(403).json({error:'Switch back to the site and role that prepared this action.'});
+    if (assigned && req.body.type!==undefined && !pilotEntry(req.body.type)) return res.sendStatus(404);
     try { const doc=store.write(req.params.id,actor,req.body);res.json({url:'/entries/record/'+doc.id,status:doc.status}); }
     catch (e) { res.status(422).json({error:e.message}); }
   });
