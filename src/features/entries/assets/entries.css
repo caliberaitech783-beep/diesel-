@@ -128,4 +128,3 @@ output { display: block; font-weight: 600; color: var(--link); }output:not(:empt
 :root[data-theme="dark"] .posted { --wash: #1d3733; --tone: #93d8be; }
 :root[data-theme="dark"] .returned { --wash: #412b38; --tone: #f4bccf; }
 :root[data-theme="dark"] .transit { --wash: #26364a; --tone: #a5c9ef; }
-.trial-notice { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--warning, #b7791f); border-radius: 8px; background: color-mix(in srgb, var(--warning, #b7791f) 12%, transparent); }

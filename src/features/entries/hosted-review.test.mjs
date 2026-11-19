@@ -114,7 +114,6 @@ test('hosted site stock requires trusted site assignments and approved masters',
   for (const who of ['l','u']) {
     const sandbox = await (await request('/entries/opening-stock',who)).text();
     assert.match(sandbox,/Trial workspace · sample data · not live records/);
-    assert.match(sandbox,/class="trial-notice".*no Diesel Entry role at an approved site/s);
     assert.doesNotMatch(sandbox,/Approve an Item Master record|name="litres"/);
     assert.notEqual((await request('/entries/opening-stock',who,new URLSearchParams({item:'anything'}))).status,303);
   }
