@@ -74,6 +74,7 @@ test('Entry opens live for a person with a role at a Pulse site and as a private
   const first = await (await request('/entries', 'n')).text();
   assert.match(first, /Trial workspace · sample data · not live records/);
   assert.match(first, /class="trial-notice".*No site from your Pulse roles has a Location Master record yet/s);
+  assert.match(first, /Reason:<\/strong> Pulse sent no Diesel site role for your login/);
   assert.equal((await request('/entries/new/E1', 'n')).status, 200);
   assert.equal((await request('/entries/new/E11', 'n')).status, 403);
   const asBowser = await request('/workspace/role', 'n', new URLSearchParams({ site: 'Sasti', role: roleKey('Bowser operator') }));
@@ -82,6 +83,10 @@ test('Entry opens live for a person with a role at a Pulse site and as a private
   assert.equal((await request('/workspace/role', 'n', new URLSearchParams({ site: 'Unknown', role: roleKey('CFO') }))).status, 400);
   assert.match(await health(), /no approved Location Master record/);
 
+  const unlisted = await (await request('/entries', 'x')).text();
+  assert.match(unlisted, /Reason:<\/strong> The Pulse Site Master has no site matching your role site: Not in Pulse\./);
+  assert.deepEqual((await (await fetch(address + '/healthz')).json()).entryLocationRun,
+    { roleSites: 1, created: 0, notInPulseSiteMaster: 1, pulseSites: 4, entryRoles: 1 });
   const live = await (await request('/entries/opening-stock', 's')).text();
   assert.equal(await health(), 'ready');
   assert.match(live, /Site stock workspace/);
@@ -92,6 +97,7 @@ test('Entry opens live for a person with a role at a Pulse site and as a private
   for (const who of ['n','x']) {
     const sandbox = await (await request('/entries', who)).text();
     assert.match(sandbox, /class="trial-notice".*no Diesel Entry role at an approved site/s);
+    assert.match(sandbox, who === 'n' ? /Pulse sent no Diesel site role for your login/ : /no site matching your role site: Not in Pulse/);
     assert.doesNotMatch(sandbox, /Site stock workspace/);
   }
   assert.deepEqual(approvedLocationDirectory(masterDb).length, 1);

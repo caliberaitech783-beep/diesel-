@@ -33,6 +33,7 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
         entrySetup: !entryReviewDirectory || !masterSource ? 'approved master data cannot be read'
           : approvedLocationDirectory(masterSource).length ? 'ready'
             : 'no approved Location Master record in ' + (env.DIESEL_SITE_MASTER_DB ? 'the separate site master file' : 'shared Master Data'),
+        ...(app.locals.entryLocationRun ? { entryLocationRun: app.locals.entryLocationRun } : {}),
       } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));

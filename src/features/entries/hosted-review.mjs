@@ -45,17 +45,36 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
   const siteStock = Boolean(siteMasterDb);
   const cookie = (secure ? '__Host-' : '') + (siteStock ? 'diesel_stock_assignment' : assigned ? 'diesel_entry_assignment' : 'diesel_review_context');
   // Each site named in a verified Pulse role starts with a Location Master record taken from Pulse's own Site Master.
-  const seen = new Set();
+  // Returns what happened, so a person left in the trial is told exactly why.
+  const seen = new Map();
   function locationsFromPulse(profile) {
     const grants = [...masterAssignments(profile), ...(Array.isArray(profile.dieselEntryAccess) ? profile.dieselEntryAccess : [])]
       .map(grant => ({ site: grant?.site, project: grant?.project ?? undefined }));
     const mark = JSON.stringify(grants);
-    if (seen.has(mark)) return;
+    if (seen.has(mark)) return seen.get(mark);
+    const roleSites = [...new Set(grants.map(grant => typeof grant.site === 'string' ? grant.site.trim() : '').filter(Boolean))];
+    const outcome = { roleSites, missing: [], pulseSites: 0 };
     try {
-      const { missing } = createLocationsFromPulseSites(siteMasterDb, grants, createPulseMasterStore(siteMasterDb).read('site').records);
+      const copy = createPulseMasterStore(siteMasterDb).read('site').records;
+      outcome.pulseSites = copy.length;
+      const { created, missing } = createLocationsFromPulseSites(siteMasterDb, grants, copy);
+      Object.assign(outcome, { created: created.length, missing });
       // A site Pulse has not listed yet is tried again once the Site Master copy has been fetched.
-      if (!missing.length) seen.add(mark);
-    } catch { /* A read-only or incomplete master source leaves locations to the master makers. */ }
+      if (!missing.length) seen.set(mark, outcome);
+    } catch (error) { outcome.error = String(error?.message ?? error).slice(0, 200); }
+    // Counts only: the health check shows this without naming a site or a person.
+    app.locals.entryLocationRun = { roleSites: roleSites.length, created: outcome.created ?? 0, notInPulseSiteMaster: outcome.missing.length,
+      pulseSites: outcome.pulseSites, entryRoles: Array.isArray(profile.dieselEntryAccess) ? profile.dieselEntryAccess.length : 0,
+      ...(outcome.error ? { error: outcome.error } : {}) };
+    return outcome;
+  }
+  function trialReason(outcome, profile, locations) {
+    const entrySites = (Array.isArray(profile.dieselEntryAccess) ? profile.dieselEntryAccess : []).map(grant => grant?.site).filter(site => typeof site === 'string');
+    if (outcome?.error) return 'Diesel could not create the location: ' + outcome.error;
+    if (!outcome?.roleSites.length) return 'Pulse sent no Diesel site role for your login, so Diesel does not know your site or post. Ask the Pulse administrator to give your login a Diesel Entry role at a site.';
+    if (outcome.missing.length) return (outcome.pulseSites ? 'The Pulse Site Master has no site matching your role site: ' : 'Diesel has no copy of the Pulse Site Master yet (open Master Data, Site Master) for your role site: ') + outcome.missing.join(', ') + '.';
+    if (!entrySites.length) return 'Your login has a Master Data role at ' + outcome.roleSites.join(', ') + ' but no Diesel Entry role. Ask the Pulse administrator to give your login a post such as Site In-charge at that site.';
+    return 'Your Diesel Entry role sites (' + entrySites.join(', ') + ') do not match an approved location (' + locations.map(location => location.site).join(', ') + ').';
   }
   const gate = async (req,res,next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.get('origin') !== publicOrigin) return res.sendStatus(403);
@@ -74,7 +93,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       let context;
       try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
       const [site,role] = (context ?? '').split('.');
-      if (siteStock) locationsFromPulse(profile);
+      const pulseOutcome = siteStock ? locationsFromPulse(profile) : null;
       const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
       // Until the first Location Master record is approved, each person gets a private trial workspace on sample data.
       // It never touches the live ledger and gives way to live Entry as soon as a location is approved.
@@ -86,7 +105,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
-      if (trial) req.dieselActor.trial = locations.length ? 'role' : 'location';
+      if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
       req.reviewOwner = trial ? 'trial-'+owner : siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
