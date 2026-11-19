@@ -6,18 +6,24 @@ const normalize = value => typeof value === 'string'
   : '';
 const roleNames = new Map(pilotRoles.map(role => [normalize(role), role]));
 roleNames.set('head of procurement', 'Head – Procurement');
-const siteNames = new Map(sites.flatMap(site => [[normalize(site), site], [normalize(site + ' OC'), site]]));
+const sampleSiteNames = new Map(sites.flatMap(site => [[normalize(site), site], [normalize(site + ' OC'), site]]));
+const siteKey = value => typeof value === 'string' ? value.trim().normalize('NFKC').toLowerCase() : '';
 
 export const pilotEntry = type => type === 'E1' || type === 'E2';
 
 // Each grant binds one role to one site. Only the verified Pulse response supplies grants.
-export function entryAssignments(profile, siteStock = false, approvedSites = []) {
+export function entryAssignments(profile, siteStock = false, locations = []) {
   if (typeof profile?.login !== 'string' || !profile.login.trim() || !Array.isArray(profile.dieselEntryAccess)) return [];
   const assignments = new Map();
-  const siteKey = value => typeof value === 'string' ? value.trim().normalize('NFKC').toLowerCase() : '';
-  const locations = new Map(approvedSites.map(site => [siteKey(site), site]));
+  const scopes = new Map(locations.map(({site}) => [siteKey(site),site]));
+  const projectNames = new Map();
+  for (const { site, pulseName } of locations) {
+    const name = siteKey(pulseName);
+    if (name) projectNames.set(name, projectNames.has(name) && projectNames.get(name) !== site ? null : site);
+  }
   for (const grant of profile.dieselEntryAccess) {
-    const site = locations.get(siteKey(grant?.site)) ?? siteNames.get(normalize(grant?.site));
+    const name = siteKey(grant?.site);
+    const site = siteStock ? scopes.get(name) ?? projectNames.get(name) : sampleSiteNames.get(normalize(grant?.site));
     const role = roleNames.get(normalize(grant?.role)) ?? (siteStock
       ? (normalize(grant?.role)==='head of accounts' ? 'Head – Accounts' : roles.find(name=>normalize(name)===normalize(grant?.role))) : undefined);
     if (!site || !role) continue;

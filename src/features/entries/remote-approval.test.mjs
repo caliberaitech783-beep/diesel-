@@ -18,20 +18,21 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   const directory = await mkdtemp(join(tmpdir(), 'diesel-remote-approval-'));
   const masterDb = openDieselDatabase(':memory:');
   const origin = 'https://diesel.test';
-  const site = 'Majri North';
+  const site = 'Majri North', otherSite = 'Another Project';
   const day = businessDay();
   const year = Number(day.slice(0, 4)) - Number(day.slice(5, 7) < '04');
-  syncPulseProjects(masterDb, [{ name: 'Test client', sites: ['Jayant OC', 'Sasti OC', site] }]);
+  assert.equal(syncPulseProjects(masterDb, [{ name: 'Test client', sites: [site,otherSite] }]).length,2);
   const masters = createMasterStore(masterDb, ['item-master','location-master','storage-location-master',
     'document-numbering-master','approval-limit-master','reason-code-master']);
-  function master(kind, fields) {
+  function master(kind, fields, scope = site) {
     const defaults = Object.fromEntries(masterDefinition(kind).fields.filter(field => field.required)
       .map(field => [field.key, field.options?.[0] ?? { number:'10', date:day, time:'06:00' }[field.type] ?? 'Test']));
-    const record = masters.create(kind, { site, values: { ...defaults, ...fields } }, { id: 'master-maker' });
+    const record = masters.create(kind, { site:scope, values: { ...defaults, ...fields } }, { id: 'master-maker' });
     return masters.changeStatus(kind, record.id, record.revision, 'approve', { id: 'master-checker' });
   }
   master('item-master', { 'Item Code':'HSD', 'Density minimum (kg/m³)':'815', 'Density maximum (kg/m³)':'845' });
   master('location-master', { 'Location Code':'MN-1' });
+  master('location-master', { 'Location Code':'OTHER-1' }, otherSite);
   master('storage-location-master', { 'Storage type':'Bowser', Location:'MN-1', 'Storage Loc Code':'MN-B',
     'Capacity (L)':'2000', 'Safe fill level (L)':'1500' });
   master('reason-code-master', { Code:'START', Description:'Start of operations' });
@@ -45,9 +46,9 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   const projectManager = { site, role:'Project Manager' };
   const profiles = {
     i:{ login:'maker', dieselEntryAccess:[{site,role:'Site In-charge'},projectManager], dieselApprovalContact:contact },
-    r:{ login:'reviewer', dieselEntryAccess:[{site:'Jayant',role:'Project Manager'},projectManager], dieselApprovalContact:contact },
+    r:{ login:'reviewer', dieselEntryAccess:[{site:otherSite,role:'Project Manager'},projectManager], dieselApprovalContact:contact },
     s:{ login:'second', dieselEntryAccess:[projectManager], dieselApprovalContact:{...contact,telegramChatId:'2345678'} },
-    o:{ login:'other', dieselEntryAccess:[{site:'Sasti',role:'Project Manager'}], dieselApprovalContact:contact },
+    o:{ login:'other', dieselEntryAccess:[{site:otherSite,role:'Project Manager'}], dieselApprovalContact:contact },
     u:{ login:'unknown', dieselEntryAccess:[{site:'Unknown Site',role:'Project Manager'}], dieselApprovalContact:contact },
   };
   const delivered = [];
@@ -138,7 +139,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   assert.equal((await request(sendBack,'r',{...correct,reason:'Wrong action'},reviewerSite)).status,422);
   const badCode = sms.variables_values === '000000' ? '000001' : '000000';
   assert.match(await (await request(approve,'r',{...correct,code:badCode},reviewerSite)).text(),/Incorrect SMS code/);
-  profiles.r.dieselEntryAccess = [{site:'Jayant',role:'Project Manager'}];
+  profiles.r.dieselEntryAccess = [{site:otherSite,role:'Project Manager'}];
   assert.equal((await request(approve,'r',correct,reviewerSite)).status,403);
   profiles.r.dieselEntryAccess.push(projectManager);
   const result = await request(approve,'r',correct,reviewerSite);

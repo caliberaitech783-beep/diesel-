@@ -1,27 +1,23 @@
-// These scopes also identify existing local Item Master records and review roles.
-const pilotNames = { Jayant: 'Jayant OC', Sasti: 'Sasti OC' };
+// Preserve the keys of Location records created with the original sample directory.
+const legacySiteKeys = new Map([['jayant oc', 'Jayant'], ['sasti oc', 'Sasti']]);
 
 export function preparePulseProjects(db) {
   db.exec('CREATE TABLE IF NOT EXISTS pulse_projects (site TEXT PRIMARY KEY, name TEXT NOT NULL, client TEXT NOT NULL)');
 }
 
 export function syncPulseProjects(db, regions) {
-  const projects = Object.entries(pilotNames).map(([site, name]) => {
-    const matches = regions.filter(region => region.sites.includes(name));
-    if (matches.length !== 1 || !matches[0].name?.trim()) throw new Error('Check the Pulse 1 project mapping for ' + site);
-    return { site, name, client: matches[0].name.trim() };
-  });
-  const pilot = new Set(Object.values(pilotNames).map(name => name.toLowerCase()));
-  const additional = new Map();
-  for (const region of regions) for (const name of region.sites) {
-    const site = name.trim().normalize('NFKC'), key = site.toLowerCase();
-    if (!site || site.length > 120 || pilot.has(key) || Object.keys(pilotNames).some(label => label.toLowerCase() === key)) continue;
+  const byScope = new Map();
+  for (const region of regions) for (const raw of region.sites) {
+    const name = raw.trim().normalize('NFKC'), nameKey = name.toLowerCase();
+    if (!name || name.length > 120) continue;
+    const site = legacySiteKeys.get(nameKey) ?? name;
+    const key = site.toLowerCase();
     // Names shared by several clients need an explicit source mapping.
-    additional.set(key, additional.has(key) ? null : {
-      site, name: site, client: region.name?.trim(),
+    byScope.set(key, byScope.has(key) ? null : {
+      site, name, client: region.name?.trim(),
     });
   }
-  projects.push(...[...additional.values()].filter(project => project?.client));
+  const projects = [...byScope.values()].filter(project => project?.client);
   preparePulseProjects(db);
   db.exec('BEGIN IMMEDIATE');
   try {

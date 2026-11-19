@@ -1,4 +1,4 @@
-import { approvedLocationSites, readActiveMasters } from '../masters/records.mjs';
+import { approvedLocationDirectory, readActiveMasters } from '../masters/records.mjs';
 import { entryPolicy, policyMasters } from './entry-policy.mjs';
 import { readSiteMasters } from './site-masters.mjs';
 import { createOpeningStockStore } from './opening-stock.mjs';
@@ -14,7 +14,7 @@ export function siteEntryWorkspace(siteDb, masterDb) {
     const record = opening.get(site);
     if (record?.status !== 'approved') return null;
     const { items: _items, storage: _storage, ...masters } = mastersFor(site);
-    const authorized = new Set(approvedLocationSites(masterDb));
+    const authorized = new Set(approvedLocationDirectory(masterDb).map(({site})=>site));
     const destinations = opening.approved().filter(next => next.site !== site && authorized.has(next.site))
       .map(({ site, item, storage, businessDay }) => ({ site, item, storage, businessDay }));
     return { ...record, ...masters, destinations };

@@ -7,6 +7,7 @@ import test from 'node:test';
 import { createApp } from '../../server.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createMasterStore } from '../masters/records.mjs';
+import { syncPulseProjects } from '../masters/pulse-projects.mjs';
 
 test('hosted Entry checks Pulse for every site, file, export and role action and separates review accounts', async t=>{
   const dir=await mkdtemp(join(tmpdir(),'diesel-hosted-review-'));
@@ -52,11 +53,17 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
 test('hosted site stock requires trusted site assignments and approved masters',async t=>{
   const dir=await mkdtemp(join(tmpdir(),'diesel-site-stock-'));
   const origin='https://diesel.test', masterDb=openDieselDatabase(':memory:');
-  createMasterStore(masterDb);
+  syncPulseProjects(masterDb,[{name:'Test client',sites:['Jayant OC']}]);
+  const masters = createMasterStore(masterDb,['location-master']);
+  const location = masters.create('location-master',{site:'Jayant',values:{'Location Code':'TEST',
+    'Business day cut-off':'06:00','Site In-charge':'Test operator','Project Manager':'Test manager',
+    'Receipt scenario allowed':'UG tank'}},{id:'maker'});
+  masters.changeStatus(location.master,location.id,location.revision,'approve',{id:'checker'});
   const env={WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),
     DIESEL_ENTRY_ACCESS_MODE:'site-stock',DIESEL_ALLOWED_PULSE_LOGINS:'legacy'};
-  const profiles={ s:{login:'site-maker',dieselEntryAccess:[{site:'Jayant',role:'Site In-charge'}]},
-    b:{login:'bowser',dieselEntryAccess:[{site:'Jayant',role:'Bowser operator'}]}, l:{login:'legacy'} };
+  const profiles={ s:{login:'site-maker',dieselEntryAccess:[{site:'Jayant OC',role:'Site In-charge'}]},
+    b:{login:'bowser',dieselEntryAccess:[{site:'Jayant',role:'Bowser operator'}]}, l:{login:'legacy'},
+    u:{login:'unapproved',dieselEntryAccess:[{site:'Sasti',role:'Project Manager'}]} };
   const app=createApp({env,entryReviewDirectory:dir,siteMasterDb:masterDb,
     fetcher:async(_url,options)=>Response.json({profile:profiles[JSON.parse(options.body).grant[0]]})});
   const server=app.listen(0,'127.0.0.1');await once(server,'listening');
@@ -67,6 +74,7 @@ test('hosted site stock requires trusted site assignments and approved masters',
   assert.equal((await (await request('/healthz')).json()).openingStock,'ready');
   assert.equal((await request('/entries/opening-stock')).status,303);
   assert.equal((await request('/entries/opening-stock','l')).status,403);
+  assert.equal((await request('/entries/opening-stock','u')).status,403);
   assert.match(await(await request('/entries/opening-stock','s')).text(),/Approve an Item Master record/);
   assert.equal((await request('/entries/new/E11','b')).headers.get('location'),'/entries/opening-stock');
   assert.equal((await request('/entries/type/E2','s')).status,200);

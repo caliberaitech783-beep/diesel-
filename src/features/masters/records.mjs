@@ -50,11 +50,12 @@ export function readActiveMasters(db, site, enabledMasters = ['item-master']) {
   return available;
 }
 
-export function approvedLocationSites(db) {
+export function approvedLocationDirectory(db) {
   const rows = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
     ON h.record_id=m.id AND h.revision=m.approved_revision
     WHERE m.master='location-master' AND m.status!='inactive' AND m.approved_site_key!='' ORDER BY m.approved_site_key`).all();
-  return [...new Set(rows.map(row => JSON.parse(row.snapshot)).filter(isActive).map(item => item.site))];
+  return rows.map(row => JSON.parse(row.snapshot)).filter(isActive)
+    .map(item => ({ site: item.site, pulseName: item.values['Location Name'] }));
 }
 
 export function createMasterStore(db, enabledMasters = ['item-master']) {

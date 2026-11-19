@@ -7,7 +7,7 @@ import { entryAssignments } from '../entries/entry-access.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
 import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
 import { telegramApprovalPath } from '../entries/remote-approval.mjs';
-import { approvedLocationSites } from '../masters/records.mjs';
+import { approvedLocationDirectory } from '../masters/records.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -39,7 +39,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   const siteStock = entryMode === 'site-stock' && Boolean(siteMasterDb);
   const assigned = entryMode === 'assigned-pilot' || siteStock;
   const entryAllowed = profile => Boolean(entryReviewDirectory && assigned
-    && entryAssignments(profile,siteStock,siteStock ? approvedLocationSites(siteMasterDb) : []).length);
+    && entryAssignments(profile,siteStock,siteStock ? approvedLocationDirectory(siteMasterDb) : []).length);
   const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
