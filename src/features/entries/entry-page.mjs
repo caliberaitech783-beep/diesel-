@@ -3,6 +3,8 @@ import { byId } from './catalog.mjs';
 import { entryRole,roleKey,otherSite,review } from './review-masters.mjs';
 import { businessDay } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
+import { canChooseRole } from './entry-access.mjs';
+import { mayApproveEntry } from './approval-roles.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -16,6 +18,10 @@ function table(rows) {
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
     <td class="doc-number">${esc(r.number||'Draft')}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[r.status]??'draft'}">${esc(r.status)}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
+export function approvalsPage(actor, rows) {
+  return page('My approvals', actor, 'approvals', '/entries/approvals', table(rows.filter(doc => mayApproveEntry(doc, actor))));
+}
+
 export function registerPage(actor,rows,type,query={}) {
   const meta=byId[type], path=meta?'/entries/type/'+type:'/entries';
   const text=String(query.q??'').slice(0,100).toLowerCase(), status=String(query.status??'');
@@ -29,7 +35,9 @@ export function registerPage(actor,rows,type,query={}) {
     ${!meta ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
   const exportUrl='/entries/export.csv?type='+(type??'')+'&amp;q='+encodeURIComponent(text)+'&amp;status='+encodeURIComponent(status);
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
-    ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`:meta.maker?switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker):'<span>Generated after an accepted tank inspection or approved empty confirmation.</span>'}</div>`:''}
+    ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
+      : meta.maker ? (canChooseRole(actor, actor.site, roleKey(meta.maker)) ? switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker) : '')
+      : '<span>Generated after an accepted tank inspection or approved empty confirmation.</span>'}</div>`:''}
     ${!meta&&openTankers.length?`<p>Overdue tanker empty confirmations: ${openTankers.map(r=>`<a href="${recordPath(r)}">${esc(r.number)}</a>`).join(', ')}</p>`:''}
     ${!meta?`<div class="counts">${[['Draft','Drafts','draft'],['Awaiting approval','Awaiting approval','waiting'],['Posted','Posted','posted']].map(([value,label,tone])=>
       `<a class="${tone}" href="/entries?status=${encodeURIComponent(value)}" ${status===value?'aria-current="true"':''}><span class="count-label">${label}</span><strong>${rows.filter(r=>r.status===value).length}</strong><i class="metric-symbol" aria-hidden="true"></i></a>`).join('')}</div>`:''}
@@ -52,14 +60,17 @@ function display(value) {
   return typeof value==='number'?esc(value.toLocaleString('en-IN',{maximumFractionDigits:4})):esc(value??'—');
 }
 export function detailPage(actor,d,rows,history,picture) {
-  const meta=byId[d.type],role=entryRole(actor),editable=['Draft','Returned'].includes(d.status)&&d.maker===actor.id;
+  const meta=byId[d.type],role=entryRole(actor);
+  const editable=['Draft','Returned'].includes(d.status)&&d.maker===actor.id&&(meta.maker===role||d.type==='E16');
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=d.result.approvals?.[d.stage];
-  const reviewable=d.status==='Awaiting approval' && actor.site===d.site && role===next && actor.id!==d.maker;
+  const reviewable=mayApproveEntry(d,actor);
   const receipt=d.type==='E12'&&actor.site===d.result.destination;
   let switchForm='';
   if (d.status==='Awaiting approval'&&!reviewable) {
     const profile=next==='Site In-charge'&&d.maker===d.site+'-'+roleKey(next)?'entry-deputy':roleKey(next);
-    switchForm=switchTo(profile,d.site,back,'Review as '+(profile==='entry-deputy'?'Deputy Site In-charge':next));
+    if ((!actor.assignments || d.maker!==actor.id) && canChooseRole(actor,d.site,profile)) {
+      switchForm=switchTo(profile,d.site,back,'Review as '+(profile==='entry-deputy'?'Deputy Site In-charge':next));
+    }
   }
   if (d.status==='Awaiting Treasury'&&role!=='Treasury') switchForm=switchTo(roleKey('Treasury'),d.site,back,'Open as Treasury');
   if (d.type==='E12'&&['In transit','Receipt review'].includes(d.status)) {
@@ -86,6 +97,6 @@ export function detailPage(actor,d,rows,history,picture) {
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${review.reasons.map(v=>option(v,v,false)).join('')}</select></label></div>`:''}
     <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
-    ${reviewable?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
+    ${reviewable&&!actor.assignments?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time></li>`).join('')}</ol></section>`:''}`);
 }

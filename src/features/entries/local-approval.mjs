@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { entryRole } from './review-masters.mjs';
+import { mayApproveEntry } from './approval-roles.mjs';
 import { requireValue as check } from './entry-rules.mjs';
 
 // This local inbox substitutes for Telegram and SMS during operator review.
@@ -8,7 +8,7 @@ export function createLocalApproval(db,store) {
   const current=id=>db.prepare('SELECT * FROM entry_review_otp WHERE actor=?').get(id);
   function eligible(id,actor) {
     const doc=store.read(id,actor.site);
-    check(doc.status==='Awaiting approval' && doc.site===actor.site && doc.maker!==actor.id && doc.result.approvals[doc.stage]===entryRole(actor),'This approval is no longer waiting for this reviewer.');
+    check(mayApproveEntry(doc,actor),'This approval is no longer waiting for this reviewer.');
     return doc;
   }
   function issue(id,actor,now=Date.now()) {

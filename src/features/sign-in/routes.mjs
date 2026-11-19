@@ -3,6 +3,7 @@ import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.
 import { loginPage, signInPage } from './page.mjs';
 import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 import { registerHostedReview } from '../entries/hosted-review.mjs';
+import { entryAssignments } from '../entries/entry-access.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
@@ -25,6 +26,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   const allowedLogins = new Set((env.DIESEL_ALLOWED_PULSE_LOGINS ?? '')
     .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
   const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
+  const entryMode = env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review';
+  if (!['personal-review', 'assigned-pilot'].includes(entryMode)) {
+    throw new Error('DIESEL_ENTRY_ACCESS_MODE must be personal-review or assigned-pilot.');
+  }
+  const assigned = entryMode === 'assigned-pilot';
+  const entryAllowed = profile => Boolean(entryReviewDirectory && assigned && entryAssignments(profile).length);
   const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
@@ -78,9 +85,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (entryReviewDirectory) {
-    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,startSignIn:response=>startSignIn(response,'entries'),
+    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,startSignIn:response=>startSignIn(response,'entries'),
       async getProfile(request) {
         const result = await verifySession(request);
+        if (assigned && typeof result?.profile?.login === 'string') {
+          return { ...result.profile, dieselMastersAllowed: allowed(result.profile) };
+        }
         return allowed(result?.profile) ? result.profile : null;
       },
     });
@@ -98,6 +108,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
         profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions),
       });
     }
+    if (entryAllowed(result?.profile)) return response.redirect(303, '/entries');
     if (result?.profile?.login) {
       response.clearCookie(sessionCookie, options);
       return page(response, 403, { message: denied });
@@ -119,13 +130,14 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     const result = await pulse.request('exchange', { code, state, verifier });
     if (!isProof(result?.grant)) return page(response, 401, { message: expired });
     const verified = await pulse.request('validate', { grant: result.grant });
-    if (!allowed(verified?.profile)) {
+    if (!allowed(verified?.profile) && !entryAllowed(verified?.profile)) {
       response.clearCookie(sessionCookie, options);
       await pulse.request('revoke', { grant: result.grant });
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
-    response.redirect(303, destination === 'entries' && entryReviewDirectory ? '/entries' : '/');
+    const openEntries = entryReviewDirectory && (destination === 'entries' || !allowed(verified?.profile));
+    response.redirect(303, openEntries ? '/entries' : '/');
   }));
 
   app.post('/api/sign-out', route(async (request, response) => {
