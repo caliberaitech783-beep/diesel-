@@ -23,6 +23,9 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   }
   const get=await request('/entries','a');assert.equal(get.status,200);
   const html=await get.text();assert.match(html,/Personal review · sample data/);
+  const offlineScope=html.match(/data-offline-scope="([a-f0-9]{64})"/)?.[1];
+  assert.ok(offlineScope);
+  assert.doesNotMatch(await (await request('/entries','b')).text(),new RegExp(offlineScope));
   const path=html.match(/href="(\/entries\/record\/[a-f0-9-]+)"/)[1];
   assert.match(await (await request(path,'a')).text(),/Purchase order/);
   assert.equal((await request(path,'b')).status,404);
@@ -31,7 +34,11 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   assert.equal((await request('/workspace/role','a',{...role,headers:{Origin:'https://other.test'}})).status,403);
   const switched=await request('/workspace/role','a',role);assert.equal(switched.status,303);
   const roleCookie=switched.headers.get('set-cookie').split(';')[0];
+  const otherHeaders={Origin:origin,'Content-Type':'application/json',cookie:'__Host-diesel_session='+'b'.repeat(43)+'; '+roleCookie};
+  const rejected=await request(path,'b',{method:'POST',headers:otherHeaders,
+    body:JSON.stringify({action:'Approve',rev:1,actor:'Jayant-entry-2',offlineScope})});
+  assert.equal(rejected.status,403);
   const headers={Origin:origin,'Content-Type':'application/json',cookie:'__Host-diesel_session='+'a'.repeat(43)+'; '+roleCookie};
-  const approved=await request(path,'a',{method:'POST',headers,body:JSON.stringify({action:'Approve',rev:1,actor:'Jayant-entry-2'})});
+  const approved=await request(path,'a',{method:'POST',headers,body:JSON.stringify({action:'Approve',rev:1,actor:'Jayant-entry-2',offlineScope})});
   assert.equal((await approved.json()).status,'Posted');
 });

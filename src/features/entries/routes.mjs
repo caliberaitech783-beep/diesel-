@@ -1,25 +1,55 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { basename, dirname } from 'node:path';
 import { byId } from './catalog.mjs';
 import { entryRole } from './review-masters.mjs';
 import { createEntryStore } from './entry-store.mjs';
-import { registerPage,detailPage,approvalsPage } from './entry-page.mjs';
+import { registerPage,detailPage,approvalsPage,alertsPage,roleHomePage } from './entry-page.mjs';
 import { createLocalApproval } from './local-approval.mjs';
 import { pilotEntry } from './entry-access.mjs';
+import { entryPolicy, policyMasters } from './entry-policy.mjs';
+import { businessDay } from './entry-rules.mjs';
+import { readActiveMasters } from '../masters/records.mjs';
+import { entryAlerts } from './entry-alerts.mjs';
+import { registerFilters, filterRegister, entryCsv } from './entry-register.mjs';
+import { closeJournalCsv } from './accounting-export.mjs';
+import { isInvoiceImage, readInvoiceImage } from './invoice-ocr.mjs';
+
+const qrDecoder = createRequire(import.meta.url).resolve('jsqr');
+let readingInvoice = false;
 
 export function registerEntries(app,db) {
-  app.use('/entries',createEntriesRouter(db));
+  app.use('/entries',createEntriesRouter(db,{policyFor:(site, day) => entryPolicy(readActiveMasters(db, site, policyMasters),site,day)}));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false } = {}) {
-  const store=createEntryStore(db);
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy() } = {}) {
+  const store=createEntryStore(db,{policyFor});
   const inbox=assigned ? null : createLocalApproval(db,store);
   const allowedType = type => Object.hasOwn(byId,type) && (!assigned || pilotEntry(type));
   const router=express.Router();
   router.use('/assets',express.static(fileURLToPath(new URL('./assets/',import.meta.url))));
+  router.get('/assets/qr-decoder.js',(_req,res)=>res.type('js').sendFile(basename(qrDecoder),{root:dirname(qrDecoder)}));
+  if (!assigned) router.post('/invoice-photo', express.raw({ type: 'image/png', limit: '5mb' }), async (req,res) => {
+    if (entryRole(req.dieselActor) !== 'Site Store') return res.sendStatus(403);
+    if (!isInvoiceImage(req.body)) return res.status(422).json({error:'Choose a clear invoice photo.'});
+    if (readingInvoice) return res.status(429).json({error:'Another invoice is being read. Try again in a moment.'});
+    readingInvoice = true;
+    try { res.json({fields:await readInvoiceImage(req.body)}); }
+    catch { res.status(422).json({error:'Could not read this photo. Enter the invoice details by hand.'}); }
+    finally { readingInvoice = false; }
+  });
   if (!hosted) router.get('/offline-worker.js',(_req,res)=>res.type('text/javascript').sendFile(fileURLToPath(new URL('./assets/offline-worker.js',import.meta.url))));
   router.get('/',(req,res)=>res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),null,req.query)));
-  if (assigned) router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,store.list(req.dieselActor.site))));
+  router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,store.list(req.dieselActor.site))));
+  function withAlerts(render) {
+    return (req,res) => {
+      const actor = req.dieselActor, rows = store.list(actor.site);
+      res.send(render(actor, rows, entryAlerts(rows, actor, policyFor(actor.site, businessDay()))));
+    };
+  }
+  router.get('/alerts',withAlerts((actor, _rows, alerts) => alertsPage(actor, alerts)));
+  router.get('/home',withAlerts(roleHomePage));
   router.get('/type/:type',(req,res)=>{
     if (!allowedType(req.params.type)) return res.sendStatus(404);
     res.send(registerPage(req.dieselActor,store.list(req.dieselActor.site),req.params.type,req.query));
@@ -27,7 +57,8 @@ export function createEntriesRouter(db, { hosted = false, assigned = false } = {
   router.get('/new/:type',(req,res)=>{
     const a=req.dieselActor, t=byId[req.params.type];
     if (!allowedType(req.params.type) || !t.maker) return res.sendStatus(404);
-    if (t.id!=='E16' && t.maker!==entryRole(a)) return res.status(403).send(assigned
+    const role = entryRole(a);
+    if (t.id!=='E16' && t.maker!==role && !(t.id==='E15' && role==='Site Store')) return res.status(403).send(assigned
       ? 'Your selected role cannot create this entry.' : 'Select the initiator role in the entry register.');
     res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],t.id==='E1'?store.stockPicture(a.site):null));
   });
@@ -55,15 +86,24 @@ export function createEntriesRouter(db, { hosted = false, assigned = false } = {
     } catch(e) {res.status(422).json({error:e.message});}
   });
   router.get('/export.csv',(req,res)=>{
-    const rows=store.list(req.dieselActor.site).filter(r=>(!req.query.type||req.query.type===r.type)&&(!req.query.status||r.status===req.query.status)
-      && (!req.query.q||[r.number,r.type,byId[r.type].name,...Object.values(r.data).filter(v=>typeof v==='string')].join(' ').toLowerCase().includes(String(req.query.q).toLowerCase())));
-    const csvCell=v=>'"'+String(v??'').replace(/^([=+@\-\t\r])/,"'$1").replaceAll('"','""')+'"';
+    const rows=filterRegister(store.list(req.dieselActor.site),req.query.type,registerFilters(req.query));
     const data=[['Document','Entry','Site','Date','Status','Details','Results'],...rows.map(r=>[r.number,byId[r.type].name,r.site,r.day,r.status,JSON.stringify(r.data),JSON.stringify(r.result)])];
-    res.attachment('diesel-entries.csv').type('text/csv').send('\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n'));
+    res.attachment('diesel-entries.csv').type('text/csv').send(entryCsv(data));
+  });
+  router.get('/accounting/:id.csv',(req,res)=>{
+    const actor = req.dieselActor;
+    if (!['Head – Accounts','CFO'].includes(entryRole(actor))) return res.sendStatus(403);
+    let close;
+    try { close=store.read(req.params.id,actor.site); } catch { return res.sendStatus(404); }
+    if (close.type !== 'E17' || close.status !== 'Posted') return res.sendStatus(404);
+    res.attachment(close.number+'-review-journal.csv').type('text/csv').send(closeJournalCsv(close));
   });
   router.post('/record/:id',express.json({limit:'40mb'}),(req,res)=>{
     const actor=req.dieselActor;
     if (req.body?.actor!==(actor.actionContext ?? actor.id)) return res.status(403).json({error:'Switch back to the site and role that prepared this action.'});
+    if (req.body.offlineScope!==undefined && req.body.offlineScope!==actor.offlineScope) {
+      return res.status(403).json({error:'Sign in with the Pulse account that prepared this action.'});
+    }
     if (assigned && req.body.type!==undefined && !pilotEntry(req.body.type)) return res.sendStatus(404);
     try { const doc=store.write(req.params.id,actor,req.body);res.json({url:'/entries/record/'+doc.id,status:doc.status}); }
     catch (e) { res.status(422).json({error:e.message}); }

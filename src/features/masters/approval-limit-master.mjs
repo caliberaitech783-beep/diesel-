@@ -2,10 +2,10 @@ export const approvalLimitMaster = [
   {
     name: 'Entry and approval limit',
     fields: [
-      { label: 'Entry', required: true },
+      { label: 'Entry', required: true, hint: 'Enter an entry code such as E1 or E2.' },
       { label: 'Initiator role', required: true },
       { label: 'Applies to (all / bulk PO / retail PO)', required: false, options: ['All', 'Bulk PO', 'Retail PO'] },
-      { label: 'Quantity or value slab', required: true },
+      { label: 'Quantity or value slab', required: true, hint: 'Use All, or Above 200000 for indent litres or Above 10000000 for PO value in INR.' },
     ],
   },
   {

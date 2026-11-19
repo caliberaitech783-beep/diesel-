@@ -18,7 +18,7 @@ export const stockEntries = {
   E10A(d,c) {
     const litres=meter(d), out=round(litresAtDip(d.before)-litresAtDip(d.after));
     check(out>0,'Tank dip must fall during a transfer.');
-    const difference=round(Math.abs(out-litres)/litres*100), exception=difference>review.transferLimit;
+    const difference=round(Math.abs(out-litres)/litres*100), exception=difference>c.limits.bowserLimit;
     check(!exception||d.reason,'Select a reason for the transfer difference.');
     return { out,litres,difference,approvals:exception?['Site In-charge']:[],moves:[{storage:d.tank,litres:-out},{storage:d.bowser,litres}] };
   },
@@ -44,7 +44,7 @@ export const stockEntries = {
     const delta=last?d.reading-last.data.reading:0;
     const hours=last?(Date.parse(c.doc.created)-Date.parse(last.created))/3600000:null;
     const efficiency=delta>0?round(litres/delta):null;
-    const exception=last && (hours<review.repeatHours || delta>review.meterJump*Math.max(1,Math.ceil(hours/24)) || efficiency>vehicle.standard);
+    const exception=last && (hours<c.limits.repeatHours || delta>c.limits.meterJump*Math.max(1,Math.ceil(hours/24)) || efficiency>vehicle.standard);
     check(!exception || d.reason,'Select a reason for a repeat fill or meter override.');
     return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals:exception?['Site In-charge']:[],moves:[{storage:d.bowser,litres:-litres}] };
   },
@@ -71,7 +71,7 @@ export const stockEntries = {
     const issue=c.sum(c.posted('E11').filter(r=>r.day===c.doc.day),'litres');
     const largest=Math.max(Math.abs(tankVariance),Math.abs(bowserVariance));
     const variancePercent=issue?round(largest/issue*100):null;
-    const exception=issue?variancePercent>review.countLimit:largest>0;
+    const exception=issue?variancePercent>c.limits.countLimit:largest>0;
     check(!exception || (d.reason && d.evidence?.length),'Give a variance reason and attach evidence.');
     return { tankBook,bowserBook,tankMeasured:measured,bowserMeasured:d.bowserCount,tankVariance,bowserVariance,
       variancePercent,approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
