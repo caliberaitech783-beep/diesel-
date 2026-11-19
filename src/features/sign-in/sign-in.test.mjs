@@ -81,7 +81,9 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     const start = await request('/');
     assert.equal(start.status, 303);
     started = new URL(start.headers.get('location'));
-    assert.equal(started.pathname, '/api/diesel-sso/authorize');
+    assert.equal(started.origin, 'https://pulse.test');
+    assert.equal(started.pathname, '/');
+    assert.equal(started.searchParams.get('dieselSignIn'), '1');
     const stateHeader = start.headers.get('set-cookie');
     assert.match(stateHeader, /^__Host-diesel_state=.*HttpOnly; Secure; SameSite=Lax/);
     const stateCookie = stateHeader.split(';', 1)[0];
@@ -131,7 +133,9 @@ test('Azure requires Pulse and denies direct master access outside the explicit 
     const url = 'http://127.0.0.1:' + server.address().port + '/?master=driver-master';
     const anonymous = await fetch(url, { redirect: 'manual' });
     assert.equal(anonymous.status, 303);
-    assert.equal(new URL(anonymous.headers.get('location')).pathname, '/api/diesel-sso/authorize');
+    const signIn = new URL(anonymous.headers.get('location'));
+    assert.equal(signIn.pathname, '/');
+    assert.equal(signIn.searchParams.get('dieselSignIn'), '1');
     const blocked = await fetch(url, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
     assert.equal(blocked.status, 403);
     assert.doesNotMatch(await blocked.text(), /master-list/);

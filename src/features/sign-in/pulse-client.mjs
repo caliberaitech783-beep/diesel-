@@ -13,7 +13,9 @@ export function createPulseClient({ origin, secret, fetcher }) {
 
   return {
     authorizationUrl(state, verifier) {
-      const url = new URL('/api/diesel-sso/authorize', origin);
+      // Pulse's interactive handoff can display and resume required onboarding.
+      const url = new URL('/', origin);
+      url.searchParams.set('dieselSignIn', '1');
       url.searchParams.set('state', state);
       url.searchParams.set('code_challenge', challengeFor(verifier));
       return url.toString();
