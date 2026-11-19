@@ -8,6 +8,10 @@ Expand **Master Data** in the sidebar and open a master to see its saved records
 
 ## Run locally
 
+**Entry → Entry workspace** opens the redesigned register for all 18 Diesel entry types. On Azure each allowed Pulse login has a private sample workspace with a posted Jayant indent and a purchase order waiting for review. The site and role selectors apply to that sample workspace. Review entries persist under `/home/data/diesel-entry-review`. Production Master Data and Item Master use their existing records. Banking and SMS actions in Entry are simulations.
+
+On the local preview, open `/entries` to test the same register. New local workspaces start empty. Choose **Buy → Diesel indent** to create the first entry. The entry forms and rules are under `src/features/entries/`.
+
 Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://127.0.0.1:3000`. `npm run preview:masters` opens the same local workspace on port 4313. The local workspace uses sample maker and checker roles and stores records in `.local-diesel/items.sqlite`. For the Location and Storage Location workflows, load the Pulse project directory with `npm run sync:pulse-projects -- "<trusted Pulse 1 checkout>"`.
 
 To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret.

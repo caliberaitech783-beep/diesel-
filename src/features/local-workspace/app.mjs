@@ -3,12 +3,16 @@ import { createApp } from '../../server.mjs';
 import { registerMasterRecords } from '../masters/records-routes.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
 import { registerLocalSession } from './session.mjs';
+import { registerIndents } from '../diesel-indent/indent-routes.mjs';
+import { registerEntries } from '../entries/routes.mjs';
 
 export function createLocalWorkspace(db) {
   const app = express();
   app.disable('x-powered-by');
   registerLocalSession(app);
   registerMasterRecords(app, { db, getActor: request => request.dieselActor, enabledMasters: recordMasters });
+  registerIndents(app, db);
+  registerEntries(app, db);
   app.get('/', (request, response, next) => {
     const { master } = request.query;
     if (!master) return response.redirect(302, '/records');

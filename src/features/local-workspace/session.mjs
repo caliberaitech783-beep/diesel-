@@ -1,10 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
+import { roles, roleKey } from '../entries/review-masters.mjs';
 
 const profiles = {
   maker: { name: 'Item maker', canEditMasters: true, canApproveMasters: false },
   checker: { name: 'Item checker', canEditMasters: false, canApproveMasters: true },
+  ...Object.fromEntries(roles.map(role => [roleKey(role), {name:role,canEditMasters:false,canApproveMasters:false}])),
+  'entry-deputy': {name:'Deputy Site In-charge',canEditMasters:false,canApproveMasters:false},
 };
 const sites = ['Jayant', 'Sasti'];
 
@@ -34,7 +37,7 @@ export function registerLocalSession(app) {
       && /^[a-zA-Z0-9_-]+$/.test(mac) && timingSafeEqual(Buffer.from(expected), Buffer.from(mac));
     const key = valid ? role : 'maker';
     const activeSite = valid ? site : sites[0];
-    request.dieselActor = { id: activeSite + '-' + key, role: profiles[key].name, site: activeSite, ...profiles[key] };
+    request.dieselActor = { id: activeSite + '-' + key, profile:key, role: profiles[key].name, site: activeSite, ...profiles[key] };
     next();
   });
   app.get(['/login', '/workspace'], (request, response) => {
@@ -56,6 +59,7 @@ export function registerLocalSession(app) {
     if (!Object.hasOwn(profiles, role) || !sites.includes(site)) return response.sendStatus(400);
     const value = role + '.' + site;
     response.cookie('diesel_local', value + '.' + signature(value), {httpOnly:true,sameSite:'strict',path:'/'});
-    response.redirect(303, '/records');
+    const back = request.body.returnTo;
+    response.redirect(303, typeof back==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(back) ? back : '/records');
   });
 }

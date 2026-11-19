@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.mjs';
 import { loginPage, signInPage } from './page.mjs';
 import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
+import { registerHostedReview } from '../entries/hosted-review.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -9,7 +10,7 @@ const expired = 'Your sign-in expired. Please sign in again.';
 const readCookie = (request, name) => (request.get('cookie') || '').split(';')
   .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 
-export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
+export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
@@ -52,11 +53,11 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
     }
   };
 
-  function startSignIn(response) {
+  function startSignIn(response, destination) {
     if (!configured) return page(response, 503, { message: unavailable });
     const state = newProof();
     const verifier = newProof();
-    response.cookie(stateCookie, `${state}.${verifier}`, { ...options, maxAge: 600_000 });
+    response.cookie(stateCookie, `${state}.${verifier}${destination === 'entries' ? '.entries' : ''}`, { ...options, maxAge: 600_000 });
     response.redirect(303, pulse.authorizationUrl(state, verifier));
   }
 
@@ -68,6 +69,15 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   if (itemSubmissions) {
     registerItemSubmissions(app, {
       store: itemSubmissions, publicOrigin: publicUrl.origin,
+      async getProfile(request) {
+        const result = await verifySession(request);
+        return allowed(result?.profile) ? result.profile : null;
+      },
+    });
+  }
+
+  if (entryReviewDirectory) {
+    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,startSignIn:response=>startSignIn(response,'entries'),
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;
@@ -100,7 +110,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
   app.get('/api/sign-in/callback', route(async (request, response) => {
     if (!configured) return page(response, 503, { message: unavailable });
     const { code, state } = request.query;
-    const [expectedState, verifier] = readCookie(request, stateCookie).split('.');
+    const [expectedState, verifier, destination] = readCookie(request, stateCookie).split('.');
     if (!isProof(code) || !isProof(verifier) || !sameProof(state, expectedState)) {
       return page(response, 400, { message: 'This sign-in request did not match your browser. Try again.' });
     }
@@ -114,7 +124,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions }) {
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
-    response.redirect(303, '/');
+    response.redirect(303, destination === 'entries' && entryReviewDirectory ? '/entries' : '/');
   }));
 
   app.post('/api/sign-out', route(async (request, response) => {
