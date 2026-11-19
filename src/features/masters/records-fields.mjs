@@ -10,10 +10,27 @@ export class MasterRecordError extends Error {
 
 const identityFields = {
   'item-master': ['Item Code', 'Item Name'],
+  'account-master': ['A/C Code', 'A/C Name'],
+  'cmll-master': ['Company Code', 'Company Name'],
+  'cost-centre-vehicle-master': ['Cost Centre Code', 'Cost Centre Name'],
   'location-master': ['Location Code', 'Location Name'],
   'storage-location-master': ['Storage Loc Code', 'Storage Loc. Name'],
+  'route-wise-diesel-master': ['Entry No.', 'Destination'],
+  'driver-master': ['Employee Code', 'Employee Name'],
+  'tax-master-tds': ['Tax Section Code', 'Tax Section Name', 'Payee category', 'Applies to (freight, diesel purchase)', 'Effective from'],
+  'gst-master': ['GST code', 'Applies to (freight, services)', 'Effective from'],
+  'supplier-depot-master': ['Supplier (A/C Code)', 'Depot name', 'Depot name'],
+  'diesel-rate-master': ['Supplier', 'Depot', 'Depot', 'Price basis (Ex-depot / Delivered)', 'Effective from'],
+  'transport-freight-master': ['Transporter', 'Transporter', 'From depot', 'To site', 'Effective from'],
+  'measuring-instrument-master': ['Instrument ID', 'Type'],
+  'volume-correction-table': ['Observed temperature (°C)', 'Correction factor', 'Observed density (kg/m³)'],
+  'approval-limit-master': ['Entry', 'Entry', 'Applies to (all / bulk PO / retail PO)', 'Quantity or value slab', 'Effective from'],
+  'tolerance-and-alert-master': ['Alert', 'Alert'],
+  'reason-code-master': ['Code', 'Description'],
+  'shift-master': ['Shift name', 'Shift name', 'Site'],
+  'document-numbering-master': ['Entry', 'Entry', 'Financial year'],
 };
-export const recordMasters = Object.keys(identityFields);
+export const recordMasters = masters.map(master => master.slug);
 
 export function recordDraftScope(actor, slug) {
   return createHash('sha256')
@@ -36,9 +53,11 @@ export function masterDefinition(slug) {
 }
 
 export function recordIdentity(slug, values) {
-  const [codeKey, nameKey] = identityFields[slug];
-  const code = values[codeKey];
-  const name = values[nameKey];
+  const [codeKey, nameKey, ...qualifiers] = identityFields[slug];
+  const parts = [codeKey, ...qualifiers].map(key => values[key] ?? 'All');
+  const components = slug === 'volume-correction-table' ? parts.map(value => String(Number(value))) : parts;
+  const code = qualifiers.length ? components.map(part => part.replace(/[|\\]/g, '\\$&')).join(' | ') : values[codeKey];
+  const name = nameKey === 'Description' ? values[nameKey]?.slice(0, 1024) : values[nameKey];
   if (!code || !name || code.length > 512 || name.length > 1024) throw new MasterRecordError('Enter a valid record code and name.');
   return { code, name };
 }

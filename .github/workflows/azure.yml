@@ -76,14 +76,14 @@ jobs:
           origin="${DIESEL_HEALTH_ORIGIN%/}"
           for attempt in {1..12}; do
             if curl --fail --silent --max-time 10 "$origin/healthz" |
-              jq -e --arg commit "$GITHUB_SHA" '.status == "ok" and .commit == $commit and .itemMaster == "ready"' >/dev/null; then
+              jq -e --arg commit "$GITHUB_SHA" '.status == "ok" and .commit == $commit and .masters == "ready"' >/dev/null; then
               if curl --silent --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "$origin/api/sign-in/start" |
                 grep -Eq '^303 https://pulse\.cmll\.in/\?dieselSignIn=1&state=[A-Za-z0-9_-]{43}&code_challenge=[A-Za-z0-9_-]{43}$' &&
-                [ "$(curl --silent --max-time 10 -o /dev/null -w '%{http_code}' "$origin/records?master=item-master")" = 303 ]; then
+                [ "$(curl --silent --max-time 10 -o /dev/null -w '%{http_code}' "$origin/records?master=account-master")" = 303 ]; then
                 exit 0
               fi
             fi
             sleep 5
           done
-          echo "::error::Diesel did not serve $GITHUB_SHA with Item Master storage and sign-in available"
+          echo "::error::Diesel did not serve $GITHUB_SHA with master storage and sign-in available"
           exit 1

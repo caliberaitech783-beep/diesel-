@@ -18,7 +18,8 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
     next();
   });
   app.get('/healthz', (_request, response) => {
-    response.json({ status: 'ok', commit: manifest.releaseCommit ?? null, ...(itemSubmissions ? { itemMaster: 'ready' } : {}) });
+    response.json({ status: 'ok', commit: manifest.releaseCommit ?? null,
+      ...(itemSubmissions ? { itemMaster: 'ready', masters: 'ready' } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));

@@ -3,6 +3,7 @@ import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.
 import { loginPage, signInPage } from './page.mjs';
 import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 import { registerHostedReview } from '../entries/hosted-review.mjs';
+import { recordMasters } from '../masters/records-fields.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -90,8 +91,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     if (!isProof(grant)) return startSignIn(response);
     const result = await verifySession(request);
     if (allowed(result?.profile)) {
-      if (itemSubmissions && request.query.master === 'item-master') {
-        return response.redirect(303, '/records?master=item-master&new=1');
+      if (itemSubmissions && recordMasters.includes(request.query.master)) {
+        return response.redirect(303, '/records?master=' + request.query.master + '&new=1');
       }
       return page(response, 200, {
         profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions),
