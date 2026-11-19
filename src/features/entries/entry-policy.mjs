@@ -22,6 +22,7 @@ export const alertSettings = {
   'Meter jump': ['meterJump', 'h', 'Site In-charge', 'Project Manager'],
   'Approval overdue': ['approvalHours', 'h', null, 'Project Manager'],
   'Calibration due': ['calibrationDays', 'days', 'Site In-charge', 'Project Manager'],
+  'Storage below minimum level': ['minimumLevel', 'L', 'Site In-charge', 'Project Manager'],
   'Days of stock': ['daysOfStockLimit', 'days', 'Site In-charge', 'Project Manager'],
 };
 

@@ -284,7 +284,12 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     return {Project:site,Item:summary.item,'Tank and bowser stock (L)':summary.stock,'In transit (L)':summary.inTransit,
       'Average daily issue (L)':summary.averageDaily,'Days of stock':summary.daysOfStock,'Suggested request (L)':summary.suggested};
   }
-  return {read,write,fresh,definition,stockPicture,dayFor,list:site=>all().filter(r=>visible(r,site)),history:id=>
+  function storageBalances(site) {
+    const config=siteFor?.(site), booked=moves().filter(move=>move.site===site);
+    return (config?.storage??[]).map(location=>({code:location.code,
+      litres:round(booked.filter(move=>move.storage===location.code).reduce((total,move)=>total+move.litres,location.opening))}));
+  }
+  return {read,write,fresh,definition,stockPicture,storageBalances,dayFor,list:site=>all().filter(r=>visible(r,site)),history:id=>
     db.prepare('SELECT actor,action,stamp,snapshot FROM entry_review_history WHERE doc=? ORDER BY seq').all(id)
       .map(({snapshot,...row})=>{
         const {lastAction,shift}=JSON.parse(snapshot);

@@ -43,7 +43,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     'Calibration chart (dip-to-litres table, UG tanks)':'cm,litres\n0,0\n20,1000\n40,2000'};
   master('storage-location-master',{...storage,'Storage Loc Code':'T-1','Storage Loc. Name':'Main tank'});
   master('storage-location-master',{...storage,'Storage Loc Code':'T-2','Storage Loc. Name':'Second tank'});
-  master('storage-location-master',{...storage,'Storage type':'Bowser','Storage Loc Code':'B-2','Storage Loc. Name':'Site bowser'});
+  master('storage-location-master',{...storage,'Storage type':'Bowser','Storage Loc Code':'B-2','Storage Loc. Name':'Site bowser','Home tank':'T-1'});
   master('storage-location-master',{...storage,'Storage Loc Code':'T-3','Storage Loc. Name':'Pending tank'},{approve:false});
   master('cost-centre-vehicle-master',{'Cost Centre Code':'CC-20','Fleet No.':'F-20','Registration No.':'TEST01',Ownership:'Own',
     'Fuel tank capacity (L)':'120','Meter reading at go-live':'200','QR or RFID tag No.':'TAG-20'});
@@ -208,6 +208,9 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     type:'E10A',day:last,action:'Submit',rev:0,
     data:{ tank:'T-1',bowser:'B-2',before:26,after:25,start:0,end:50,evidence:issueData.evidence }});
   assert.equal(transfer.status,200,await transfer.text());
+  const bowserLoad=await (await request('/entries/new/E10A',point)).text();
+  assert.match(bowserLoad,/<option value="B-2"[^>]*data-home-tank="T-1"/);
+  assert.match(bowserLoad,/assets\/home-tank\.js/);
   const transferForm = await (await request('/entries/new/E12',await signIn('Site Store'))).text();
   assert.match(transferForm,/Majri · S-B · Majri bowser/);
   assert.match(transferForm,/Sasti · S-B · Receiving bowser/);

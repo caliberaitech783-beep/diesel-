@@ -61,6 +61,12 @@ export function entryAlerts(rows, actor, policy, now = Date.now()) {
         owner:calibrationOwner,escalation:calibrationOwner===escalation ? null : escalation});
     }
   }
+  const minimumRule=policy.alerts.get('Storage below minimum level');
+  const minimumOwner=minimumRule?.owner ?? 'Site In-charge';
+  if (role===minimumOwner) for (const location of policy.lowStorage ?? []) {
+    alerts.push({label:'Storage below minimum level',owner:minimumOwner,
+      detail:location.code+' · '+location.litres+' L in stock · minimum '+location.minimum+' L'});
+  }
   const stockRule=policy.alerts.get('Days of stock');
   if (stockRule && role===stockRule.owner && policy.daysOfStock!=null && policy.daysOfStock<stockRule.limit) {
     alerts.push({label:'Days of stock',detail:policy.daysOfStock+' days available · limit '+stockRule.limit,owner:stockRule.owner});

@@ -2,6 +2,7 @@ import { review, litresAtDip } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { gateContext } from './receiving.mjs';
 import { transferTarget } from './transfer-destination.mjs';
+import { checkOperator } from './operator-authorisation.mjs';
 import { vehicleRouteStandard } from './vehicle-route-standards.mjs';
 
 function meter(d) {
@@ -18,6 +19,7 @@ function openTanker(d,c) {
 }
 export const stockEntries = {
   E10A(d,c) {
+    checkOperator(c,d.bowser);
     const chart=c.siteConfig?.storage.find(row=>row.code===d.tank)?.chart;
     const litres=meter(d), out=round(litresAtDip(d.before,chart)-litresAtDip(d.after,chart));
     check(out>0,'Tank dip must fall during a transfer.');
@@ -26,6 +28,7 @@ export const stockEntries = {
     return { out,litres,difference,approvals:exception?['Site In-charge']:[],moves:[{storage:d.tank,litres:-out},{storage:d.bowser,litres}] };
   },
   E10B(d,c) {
+    checkOperator(c,d.bowser);
     const {gate,loaded}=openTanker(d,c), litres=meter(d);
     const before=round(gate.data.litres-loaded);
     check(litres<=before,'Load exceeds tanker balance.');
@@ -38,6 +41,7 @@ export const stockEntries = {
       bowsers:new Set(loads.map(r=>r.data.bowser)).size,generateGRN:true,approvals:['Site In-charge'] };
   },
   E11(d,c) {
+    checkOperator(c,d.bowser);
     const litres=meter(d), vehicle=c.siteConfig ? c.siteConfig.vehicles.find(row=>row.code===d.vehicle) : review.vehicles[d.vehicle];
     check(vehicle,'Choose an approved vehicle for this site.');
     const issues=c.posted('E11'), lastMeter=issues.find(r=>r.data.bowser===d.bowser);

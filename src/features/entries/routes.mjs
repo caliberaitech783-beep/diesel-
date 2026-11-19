@@ -1,3 +1,4 @@
+import { lowStorage } from './storage-levels.mjs';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -70,7 +71,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     return (req,res) => {
       const actor = req.dieselActor, rows = visibleRecords(actor);
       const policy = policyFor(actor.site,actor.businessDay);
-      if (opening) policy.calibrations=mastersFor(actor.site).instruments;
+      if (opening) {
+        const approved=mastersFor(actor.site);
+        policy.calibrations=approved.instruments;
+        policy.lowStorage=lowStorage(store.storageBalances(actor.site),approved.storage);
+      }
       if (policy.alerts.has('Days of stock') && (!opening || siteFor(actor.site))) {
         policy.daysOfStock=store.stockPicture(actor.site)['Days of stock'];
       }
