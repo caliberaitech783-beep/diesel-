@@ -32,3 +32,23 @@ test('master fields that name another master offer and accept only approved reco
   assert.equal(referenceProblem('diesel-rate-master', approved, older, older), undefined);
   assert.match(referenceProblem('diesel-rate-master', approved, { ...older, Depot:'Jamnagar' }, older), /depot approved for this supplier/);
 });
+
+test('approval and alert rules pick entry codes, posts and alerts from fixed lists', async () => {
+  const { masterDefinition, validateScalar } = await import('./records-fields.mjs');
+  const { roles } = await import('../entries/review-masters.mjs');
+  const { readRecordRows } = await import('./assets/bulk-rows.mjs');
+  const approval = masterDefinition('approval-limit-master'), field = key => approval.fields.find(item => item.key === key);
+  for (const key of ['Initiator role','Approver level 1 role','Approver level 2 role','Approver level 3 role (e.g. Director / CMD)']) {
+    assert.deepEqual(field(key).options, roles);
+  }
+  assert.ok(field('Entry').options.includes('E2') && !field('Entry').options.includes('E7'));
+  assert.equal(field('Entry').optionLabels.get('E1'), 'E1 · Diesel indent');
+  assert.throws(() => validateScalar(field('Approver level 1 role'), 'Projct Manager'), /Choose a listed value for Approver level 1 role/);
+  assert.equal(validateScalar(field('Approver level 1 role'), 'Project Manager'), 'Project Manager');
+  const alert = masterDefinition('tolerance-and-alert-master').fields;
+  assert.deepEqual(alert.find(item => item.key === 'Escalate to (role)').options, roles);
+  assert.throws(() => validateScalar(alert.find(item => item.key === 'Alert'), 'Low stock'), /listed value/);
+  const { records } = readRecordRows([['Entry','Initiator role','Approver level 1 role','Approver level 2 role'],
+    ['e1','site in-charge','head - procurement','HEAD-ACCOUNTS']], approval.fields.map(({ key, label, type, options }) => ({ key, label, type, options })));
+  assert.deepEqual(records[0].values.map(([, value]) => value), ['E1','Site In-charge','Head – Procurement','Head – Accounts']);
+});

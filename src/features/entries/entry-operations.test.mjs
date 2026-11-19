@@ -27,8 +27,8 @@ test('approved master records change entry approval steps and limits for their s
   const day = businessDay();
   const rule = master.create('approval-limit-master', { site:'Jayant', values:{
     Entry:'E1', 'Initiator role':'Site In-charge', 'Quantity or value slab':'Above 1,000 L',
-    'Approver level 1 role':'Project Manager', 'Approver level 2 role':'Head of Procurement',
-    'Approver level 3 role (e.g. Director / CMD)':'Director',
+    'Approver level 1 role':'Project Manager', 'Approver level 2 role':'Head – Procurement',
+    'Approver level 3 role (e.g. Director / CMD)':'Director / CMD',
     'Approval on Telegram with OTP allowed (Y/N)':'No', 'Effective from':day,
   } }, maker);
   const tolerance = master.create('tolerance-and-alert-master', { site:'Jayant', values:{

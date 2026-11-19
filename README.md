@@ -18,7 +18,7 @@ CMLL, Account and Location masters support multiple **Dated attributes**, each w
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.
 
-Approve **Approval Limit Master** and **Tolerance and Alert Master** records at the site to use them in Entry. Approval records use an entry code and `All` or a slab such as `Above 200000` for E1 litres or `Above 10000000` for E2 rupees. Approved effective rules apply on the business date. **My alerts** routes notices in the app.
+Approve **Approval Limit Master** and **Tolerance and Alert Master** records at the site to use them in Entry. Approval records use an entry code and `All` or a slab such as `Above 200000` for E1 litres or `Above 10000000` for E2 rupees. The entry, each post and each alert are chosen from lists, so a rule names a post exactly as Pulse assigns it. Approved effective rules apply on the business date. **My alerts** routes notices in the app.
 
 **My work** shows tasks for the selected site and role. Scan a QR tag or choose an approved code. Gate entry uses the Location Master receipt scenarios and can read an invoice photo for review. Open the form while online to queue saves during a signal loss. The queue lists waiting records and syncs when the same account, site and role reconnect. Entry compresses large photos when the device supports it. Register filters apply to both CSV and Excel. Live records and downloads use the Entry role matrix and the selected site.
 

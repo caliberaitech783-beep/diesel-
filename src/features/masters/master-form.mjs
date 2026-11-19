@@ -6,7 +6,7 @@ function fieldControl(field, id) {
   if (field.type === 'file') {
     control = `<input ${attributes} type="text" disabled placeholder="Unavailable" title="Attachments are disabled in this preview">`;
   } else if (field.options) {
-    const options = field.options.map(option => `<option>${option}</option>`).join('');
+    const options = field.options.map(option => field.optionLabels ? `<option value="${option}">${field.optionLabels.get(option)}</option>` : `<option>${option}</option>`).join('');
     control = `<select ${attributes}><option value="">Select…</option>${options}</select>`;
   } else if (field.type === 'textarea') {
     control = `<textarea ${attributes} rows="3"></textarea>`;
