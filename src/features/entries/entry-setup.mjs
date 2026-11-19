@@ -26,6 +26,14 @@ function setupPage() {
 </html>`;
 }
 
+export function sendEntrySetup(req,res) {
+  if (!['GET','HEAD'].includes(req.method) || req.accepts(['html','json']) !== 'html') {
+    return res.status(503).json({ error: pending });
+  }
+  const overview = req.path === '/' || req.path === '/opening-stock';
+  return res.status(overview ? 200 : 503).type('html').send(setupPage());
+}
+
 export function registerEntrySetup(app, { publicOrigin, startSignIn, getProfile }) {
   app.use('/entries', async (req, res) => {
     const read = req.method === 'GET' || req.method === 'HEAD';
@@ -38,8 +46,6 @@ export function registerEntrySetup(app, { publicOrigin, startSignIn, getProfile 
       if (page) return startSignIn(res, req.path === '/opening-stock' ? '/entries/opening-stock' : '/entries');
       return res.sendStatus(401);
     }
-    if (!page) return res.status(503).json({ error: pending });
-    const overview = req.path === '/' || req.path === '/opening-stock';
-    return res.status(overview ? 200 : 503).type('html').send(setupPage());
+    return sendEntrySetup(req,res);
   });
 }

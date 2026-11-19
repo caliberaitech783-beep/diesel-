@@ -4,7 +4,7 @@ import { masterDataPage } from './page.mjs';
 
 const pageSize = 50;
 
-export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false }) {
+export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false, prefix = '' }) {
   const bySlug = new Map(masters.map(({ slug }) => [slug, masterDefinition(slug)]));
   const enabled = new Set(enabledMasters);
   function route(handler) {
@@ -49,14 +49,14 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
     if (!Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Choose a valid page.', 400);
     const rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
     res.type('html').send(masterDataPage({
-      actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local,
+      actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix,
     }));
   }));
 
   app.get('/api/master-data/records', route(async (_req, res, { master, canSave, records }) => {
     if (master && !canSave) throw new MasterRecordError('Choose a master with saved records.', 400);
     res.json({
-      records: await records({ offset: 0 }), showSite: local,
+      records: await records({ offset: 0 }), showSite: local || Boolean(prefix),
       columns: master?.fields.map(field => field.key),
     });
   }));

@@ -22,8 +22,8 @@ async function save(action) {
   for (const button of buttons) button.disabled = true;
   status.textContent = 'Saving…';
   try {
-    const { api, record, revision, slug } = form.dataset;
-    const payload = { revision: Number(revision), reason: reason?.value };
+    const { api, record, revision, writeScope, recordHome } = form.dataset;
+    const payload = { revision: Number(revision), reason: reason?.value, scope:writeScope };
     if (!action) {
       payload.values = {};
       for (const control of form.querySelectorAll('[name]')) {
@@ -42,7 +42,9 @@ async function save(action) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The record could not be saved.');
-    location.assign('/records?master=' + encodeURIComponent(slug) + '&id=' + encodeURIComponent(result.id));
+    const target = new URL(recordHome,location.origin);
+    target.searchParams.set('id',result.id);
+    location.assign(target);
   } catch (error) {
     status.textContent = error.message;
     for (const button of buttons) button.disabled = false;

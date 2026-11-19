@@ -1,7 +1,7 @@
 import express from 'express';
 import { createMasterStore, readActiveMasters } from './records.mjs';
-import { pulseProject } from './pulse-projects.mjs';
-import { recordMasters, masterDefinition, MasterRecordError } from './records-fields.mjs';
+import { masterLocationProject } from './pulse-projects.mjs';
+import { recordMasters, masterDefinition, MasterRecordError, recordDraftScope } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 
@@ -10,21 +10,24 @@ function requirePermission(actor, permission) {
 }
 
 function scoped(record, actor) {
-  if (record.site.toLowerCase() !== actor.site.trim().toLowerCase()) throw new MasterRecordError('Master record not found.', 404);
+  if (record.site.normalize('NFKC').toLowerCase() !== actor.site.trim().normalize('NFKC').toLowerCase()) {
+    throw new MasterRecordError('Master record not found.', 404);
+  }
   return record;
 }
 
-export function registerMasterRecords(app, { db, getActor = request => request.dieselActor, enabledMasters = ['item-master'] }) {
+export function registerMasterRecords(app, { db, getActor = request => request.dieselActor, enabledMasters = ['item-master'],
+  prefix = '', publicOrigin }) {
   const store = createMasterStore(db, enabledMasters);
   async function workspaceActor(request) {
     const actor = await getActor(request);
     if (typeof actor?.id !== 'string' || !actor.id.trim() || typeof actor.site !== 'string' || !actor.site.trim()) {
-      throw new MasterRecordError('Choose an actor in the local workspace.', 401);
+      throw new MasterRecordError('Choose a master workspace site.', 401);
     }
     return actor;
   }
   registerMasterDataRoutes(app, {
-    enabledMasters, local: true, getActor: workspaceActor,
+    enabledMasters, local: !prefix, prefix, getActor: workspaceActor,
     listRecords: (actor, slugs, page) => store.listSaved(slugs, { ...page, site: actor.site }),
   });
   function enabled(slug) {
@@ -48,15 +51,20 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   const resource = api + '/:id';
   function checkWrite(request, response, next) {
     const origin = request.get('origin');
-    let sameOrigin = !origin;
-    if (origin) {
+    let sameOrigin = publicOrigin ? origin === publicOrigin : !origin;
+    if (origin && !publicOrigin) {
       try { sameOrigin = new URL(origin).origin === request.protocol + '://' + request.get('host'); } catch { sameOrigin = false; }
     }
-    if (!sameOrigin || request.get('sec-fetch-site') === 'cross-site') return response.status(403).json({ error: 'Use the local workspace to make changes.' });
+    if (!sameOrigin || request.get('sec-fetch-site') === 'cross-site') return response.status(403).json({ error: 'Open the Diesel master workspace to make changes.' });
     if (!request.is('application/json')) return response.status(415).json({ error: 'Send the record as JSON.' });
     next();
   }
   const json = express.json({ limit: '7mb' });
+  function checkScope(req,actor,slug) {
+    if (prefix && req.body?.scope !== recordDraftScope(actor,slug)) {
+      throw new MasterRecordError('Reopen this record with the Pulse account and site that prepared it.',409);
+    }
+  }
   const pagination = query => ({ search: query.q ?? '', status: query.status ?? '', limit: 50, offset: Number(query.offset ?? 0) });
   app.get('/records', route((req, res, actor, slug) => {
     const page = pagination(req.query);
@@ -64,12 +72,16 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     const historical = Boolean(current && req.query.revision !== undefined);
     const record = historical ? store.snapshot(slug, current.id, Number(req.query.revision)) : current;
     if (req.query.new === '1') requirePermission(actor, 'canEditMasters');
+    const existingLocation = slug === 'location-master' && store.list(slug, {site:actor.site,limit:1})[0];
+    if (prefix && !current && req.query.new === '1' && existingLocation) {
+      return res.redirect(303,prefix+'/records?master=location-master&id='+existingLocation.id);
+    }
     const rows = !record && req.query.new !== '1' ? store.list(slug, { ...page, site: actor.site }) : [];
     res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-    const project = slug === 'location-master' ? pulseProject(db, actor.site) : null;
+    const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];
-    const hasLocation = slug === 'location-master' && store.list(slug, {site: actor.site, limit: 1}).length > 0;
-    res.type('html').send(recordsPage({ project, locations, hasLocation, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
+    const hasLocation = Boolean(existingLocation);
+    res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
       creating: req.query.new === '1', historical, editingAllowed: !historical && actor.canEditMasters === true,
       approvingAllowed: !historical && actor.canApproveMasters === true, revisions: record ? store.history(slug, record.id) : [],
     }));
@@ -91,6 +103,7 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   }));
   const write = (req, res, actor, slug) => {
     requirePermission(actor, 'canEditMasters');
+    checkScope(req,actor,slug);
     if (req.body?.site !== undefined && req.body.site !== actor.site) throw new MasterRecordError('Choose a record in your own site.', 403);
     const payload = { ...req.body, site: actor.site };
     if (req.params.id) {
@@ -100,9 +113,10 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   };
   app.post(api, checkWrite, json, route(write));
   app.put(resource, checkWrite, json, route(write));
-  for (const action of ['approve', 'deactivate', 'reactivate']) {
+  for (const action of ['approve', 'return', 'deactivate', 'reactivate']) {
     app.post(resource + '/' + action, checkWrite, json, route((req, res, actor, slug) => {
-      requirePermission(actor, action === 'approve' ? 'canApproveMasters' : 'canEditMasters');
+      requirePermission(actor, ['approve', 'return'].includes(action) ? 'canApproveMasters' : 'canEditMasters');
+      checkScope(req,actor,slug);
       scoped(store.get(slug, req.params.id), actor);
       res.json(store.changeStatus(slug, req.params.id, req.body?.revision, action, actor, req.body?.reason));
     }));
