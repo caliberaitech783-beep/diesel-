@@ -69,7 +69,7 @@ test('hosted site stock requires trusted site assignments and approved masters',
   assert.equal((await request('/entries/opening-stock','l')).status,403);
   assert.match(await(await request('/entries/opening-stock','s')).text(),/Approve an Item Master record/);
   assert.equal((await request('/entries/new/E11','b')).headers.get('location'),'/entries/opening-stock');
-  assert.equal((await request('/entries/type/E2','s')).status,404);
+  assert.equal((await request('/entries/type/E2','s')).status,200);
   assert.equal((await request('/workspace/role','b',new URLSearchParams({site:'Sasti',role:'entry-0'}))).status,403);
   assert.equal((await request('/entries/opening-stock','b',new URLSearchParams({item:'anything'}))).status,403);
 });

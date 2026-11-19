@@ -9,7 +9,7 @@ export const receiving = {
   E5(d,c) {
     const po=c.linked('po','E2');
     const confirmed=c.sum(c.posted('E3').filter(r=>r.data.po===po.id),'amount');
-    check(confirmed>=po.result.value,'Treasury must confirm payment for the PO before gate entry.');
+    check((c.siteConfig && po.data.terms==='Credit')||confirmed>=po.result.value,'Treasury must confirm payment for the PO before gate entry.');
     if (po.data.basis==='Ex-depot') check(d.transporter===po.data.transporter,'Use the transporter on the PO.');
     check(/^[A-Z0-9 -]{5,16}$/i.test(d.truck) && /^\d{10}$/.test(d.mobile),'Check the registration and 10-digit driver mobile.');
     check(d.fitness>=c.doc.day && d.licence>=c.doc.day && d.invoiceDate<=c.doc.day,'Check invoice and licence validity dates.');
@@ -20,20 +20,26 @@ export const receiving = {
     check(d.litres>0 && d.litres<=round((po.result.litres-used)*(1+po.result.transitTolerance/100)),'Invoice quantity exceeds the remaining PO balance.');
     const seals=d.seals.split(',').map(s=>s.trim());
     check(seals.every(Boolean) && new Set(seals).size===seals.length && d.sealPhotos.length>=seals.length,'Add a distinct seal number and photo for every compartment.');
-    return { supplier:po.data.supplier,depot:po.data.depot, invoiceLitres:d.litres, compartments:seals.length,approvals:d.intact==='No'?['Site In-charge']:[] };
+    return { supplier:po.data.supplier,depot:po.result.depot??po.data.depot, invoiceLitres:d.litres, compartments:seals.length,approvals:d.intact==='No'?['Site In-charge']:[] };
   },
   E6(d,c) {
     const {gate,po}=gateContext(d,c);
     check(!c.reserved('E6').some(r=>r.data.gate===gate.id),'An inspection already exists for this tanker.');
-    check(c.doc.day<=review.calibrationDue,'Instrument calibration has expired.');
     const reject=d.decision==='Reject', ug=gate.data.scenario==='UG tank', invoiceLitres=gate.data.litres;
-    check(reject || (d.density>=review.densityMin && d.density<=review.densityMax),'Density is outside the item range. Reject or investigate this load.');
+    const instrument=c.siteConfig?.instruments.find(row=>row.code===d.instrument);
+    check(c.siteConfig ? instrument && instrument.start<=c.doc.day && c.doc.day<=instrument.due
+      && (!ug||reject||instrument.storage===d.tank) : c.doc.day<=review.calibrationDue,
+    'Choose a calibrated instrument valid for this inspection and storage location.');
+    const item=c.siteConfig?.item??review;
+    check(reject || (d.density>=item.densityMin && d.density<=item.densityMax),'Density is outside the item range. Reject or investigate this load.');
     let accepted=0;
     if (ug && !reject) {
       check(d.tank && d.before!==undefined && d.after>d.before,'Select a tank and enter increasing dips.');
-      const opening=litresAtDip(d.before);
-      check(opening+invoiceLitres<=review.tank.safe && c.balance(d.tank)+invoiceLitres<=review.tank.safe,'There is insufficient safe fill space.');
-      accepted=round(litresAtDip(d.after)-opening);
+      const location=c.siteConfig?.storage.find(row=>row.code===d.tank);
+      const opening=litresAtDip(d.before,location?.chart), safe=location?.safe??review.tank.safe;
+      const acceptedLitres=round(litresAtDip(d.after,location?.chart)-opening);
+      check(opening+invoiceLitres<=safe && c.balance(d.tank)+invoiceLitres<=safe,'There is insufficient safe fill space.');
+      accepted=acceptedLitres;
       check(accepted<=invoiceLitres,'Measured receipt exceeds the invoice. Recheck dips.');
     }
     const shortage=ug || reject ? round(invoiceLitres-accepted) : 0;

@@ -54,10 +54,18 @@ export const stockEntries = {
   },
   E12(d,c) {
     check(d.sent>0,'Enter dispatched litres.');
-    return { sent:d.sent,destination:c.other,approvals:['Site In-charge'],moves:[{storage:d.from,litres:-d.sent}] };
+    const destination=c.siteConfig?.destination;
+    if (c.siteConfig) {
+      check(destination?.storage.some(row=>row.code===d.to)&&destination.businessDay<=c.doc.day,
+        'Approve opening stock and select a storage location at the receiving site.');
+      check(destination.item.code===c.siteConfig.item.code,'Both sites must use the same diesel item for this transfer.');
+    }
+    const valuation=c.siteConfig ? { transferRate:round(c.cost()) } : {};
+    return { sent:d.sent,destination:destination?.site??c.other,...valuation,approvals:['Site In-charge'],moves:[{storage:d.from,litres:-d.sent}] };
   },
   E14(d,c) {
-    const vehicle=review.vehicles[d.vehicle];
+    const vehicle=c.siteConfig ? c.siteConfig.vehicles.find(row=>row.code===d.vehicle) : review.vehicles[d.vehicle];
+    check(vehicle,'Choose an approved vehicle for this site.');
     check(d.litres>0 && d.rate>0 && d.litres<=vehicle.capacity,'Check the slip rate, litres and vehicle capacity.');
     check(d.slipDate<=c.doc.day,'Slip date is in the future.');
     check(!c.all.some(r=>r.type==='E14' && r.id!==c.doc.id && !['Draft','Returned','Superseded'].includes(r.status) && r.data.pump===d.pump && r.data.slip.toLowerCase()===d.slip.toLowerCase()),'This pump slip is already recorded.');
@@ -80,7 +88,8 @@ export const stockEntries = {
       const variancePercent=issue?round(largest/issue*100):null;
       const exception=issue?variancePercent>c.limits.countLimit:largest>0;
       check(!exception || (d.reason && d.evidence?.length),'Give a variance reason and attach evidence.');
-      return { measurements,variancePercent,approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
+      const moves=measurements.filter(row=>row.variance).map(row=>({storage:row.code,litres:-row.variance}));
+      return { measurements,variancePercent,moves,approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
     }
     const tankBook=c.balance(review.tank.label),bowserBook=c.balance(review.bowser.label);
     const measured=litresAtDip(d.dip);

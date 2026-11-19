@@ -1,0 +1,47 @@
+export const commercialMasters = ['account-master','supplier-depot-master','diesel-rate-master',
+  'transport-freight-master','measuring-instrument-master','gst-master','document-numbering-master'];
+
+const effective = values => ({ from:values['Effective from'], to:values['Effective to'] });
+const amount = value => value===undefined || value==='' ? undefined : Number(value);
+
+export function commercialMastersFor(data) {
+  const accounts = data['account-master'].map(({code,name,values:v})=>({
+    code,name, pump:v['Is Market Petrol Pump']==='Yes', tds:v['TDS / TCS Applicable']==='Yes',
+    bankVerified:Boolean(v['Bank details verified by']&&v['Account No']&&v['IFSC Code']&&v['Y/N']!=='No'),
+    recovery:v['Recovery rate basis (hire parties, contractors)'],
+  }));
+  return {
+    accounts,
+    depots:data['supplier-depot-master'].map(({values:v})=>({
+      code:v['Depot name'],name:v['Depot location (city, state)'],supplier:v['Supplier (A/C Code)'],
+    })),
+    rates:data['diesel-rate-master'].map(({id,revision,values:v})=>({
+      id,revision,supplier:v.Supplier,depot:v.Depot,basis:v['Price basis (Ex-depot / Delivered)'],
+      rate:amount(v['Diesel rate (₹/KL), worked out']),vat:amount(v['VAT (%) by state']),
+      invoiceDiscount:v['Discount type (invoice discount / post-sale discount)']==='Invoice discount'?amount(v['Discount (₹/KL)'])??0:0,
+      postSaleDiscount:v['Discount type (invoice discount / post-sale discount)']==='Post-sale discount'?amount(v['Discount (₹/KL)'])??0:0,
+      ...effective(v),
+    })),
+    freightRates:data['transport-freight-master'].map(({values:v})=>({
+      transporter:v.Transporter,depot:v['From depot'],destination:v['To site'],rate:amount(v['Freight (₹/KL)']),
+      shortageRate:amount(v['Shortage deduction rate (₹/KL)']),...effective(v),
+    })),
+    instruments:data['measuring-instrument-master'].map(({code,values:v})=>({
+      code,name:v.Type,storage:v['Fitted on (tank, bowser)'],start:v['Calibration date'],due:v['Calibration due date'],
+    })),
+    gst:data['gst-master'].filter(row=>row.values['Applies to (freight, services)']==='Freight').map(({values:v})=>({
+      code:v['GST code'],name:v['SAC / HSN'],percent:amount(v['GST rate (%)']),
+      reverse:v['Charge type (forward, reverse charge)']==='Reverse charge', ...effective(v),
+    })),
+    numbering:data['document-numbering-master'].map(({values:v})=>({
+      entry:v.Entry, prefix:v.Prefix, financialYear:v['Financial year'], next:amount(v['Next number']),
+      siteWise:v['Site-wise series (Y/N)']==='Yes',
+    })),
+  };
+}
+
+export function effectiveRecord(records, day, match) {
+  const candidates=records.filter(row=>row.from<=day&&(!row.to||day<=row.to)&&match(row))
+    .sort((a,b)=>b.from.localeCompare(a.from));
+  return candidates[0]?.from===candidates[1]?.from ? null : candidates[0];
+}
