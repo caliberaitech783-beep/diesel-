@@ -1,6 +1,6 @@
 import { masters } from './catalog.mjs';
 
-export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts } = {}) {
+export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data' } = {}) {
   const masterLinks = link => masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
@@ -21,7 +21,7 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
         ${masterData ? `<details class="master-group" name="diesel-sidebar"><summary><span class="folder-icon" aria-hidden="true"></span>Entry</summary><ul aria-label="Entry subtabs"><li data-fields="indent purchase fuel"><a href="/entries">Entry workspace</a></li>${localIndentDrafts ? '<li data-fields="item"><a href="/entries/indents">Diesel Indent drafts</a></li>' : ''}</ul></details>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>
-          <ul id="master-data-list" aria-label="Master Data subtabs">${masterLinks(slug => '/master-data?master=' + slug)}</ul>
+          <ul id="master-data-list" aria-label="Master Data subtabs">${masterLinks(slug => masterDataPath + '?master=' + slug)}</ul>
         </details>` : ''}
         <details class="master-group" name="diesel-sidebar"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>

@@ -13,6 +13,7 @@ import { siteEntryTypes } from './site-masters.mjs';
 import { approvalContact } from './approval-delivery.mjs';
 import { telegramApprovalPath } from './remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
+import { sendEntrySetup } from './entry-setup.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -58,9 +59,13 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       let context;
       try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
       const [site,role] = (context ?? '').split('.');
-      req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock,siteStock ? approvedLocationDirectory(siteMasterDb) : []), context)
+      const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
+      req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context)
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
-      if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for this pilot.');
+      if (!req.dieselActor) {
+        if (siteStock && !locations.length && profile.dieselMastersAllowed) return sendEntrySetup(req,res);
+        return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
+      }
       req.dieselActor.offlineScope = owner;
       if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, validateScalar } from './records-fields.mjs';
-import { preparePulseProjects, pulseProject } from './pulse-projects.mjs';
+import { preparePulseProjects, masterLocationProject } from './pulse-projects.mjs';
 import { validateStorage } from './storage-rules.mjs';
 import { invoiceRate } from './assets/invoice-rate.mjs';
 import { validatePolicyMaster } from '../entries/entry-policy.mjs';
@@ -207,7 +207,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       input = { ...input, Site: site };
     }
     if (slug === 'location-master' && !privateSubmission) {
-      const project = pulseProject(db, site);
+      const project = masterLocationProject(db, site, actor);
       if (!project) throw new MasterRecordError('Sync the project directory from Pulse 1 first.');
       if (!current && db.prepare("SELECT 1 FROM master_records WHERE master='location-master' AND site_key=?").get(siteKey)) {
         throw new MasterRecordError('This Pulse project already has a Location record. Open it to make changes.', 409);
@@ -236,7 +236,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
 
   function requireLocation(site, code) {
     const locations = readActiveMasters(db, site, ['location-master'])['location-master'];
-    if (!locations.some(location => location.code === code && location.site === site)) {
+    if (!locations.some(location => location.code === code && normalize(location.site) === normalize(site))) {
       throw new MasterRecordError('Select an approved location for this site.');
     }
   }
@@ -247,14 +247,15 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       const current = get(slug, id);
       assertRevision(current, revision);
       let status;
-      if (action === 'approve' && ['pending','pending_deactivation'].includes(current.status)) {
-        if (normalize(editor.id) === normalize(current.editedBy)) throw new MasterRecordError('A different actor must approve this revision.', 403);
-        status = current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
+      if (['approve','return'].includes(action) && ['pending','pending_deactivation'].includes(current.status)) {
+        if (normalize(editor.id) === normalize(current.editedBy)) throw new MasterRecordError('A different actor must review this revision.', 403);
+        status = action === 'return' ? 'returned'
+          : current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
         if (status === 'approved') {
           const problem = validatePolicyMaster(slug, current.values);
           if (problem) throw new MasterRecordError(problem);
         }
-      } else if (action === 'deactivate' && ['approved','pending'].includes(current.status)) {
+      } else if (action === 'deactivate' && ['approved','pending','returned'].includes(current.status)) {
         status = 'pending_deactivation';
       } else if (action === 'reactivate' && current.status === 'inactive') {
         status = 'pending';
@@ -275,7 +276,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
         approved_revision=CASE WHEN ?='approved' THEN ? WHEN ?='inactive' THEN NULL ELSE approved_revision END,
         approved_code_key=CASE WHEN ?='approved' THEN code_key WHEN ?='inactive' THEN NULL ELSE approved_code_key END,
         approved_site_key=CASE WHEN ?='approved' THEN site_key WHEN ?='inactive' THEN NULL ELSE approved_site_key END WHERE id=?`)
-        .run(status, nextRevision, timestamp, action === 'approve' ? current.editedBy : editor.id, JSON.stringify(values), status, nextRevision, status, status, status, status, status, id);
+        .run(status, nextRevision, timestamp, ['approve','return'].includes(action) ? current.editedBy : editor.id, JSON.stringify(values), status, nextRevision, status, status, status, status, status, id);
       return audit(get(slug, id), action, editor, action === 'approve' ? '' : changeReason(reason));
     });
   }
@@ -291,7 +292,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
 
   function list(slug, { search = '', status = '', site = null, limit = 100, offset = 0 } = {}) {
     definition(slug);
-    if (typeof search !== 'string' || search.length > 256 || !['', 'approved', 'pending', 'pending_deactivation', 'inactive'].includes(status)) throw new MasterRecordError('Choose a valid search or status.');
+    if (typeof search !== 'string' || search.length > 256 || !['', 'approved', 'pending', 'returned', 'pending_deactivation', 'inactive'].includes(status)) throw new MasterRecordError('Choose a valid search or status.');
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 250 || !Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Invalid page.');
     return queryRecords([slug], { search, status, site, limit, offset });
   }

@@ -9,6 +9,8 @@ import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
 import { telegramApprovalPath } from '../entries/remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
 import { registerEntrySetup } from '../entries/entry-setup.mjs';
+import { registerHostedMasters, masterWorkspacePath } from '../masters/hosted-masters.mjs';
+import { masterAssignments } from '../masters/master-access.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -19,7 +21,7 @@ function readCookie(request, name) {
   try { return decodeURIComponent(value); } catch { return ''; }
 }
 
-export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb }) {
+export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb, sharedMasterDb }) {
   const production = Boolean(env.WEBSITE_SITE_NAME);
   const accessMode = production ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
@@ -34,6 +36,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   const allowedLogins = new Set((env.DIESEL_ALLOWED_PULSE_LOGINS ?? '')
     .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
   const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
+  const masterAllowed = profile => Boolean(sharedMasterDb && masterAssignments(profile).length);
+  const canOpenMasters = profile => allowed(profile) || masterAllowed(profile);
   const entryMode = production ? 'site-stock' : (env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review');
   if (!['personal-review', 'assigned-pilot','site-stock'].includes(entryMode)) {
     throw new Error('DIESEL_ENTRY_ACCESS_MODE must be personal-review, assigned-pilot or site-stock.');
@@ -85,6 +89,11 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     return configured && isProof(grant) ? pulse.request('validate', { grant }) : null;
   }
 
+  const hostedMasters = sharedMasterDb && registerHostedMasters(app,{db:sharedMasterDb,publicOrigin:publicUrl.origin,startSignIn,
+    hasSubmissions:profile=>Boolean(itemSubmissions && allowed(profile)),
+    async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
+  });
+
   if (itemSubmissions) {
     registerItemSubmissions(app, {
       store: itemSubmissions, publicOrigin: publicUrl.origin,
@@ -99,7 +108,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     registerEntrySetup(app,{publicOrigin:publicUrl.origin,startSignIn,
       async getProfile(request) {
         const result = await verifySession(request);
-        return allowed(result?.profile) ? result.profile : null;
+        return canOpenMasters(result?.profile) ? result.profile : null;
       },
     });
   } else if (entryReviewDirectory) {
@@ -110,7 +119,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       async getProfile(request) {
         const result = await verifySession(request);
         if (assigned && typeof result?.profile?.login === 'string') {
-          return { ...result.profile, dieselMastersAllowed: allowed(result.profile) };
+          return { ...result.profile, dieselMastersAllowed: canOpenMasters(result.profile) };
         }
         return allowed(result?.profile) ? result.profile : null;
       },
@@ -121,12 +130,15 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     const grant = readCookie(request, sessionCookie);
     if (!isProof(grant)) return startSignIn(response);
     const result = await verifySession(request);
-    if (allowed(result?.profile)) {
-      if (itemSubmissions && recordMasters.includes(request.query.master)) {
-        return response.redirect(303, '/records?master=' + request.query.master + '&new=1');
+    if (canOpenMasters(result?.profile)) {
+      const actor = hostedMasters?.actor(result.profile,request);
+      if ((actor || itemSubmissions) && recordMasters.includes(request.query.master)) {
+        const path = (actor ? masterWorkspacePath : '') + '/records?master=' + request.query.master;
+        return response.redirect(303, path + (!actor || actor.canEditMasters ? '&new=1' : ''));
       }
       return page(response, 200, {
-        profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions),
+        profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions || actor),
+        masterDataPath:actor ? masterWorkspacePath + '/master-data' : undefined,
       });
     }
     if (entryAllowed(result?.profile)) return response.redirect(303, '/entries');
@@ -151,17 +163,18 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     const result = await pulse.request('exchange', { code, state, verifier });
     if (!isProof(result?.grant)) return page(response, 401, { message: expired });
     const verified = await pulse.request('validate', { grant: result.grant });
-    if (!allowed(verified?.profile) && !entryAllowed(verified?.profile)) {
+    if (!canOpenMasters(verified?.profile) && !entryAllowed(verified?.profile)) {
       response.clearCookie(sessionCookie, options);
       await pulse.request('revoke', { grant: result.grant });
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
+    if (destination===masterWorkspacePath && masterAllowed(verified?.profile)) return response.redirect(303, masterWorkspacePath);
     if (hostedEntries && (destination==='/entries/opening-stock' || destination==='opening-stock')) {
       return response.redirect(303,'/entries/opening-stock');
     }
     if (entryAllowed(verified?.profile) && telegramApprovalPath(destination)) return response.redirect(303, destination);
-    const openEntries = hostedEntries && (destination === '/entries' || destination === 'entries' || !allowed(verified?.profile));
+    const openEntries = hostedEntries && (destination === '/entries' || destination === 'entries' || !canOpenMasters(verified?.profile));
     response.redirect(303, openEntries ? '/entries' : '/');
   }));
 

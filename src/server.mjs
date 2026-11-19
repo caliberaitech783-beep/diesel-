@@ -5,8 +5,12 @@ import manifest from '../package.json' with { type: 'json' };
 import { openItemSubmissions } from './features/masters/item-submissions.mjs';
 import { registerItemFileAssets } from './features/masters/item-file-assets.mjs';
 import { registerSignIn } from './features/sign-in/routes.mjs';
+import { openHostedMasterDatabase } from './features/masters/hosted-master-storage.mjs';
+import { approvedLocationDirectory } from './features/masters/records.mjs';
 
-export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory, siteMasterDb } = {}) {
+export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory,
+  siteMasterDb = undefined, sharedMasterDb } = {}) {
+  const masterSource = env.DIESEL_SITE_MASTER_DB ? siteMasterDb : siteMasterDb ?? sharedMasterDb;
   const app = express();
   app.disable('x-powered-by');
   app.use((_request, response, next) => {
@@ -20,31 +24,37 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
   });
   app.get('/healthz', (_request, response) => {
     response.json({ status: 'ok', commit: manifest.releaseCommit ?? null,
-      ...(itemSubmissions ? { itemMaster: 'ready', masters: 'ready' } : {}),
+      ...(itemSubmissions || sharedMasterDb ? { itemMaster: 'ready', masters: 'ready' } : {}),
+      ...(sharedMasterDb ? { sharedMasters: 'ready' } : {}),
       ...(env.WEBSITE_SITE_NAME || entryReviewDirectory ? {
         openingStock: (env.WEBSITE_SITE_NAME || env.DIESEL_ENTRY_ACCESS_MODE==='site-stock')
-          && entryReviewDirectory && siteMasterDb ? 'ready' : 'setup',
+          && entryReviewDirectory && masterSource && approvedLocationDirectory(masterSource).length ? 'ready' : 'setup',
       } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));
   app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
   registerItemFileAssets(app);
-  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb });
+  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb:masterSource, sharedMasterDb });
   return app;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 3000);
-  let itemSubmissions;
+  let itemSubmissions, sharedMasterDb;
   if (process.env.WEBSITE_SITE_NAME && process.env.WEBSITES_ENABLE_APP_SERVICE_STORAGE?.toLowerCase() !== 'false') {
     try {
       itemSubmissions = await openItemSubmissions('/home/data/diesel-item-submissions');
     } catch (error) {
       console.error('Could not open Diesel Item Master storage:', error.code);
     }
+    try {
+      sharedMasterDb = openHostedMasterDatabase('/home/data/diesel-master-data/masters.sqlite');
+    } catch (error) {
+      console.error('Could not open shared Diesel Master Data storage:', error.code ?? error.message);
+    }
   }
-  const entryReviewDirectory = itemSubmissions ? '/home/data/diesel-entry-review' : undefined;
+  const entryReviewDirectory = itemSubmissions || sharedMasterDb ? '/home/data/diesel-entry-review' : undefined;
   let siteMasterDb;
   if (entryReviewDirectory && process.env.DIESEL_SITE_MASTER_DB) {
     let source;
@@ -58,6 +68,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.error('Diesel site stock setup incomplete:',error.code??error.message);
     }
   }
-  const server=createApp({ itemSubmissions, entryReviewDirectory, siteMasterDb }).listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
-  if (siteMasterDb) server.once('close',()=>siteMasterDb.close());
+  const server=createApp({ itemSubmissions, sharedMasterDb, entryReviewDirectory, siteMasterDb })
+    .listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
+  server.once('close',()=>{ siteMasterDb?.close(); sharedMasterDb?.close(); });
 }

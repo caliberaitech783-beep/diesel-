@@ -34,3 +34,7 @@ export function syncPulseProjects(db, regions) {
 export function pulseProject(db, site) {
   return db.prepare('SELECT name,client FROM pulse_projects WHERE site=?').get(site);
 }
+
+export function masterLocationProject(db,site,actor) {
+  return pulseProject(db,site) ?? (actor?.site === site ? actor.project : null);
+}

@@ -4,7 +4,7 @@ import { masterSidebar } from './master-sidebar.mjs';
 import { mastersMenuLink } from './master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 
-export function mastersPage({ master, account, guest, masterDataEnabled }) {
+export function mastersPage({ master, account, guest, masterDataEnabled, masterDataPath }) {
   const selected = masters.find(entry => entry.slug === master);
   const heading = selected?.name ?? 'Choose a master';
 
@@ -31,7 +31,7 @@ export function mastersPage({ master, account, guest, masterDataEnabled }) {
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${selected ? '' : masterSidebar({ masterData: masterDataEnabled })}
+    ${selected ? '' : masterSidebar({ masterData: masterDataEnabled, masterDataPath })}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
       ${selected ? mastersMenuLink('/') : ''}
       <header class="workspace-heading">

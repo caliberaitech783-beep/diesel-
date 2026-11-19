@@ -3,6 +3,7 @@ import { mastersMenuLink } from './master-navigation.mjs';
 import { itemFileMenu } from './item-file-menu.mjs';
 import { recordDraftScope } from './records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
+import { masterSiteMenu } from './master-site-menu.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -32,11 +33,11 @@ function recordField(field, value, index, base, editable) {
   return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
-export function recordsPage({ master, rows, actor, record, project, locations = [], hasLocation, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {
-  const base = '/api/masters/' + master.slug + '/records';
+export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {
+  const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
-  const home = '/records?master=' + master.slug;
-  const mastersHome = submissionsOnly ? '/' : '/records';
+  const home = prefix + '/records?master=' + master.slug;
+  const mastersHome = submissionsOnly || prefix ? '/' : '/records';
   const scope = record?.site ?? actor.site ?? '';
   const history = record && !submissionsOnly ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
     `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
@@ -73,26 +74,31 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
   }).join('') : '';
   const actions = [];
   if (editable) actions.push('<button type="submit" data-save-for-review>Save for review</button>');
-  if (approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status) && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase()) actions.push('<button type="button" data-action="approve">Approve revision</button>');
+  const mayReview = approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status)
+    && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase();
+  if (mayReview) actions.push('<button type="button" data-action="approve">Approve revision</button>',
+    '<button type="button" data-action="return">Return for changes</button>');
   if (editingAllowed && record && record.status !== 'pending_deactivation') actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
   const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
   const content = editing ? `
     ${submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     <div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
+    ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
     <output id="item-file-status" aria-live="polite"></output>
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
-    <form class="master-form" id="record-form" data-api="${endpoint}" data-slug="${master.slug}" data-master-name="${escape(master.name)}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}"${creating && editable ? ` data-import-scope="${recordDraftScope(actor, master.slug)}"` : ''}>
+    <form class="master-form" id="record-form" data-api="${endpoint}" data-record-home="${home}" data-slug="${master.slug}" data-master-name="${escape(master.name)}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}"${prefix ? ` data-write-scope="${recordDraftScope(actor, master.slug)}"` : ''}${creating && editable ? ` data-import-scope="${recordDraftScope(actor, master.slug)}"` : ''}>
       ${submissionsOnly ? '' : `<p class="record-meta">Site · ${escape(scope)}</p>`}${groups}
-      ${editingAllowed && record && record.status !== 'pending_deactivation' ? '<div class="master-field change-reason"><label for="change-reason">Reason for change</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
+      ${mayReview || (editingAllowed && record && record.status !== 'pending_deactivation') ? '<div class="master-field change-reason"><label for="change-reason">Reason for change or return</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
       ${actions.length ? `<div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>` : ''}
     </form>${history}` : `
     ${showSidebar ? '' : mastersMenuLink(mastersHome)}
     <h1 id="workspace-title">${escape(master.name)}</h1>
+    ${masterSiteMenu(actor,prefix,'records',master.slug)}
     ${project ? `<p>Pulse 1 project · ${escape(project.name)} · ${escape(project.client)}</p>` : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
-    <form class="record-tools" action="/records" method="get"><input type="hidden" name="master" value="${master.slug}">
+    <form class="record-tools" action="${prefix}/records" method="get"><input type="hidden" name="master" value="${master.slug}">
       <label>Find by code or name <input type="search" name="q" value="${escape(search)}"></label>
-      ${submissionsOnly ? '' : `<label>Status <select name="status">${['', 'pending', 'approved', 'pending_deactivation', 'inactive'].map(item =>
+      ${submissionsOnly ? '' : `<label>Status <select name="status">${['', 'pending', 'approved', 'returned', 'pending_deactivation', 'inactive'].map(item =>
         `<option value="${item}"${status === item ? ' selected' : ''}>${item.replace('_',' ') || 'All'}</option>`).join('')}</select></label>`}<button>Search</button>
     </form>${editingAllowed && !prerequisite && !hasLocation ? `<p><a class="record-primary" href="${home}&amp;new=1">New record</a></p>` : ''}
     <div class="record-list">${rows.length ? `<table><thead><tr><th>Code</th><th>Name</th>${submissionsOnly ? '' : '<th>Site</th>'}<th>Status</th><th>Revision</th></tr></thead><tbody>${rows.map(row =>
@@ -110,7 +116,8 @@ export function recordsPage({ master, rows, actor, record, project, locations = 
     ${showSidebar ? '<script type="module" src="/masters/assets/navigation.js"></script>' : ''}</head><body>
     <a class="skip" href="#workspace">Skip to workspace</a>
     <header class="masthead"><div class="brand"><img src="/masters/assets/pulse.png" width="36" height="36" alt=""><span class="wordmark">Caliber <strong>Pulse</strong></span><span class="product">Diesel</span></div>
-    <div class="account">${themeToggle}${submissionsOnly ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
-    <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true, localIndentDrafts: !submissionsOnly && !actor.siteEntryTypes }) : ''}
+    <div class="account">${themeToggle}${submissionsOnly || prefix ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
+    <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true,
+      masterDataPath: prefix+'/master-data',localIndentDrafts: !prefix && !submissionsOnly && !actor.siteEntryTypes }) : ''}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">${content}</main></div></body></html>`;
 }

@@ -5,11 +5,11 @@ const escaped = value => String(value).replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[character]);
 
-export function signInPage({ profile, message, guest, master, masterDataEnabled } = {}) {
+export function signInPage({ profile, message, guest, master, masterDataEnabled, masterDataPath } = {}) {
   if (guest || profile) {
     const account = guest ? 'Guest' : `<span>Signed in as ${escaped(profile.name || profile.login)}.</span>
       <form method="post" action="/api/sign-out"><button>Sign out</button></form>`;
-    return mastersPage({ master, account, guest, masterDataEnabled });
+    return mastersPage({ master, account, guest, masterDataEnabled, masterDataPath });
   }
 
   return loginPage({ message });
