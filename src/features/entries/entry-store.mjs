@@ -4,12 +4,13 @@ import { businessDay,evaluate,validateFields,validDate,requireValue as check,rou
 import { entryRole, otherSite, review, roleKey } from './review-masters.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
+import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 
 const unpack = row => row && JSON.parse(row.document);
 const finalStates = ['Posted','Superseded'];
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const visible = (doc,site) => doc.site===site || (doc.type==='E12' && doc.result.destination===site && !['Draft','Returned'].includes(doc.status));
-export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undefined, undefined, day) } = {}) {
+export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undefined, undefined, day), siteFor } = {}) {
   db.exec(`CREATE TABLE IF NOT EXISTS entry_review_docs(id TEXT PRIMARY KEY,document TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS entry_review_requests(token TEXT PRIMARY KEY,doc TEXT,actor TEXT);
     CREATE TABLE IF NOT EXISTS entry_review_history(seq INTEGER PRIMARY KEY,doc TEXT,actor TEXT,action TEXT,stamp TEXT,snapshot TEXT);
@@ -19,6 +20,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   const all = () => db.prepare('SELECT document FROM entry_review_docs ORDER BY rowid DESC').all().map(unpack);
   const moves = () => db.prepare('SELECT * FROM entry_review_moves ORDER BY seq').all();
   const get = id => unpack(db.prepare('SELECT document FROM entry_review_docs WHERE id=?').get(id));
+  function siteConfig(type,site,day) {
+    if (!siteFor) return undefined;
+    check(siteEntryTypes.includes(type),'This entry type is unavailable in the site stock workspace.');
+    const config=siteFor(site);
+    check(config,'Approve opening stock for this site before entering transactions.');
+    if(day) check(day>=config.businessDay,'Choose a business date on or after the opening stock date.');
+    return config;
+  }
+  function definition(type,site) {
+    return siteDefinition(type,siteConfig(type,site));
+  }
   function read(id,site) {
     const doc=get(id);
     check(doc && visible(doc,site),'Entry unavailable for this site.');
@@ -52,14 +64,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       check(!all().some(r=>r.site===site && r.type==='E15' && r.status==='Posted' && r.day>=doc.day),'A signed count already covers this movement.');
     const rows=moves().filter(m=>m.site===site && m.storage===line.storage);
       check(!rows.some(m=>m.day>doc.day),'A later stock movement already exists for this storage location.');
-      const tank=line.storage===review.tank.label,opening=tank?review.tank.opening:review.bowser.opening;
+      const location=siteConfig(doc.type,site,doc.day)?.storage.find(row=>row.code===line.storage);
+      if(siteFor) check(location,'Choose an approved location from opening stock.');
+      const tank=line.storage===review.tank.label,opening=location?.opening??(tank?review.tank.opening:review.bowser.opening);
       const next=round(rows.reduce((v,m)=>v+m.litres,opening)+line.litres);
-      check(next>=0 && next<=(tank?review.tank.safe:review.bowser.capacity),'Stock would be negative or exceed capacity.');
+      check(next>=0 && next<=(location?.safe??(tank?review.tank.safe:review.bowser.capacity)),'Stock would be negative or exceed capacity.');
       db.prepare('INSERT INTO entry_review_moves(doc,site,day,storage,litres) VALUES(?,?,?,?,?)').run(doc.id,site,doc.day,line.storage,line.litres);
     }
   }
   function fresh(type,actor,id=randomUUID()) {
     check(Object.hasOwn(byId,type) && uuid.test(id),'Choose a valid entry.');
+    siteConfig(type, actor.site);
     return {id,type,site:actor.site,maker:actor.id,role:entryRole(actor),day:businessDay(),created:new Date().toISOString(),
       rev:0,status:'Draft',number:'',data:{},result:{},stage:0};
   }
@@ -89,7 +104,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   function collect(doc,input) {
     check(input && typeof input==='object','Supply the entry fields.');
     const data={};
-    for (const field of byId[doc.type].fields) {
+    for (const field of definition(doc.type,doc.site).fields) {
       const value=input[field.key];
       if (value===undefined || value==='') continue;
       if (field.type==='file') data[field.key]=files(doc,field.key,value);
@@ -97,7 +112,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     }
     return data;
   }
-  function calculate(doc) { return evaluate(doc,all(),moves(),policyFor(doc.site, doc.day)); }
+  function calculate(doc) { return evaluate(doc,all(),moves(),policyFor(doc.site, doc.day),siteConfig(doc.type,doc.site,doc.day)); }
   function autoGrn(source) {
     const gate=get(source.data.gate),po=get(gate.data.po);
     const doc=fresh('E7',{site:source.site,id:'Pulse'});
@@ -157,10 +172,11 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         checkMaker(doc,actor);
         check(['Draft','Returned'].includes(doc.status),'This entry is already submitted.');
         check(validDate(body.day) && body.day<=businessDay(),'Choose today’s business date or an earlier date.');
+        siteConfig(doc.type,doc.site,body.day);
         doc.day=body.day;checkLocks(doc);doc.data=collect(doc,body.data);
         doc.status='Draft';
         if (action==='Submit') {
-          doc.data=validateFields(byId[doc.type],doc.data);
+          doc.data=validateFields(definition(doc.type,doc.site),doc.data);
           doc.result=calculate(doc);assignNumber(doc);doc.stage=0;
           if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
@@ -209,9 +225,9 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   }
   function stockPicture(site,day=businessDay()) {
     const summary=calculate({id:'preview',type:'E1',site,day,data:{litres:1,reason:review.reasons[0],requiredBy:day}});
-    return {Project:site,Item:review.item,'Tank and bowser stock (L)':summary.stock,'In transit (L)':summary.inTransit,
+    return {Project:site,Item:summary.item,'Tank and bowser stock (L)':summary.stock,'In transit (L)':summary.inTransit,
       'Average daily issue (L)':summary.averageDaily,'Days of stock':summary.daysOfStock,'Suggested request (L)':summary.suggested};
   }
-  return {read,write,fresh,stockPicture,list:site=>all().filter(r=>visible(r,site)),history:id=>db.prepare('SELECT actor,action,stamp FROM entry_review_history WHERE doc=? ORDER BY seq').all(id),
+  return {read,write,fresh,definition,stockPicture,list:site=>all().filter(r=>visible(r,site)),history:id=>db.prepare('SELECT actor,action,stamp FROM entry_review_history WHERE doc=? ORDER BY seq').all(id),
     file(id,site) { const f=db.prepare('SELECT * FROM entry_review_files WHERE id=?').get(id);check(f,'Attachment unavailable.');read(f.doc,site);return f; }};
 }

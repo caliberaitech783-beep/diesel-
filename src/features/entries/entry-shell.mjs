@@ -10,8 +10,8 @@ export const option = (value, label, selected) =>
   `<option value="${esc(value)}"${selected ? ' selected' : ''}>${esc(label)}</option>`;
 const groups = ['Buy', 'Receive', 'Store and issue', 'Money', 'Control'];
 
-function navigation(active, assigned, canOpenMasters) {
-  const available = assigned ? entries.filter(entry => pilotEntry(entry.id)) : entries;
+function navigation(active, assigned, canOpenMasters, types, hosted) {
+  const available = types ? entries.filter(entry=>types.includes(entry.id)) : assigned ? entries.filter(entry => pilotEntry(entry.id)) : entries;
   return `<aside class="rail"><div class="rail-title"><span>Entry</span>
     <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="false" hidden>Browse entries</button></div>
     <nav id="entry-navigation" aria-label="Diesel entries">
@@ -19,6 +19,7 @@ function navigation(active, assigned, canOpenMasters) {
     <a class="nav-home" href="/entries/home" ${active === 'home' ? 'aria-current="page"' : ''}>My work</a>
     <a class="nav-home" href="/entries/approvals" ${active === 'approvals' ? 'aria-current="page"' : ''}>My approvals</a>
     <a class="nav-home" href="/entries/alerts" ${active === 'alerts' ? 'aria-current="page"' : ''}>My alerts</a>
+    ${types || hosted ? `<a class="nav-home" href="/entries/opening-stock" ${active==='opening-stock'?'aria-current="page"':''}>Opening stock</a>` : ''}
     ${groups.filter(group => available.some(entry => entry.group === group)).map(group => `<details ${(!active && group === 'Buy') || byId[active]?.group === group ? 'open' : ''}>
       <summary><span>${group}</span><small>${available.filter(e => e.group === group).length}</small></summary>
       ${available.filter(e => e.group === group).map(e => `<a href="/entries/type/${e.id}" ${active === e.id ? 'aria-current="page"' : ''}><small>${e.id}</small><span>${esc(e.name)}</span></a>`).join('')}
@@ -49,8 +50,8 @@ export function page(title, actor, active, back, body, heading) {
     </head><body data-actor="${esc(actor.actionContext ?? actor.id)}" data-hosted="${Boolean(actor.hosted)}" data-offline-scope="${esc(actor.offlineScope)}">
     <a href="#workspace" class="skip-link">Skip to workspace</a>
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
-    <div class="tools"><span class="environment">${actor.assignments ? 'Role-based pilot · sample data' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
-    <div class="shell">${navigation(active, actor.assignments, actor.canOpenMasters)}<main id="workspace" tabindex="-1">
+    <div class="tools"><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
+    <div class="shell">${navigation(active, actor.assignments, actor.canOpenMasters,actor.siteEntryTypes,actor.hosted)}<main id="workspace" tabindex="-1">
     <div class="context-bar"><div class="crumb"><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(active)}</span>` : ''}</div>${switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output></main></div></body></html>`;
 }

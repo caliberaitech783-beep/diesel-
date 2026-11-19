@@ -8,29 +8,39 @@ import { createEntryStore } from './entry-store.mjs';
 import { registerPage,detailPage,approvalsPage,alertsPage,roleHomePage } from './entry-page.mjs';
 import { createLocalApproval } from './local-approval.mjs';
 import { pilotEntry } from './entry-access.mjs';
-import { entryPolicy, policyMasters } from './entry-policy.mjs';
+import { entryPolicy } from './entry-policy.mjs';
 import { businessDay } from './entry-rules.mjs';
-import { readActiveMasters } from '../masters/records.mjs';
 import { entryAlerts } from './entry-alerts.mjs';
 import { registerFilters, filterRegister, entryCsv } from './entry-register.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
+import { siteEntryTypes } from './site-masters.mjs';
+import { approvedPolicyReader, siteEntryWorkspace } from './site-entry-workspace.mjs';
+import { registerOpeningStock } from './opening-stock-routes.mjs';
+import { openingStockSetupPage } from './opening-stock-page.mjs';
 import { isInvoiceImage, readInvoiceImage } from './invoice-ocr.mjs';
 
 const qrDecoder = createRequire(import.meta.url).resolve('jsqr');
 let readingInvoice = false;
 
-export function registerEntries(app,db) {
-  app.use('/entries',createEntriesRouter(db,{policyFor:(site, day) => entryPolicy(readActiveMasters(db, site, policyMasters),site,day)}));
+export function registerEntries(app,masterDb,siteDb) {
+  const options = siteDb ? siteEntryWorkspace(siteDb,masterDb) : {policyFor:approvedPolicyReader(masterDb)};
+  app.use('/entries',createEntriesRouter(siteDb??masterDb,options));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy() } = {}) {
-  const store=createEntryStore(db,{policyFor});
-  const inbox=assigned ? null : createLocalApproval(db,store);
-  const allowedType = type => Object.hasOwn(byId,type) && (!assigned || pilotEntry(type));
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor } = {}) {
+  const store=createEntryStore(db,{policyFor,siteFor});
+  const inbox=assigned||opening ? null : createLocalApproval(db,store);
+  const allowedType = type => Object.hasOwn(byId,type)
+    && (opening ? siteEntryTypes.includes(type) : !assigned || pilotEntry(type));
   const router=express.Router();
+  if (opening) {
+    registerOpeningStock(router,opening,mastersFor);
+  } else if (hosted) {
+    router.get('/opening-stock',(req,res)=>res.send(openingStockSetupPage(req.dieselActor)));
+  }
   router.use('/assets',express.static(fileURLToPath(new URL('./assets/',import.meta.url))));
   router.get('/assets/qr-decoder.js',(_req,res)=>res.type('js').sendFile(basename(qrDecoder),{root:dirname(qrDecoder)}));
-  if (!assigned) router.post('/invoice-photo', express.raw({ type: 'image/png', limit: '5mb' }), async (req,res) => {
+  if (!assigned&&!opening) router.post('/invoice-photo', express.raw({ type: 'image/png', limit: '5mb' }), async (req,res) => {
     if (entryRole(req.dieselActor) !== 'Site Store') return res.sendStatus(403);
     if (!isInvoiceImage(req.body)) return res.status(422).json({error:'Choose a clear invoice photo.'});
     if (readingInvoice) return res.status(429).json({error:'Another invoice is being read. Try again in a moment.'});
@@ -60,11 +70,21 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const role = entryRole(a);
     if (t.id!=='E16' && t.maker!==role && !(t.id==='E15' && role==='Site Store')) return res.status(403).send(assigned
       ? 'Your selected role cannot create this entry.' : 'Select the initiator role in the entry register.');
-    res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],t.id==='E1'?store.stockPicture(a.site):null));
+    if (opening) {
+      const config=siteFor(a.site);
+      if (!config) return res.redirect(303,'/entries/opening-stock');
+      if (t.id==='E11'&&(!config.vehicles.length||!config.drivers.length||!config.storage.some(row=>row.type==='Bowser'))) {
+        return res.status(409).send('Approve vehicles and drivers for this site and include a bowser in opening stock before recording a fuel issue.');
+      }
+      if (t.id==='E10A'&&!['UG tank','Bowser'].every(type=>config.storage.some(row=>row.type===type))) {
+        return res.status(409).send('Opening stock must include a tank and a bowser to record a transfer between them.');
+      }
+    }
+    res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],t.id==='E1'?store.stockPicture(a.site):null,store.definition(t.id,a.site)));
   });
   router.get('/record/:id',(req,res)=>{
     const a=req.dieselActor;
-    try { const doc=store.read(req.params.id,a.site);res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),doc.type==='E1'&&['Draft','Returned'].includes(doc.status)?store.stockPicture(a.site,doc.day):null)); }
+    try { const doc=store.read(req.params.id,a.site);res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),doc.type==='E1'&&['Draft','Returned'].includes(doc.status)?store.stockPicture(a.site,doc.day):null,store.definition(doc.type,a.site))); }
     catch { res.sendStatus(404); }
   });
   router.get('/file/:id',(req,res)=>{
@@ -104,7 +124,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     if (req.body.offlineScope!==undefined && req.body.offlineScope!==actor.offlineScope) {
       return res.status(403).json({error:'Sign in with the Pulse account that prepared this action.'});
     }
-    if (assigned && req.body.type!==undefined && !pilotEntry(req.body.type)) return res.sendStatus(404);
+    if (req.body.type!==undefined && !allowedType(req.body.type)) return res.sendStatus(404);
     try { const doc=store.write(req.params.id,actor,req.body);res.json({url:'/entries/record/'+doc.id,status:doc.status}); }
     catch (e) { res.status(422).json({error:e.message}); }
   });

@@ -16,7 +16,8 @@ function openTanker(d,c) {
 }
 export const stockEntries = {
   E10A(d,c) {
-    const litres=meter(d), out=round(litresAtDip(d.before)-litresAtDip(d.after));
+    const chart=c.siteConfig?.storage.find(row=>row.code===d.tank)?.chart;
+    const litres=meter(d), out=round(litresAtDip(d.before,chart)-litresAtDip(d.after,chart));
     check(out>0,'Tank dip must fall during a transfer.');
     const difference=round(Math.abs(out-litres)/litres*100), exception=difference>c.limits.bowserLimit;
     check(!exception||d.reason,'Select a reason for the transfer difference.');
@@ -35,16 +36,19 @@ export const stockEntries = {
       bowsers:new Set(loads.map(r=>r.data.bowser)).size,generateGRN:true,approvals:['Site In-charge'] };
   },
   E11(d,c) {
-    const litres=meter(d), vehicle=review.vehicles[d.vehicle];
+    const litres=meter(d), vehicle=c.siteConfig ? c.siteConfig.vehicles.find(row=>row.code===d.vehicle) : review.vehicles[d.vehicle];
+    check(vehicle,'Choose an approved vehicle for this site.');
     const issues=c.posted('E11'), lastMeter=issues.find(r=>r.data.bowser===d.bowser);
     if (lastMeter) check(d.start===lastMeter.data.end,'Start from the last issue meter end for this bowser.');
     const last=issues.find(r=>r.data.vehicle===d.vehicle);
     check(litres<=vehicle.capacity,'Issued litres exceed the vehicle tank capacity.');
+    check(last || d.reading>=(vehicle.firstReading??0),'Reading cannot be below the approved go-live reading.');
     check(!last || d.reading>=last.data.reading,'Vehicle meter cannot go backwards.');
     const delta=last?d.reading-last.data.reading:0;
     const hours=last?(Date.parse(c.doc.created)-Date.parse(last.created))/3600000:null;
     const efficiency=delta>0?round(litres/delta):null;
-    const exception=last && (hours<c.limits.repeatHours || delta>c.limits.meterJump*Math.max(1,Math.ceil(hours/24)) || efficiency>vehicle.standard);
+    const meterJump=vehicle.meterType!=='Kilometre meter' && delta>c.limits.meterJump*Math.max(1,Math.ceil(hours/24));
+    const exception=last && (hours<(vehicle.repeatHours??c.limits.repeatHours) || meterJump || efficiency>vehicle.standard);
     check(!exception || d.reason,'Select a reason for a repeat fill or meter override.');
     return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals:exception?['Site In-charge']:[],moves:[{storage:d.bowser,litres:-litres}] };
   },
@@ -64,6 +68,20 @@ export const stockEntries = {
   },
   E15(d,c) {
     check(!c.reserved('E15').some(r=>r.day===c.doc.day),'A count already exists for this business day.');
+    if (c.siteConfig) {
+      const measurements = c.siteConfig.storage.map((location,index)=>{
+        const book=c.balance(location.code);
+        const measured=location.type==='UG tank' ? litresAtDip(d['measured'+index],location.chart) : d['measured'+index];
+        check(measured<=location.safe,'Measured stock exceeds safe fill for '+location.code+'.');
+        return { code:location.code, book, measured, variance:round(book-measured) };
+      });
+      const issue=c.sum(c.posted('E11').filter(row=>row.day===c.doc.day),'litres');
+      const largest=Math.max(...measurements.map(row=>Math.abs(row.variance)));
+      const variancePercent=issue?round(largest/issue*100):null;
+      const exception=issue?variancePercent>c.limits.countLimit:largest>0;
+      check(!exception || (d.reason && d.evidence?.length),'Give a variance reason and attach evidence.');
+      return { measurements,variancePercent,approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
+    }
     const tankBook=c.balance(review.tank.label),bowserBook=c.balance(review.bowser.label);
     const measured=litresAtDip(d.dip);
     check(d.bowserCount<=review.bowser.capacity,'Bowser measurement exceeds capacity.');

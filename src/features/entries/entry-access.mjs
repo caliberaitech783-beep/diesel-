@@ -1,6 +1,7 @@
 import { roles, roleKey, sites } from './review-masters.mjs';
 
 const pilotRoles = ['Site In-charge', 'Project Manager', 'Procurement Executive', 'Head – Procurement', 'Director / CMD', 'CFO'];
+const stockRoles = ['Site Store', 'Point operator', 'Bowser operator'];
 const normalize = value => typeof value === 'string'
   ? value.trim().normalize('NFKC').toLowerCase().replace(/[‐‑–—]/g, '-').replace(/\s+/g, ' ')
   : '';
@@ -11,12 +12,12 @@ const siteNames = new Map(sites.flatMap(site => [[normalize(site), site], [norma
 export const pilotEntry = type => type === 'E1' || type === 'E2';
 
 // Each grant binds one role to one site. Only the verified Pulse response supplies grants.
-export function entryAssignments(profile) {
+export function entryAssignments(profile, siteStock = false) {
   if (typeof profile?.login !== 'string' || !profile.login.trim() || !Array.isArray(profile.dieselEntryAccess)) return [];
   const assignments = new Map();
   for (const grant of profile.dieselEntryAccess) {
     const site = siteNames.get(normalize(grant?.site));
-    const role = roleNames.get(normalize(grant?.role));
+    const role = roleNames.get(normalize(grant?.role)) ?? (siteStock ? stockRoles.find(name=>normalize(name)===normalize(grant?.role)) : undefined);
     if (!site || !role) continue;
     const key = site + '.' + roleKey(role);
     assignments.set(key, { site, role, profile: roleKey(role), key });

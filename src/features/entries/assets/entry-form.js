@@ -31,11 +31,17 @@ document.querySelector('#record-position')?.addEventListener('click',()=>{
 });
 function useTag() {
   const raw=document.getElementById('tag-input').value.trim().toLowerCase();
+  const matches=[];
   for(const select of form.querySelectorAll('select[name="vehicle"],select[name="bowser"],select[name="tank"]')) {
-    const option=[...select.options].find(o=>o.value && o.value.toLowerCase()===raw);
-    if(option){select.value=option.value;syncStatus.textContent='Tag selected · '+option.text;return;}
+    for (const option of select.options) {
+      if (option.value && (option.value.toLowerCase()===raw || option.dataset.tag?.trim().toLowerCase()===raw)) matches.push({select,option});
+    }
   }
-  syncStatus.textContent='Unknown tag for this site.';
+  if (matches.length===1) {
+    const [{select,option}]=matches;
+    select.value=option.value;
+    syncStatus.textContent='Tag selected · '+option.text;
+  } else syncStatus.textContent=matches.length?'This tag matches multiple records. Choose the correct record.':'Unknown tag for this site.';
 }
 document.querySelector('#use-tag')?.addEventListener('click',useTag);
 document.querySelector('#tag-input')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();useTag();}});

@@ -37,7 +37,7 @@ export function alertsPage(actor, alerts) {
 export function roleHomePage(actor, rows, alerts) {
   const role = entryRole(actor);
   const tasks = entries.filter(entry => (entry.maker === role || (entry.id === 'E15' && role === 'Site Store'))
-    && (!actor.assignments || pilotEntry(entry.id)));
+    && (actor.siteEntryTypes ? actor.siteEntryTypes.includes(entry.id) : !actor.assignments || pilotEntry(entry.id)));
   if (role === 'Bowser operator') tasks.sort((a, b) => Number(b.id === 'E11') - Number(a.id === 'E11'));
   const approvals = rows.filter(doc => mayApproveEntry(doc, actor)).length;
   const links = [
@@ -72,13 +72,16 @@ export function registerPage(actor,rows,type,query={}) {
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
     ${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,rows)}</section>
-    ${!meta&&!actor.hosted?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
+    ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {
   const value=d.data[f.key]??'',opts=f.type==='link'?sourceChoices(f,d,rows,actor)
     .map(r=>[r.id,r.number+' · '+byId[r.type].name]):f.options?.map(v=>[v,v]);
   const label=esc(f.label);
-  if (opts) return `<label>${label}<select name="${f.key}">${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>option(v,n,v===value || (!value&&opts.length===1&&!f.optional))).join('')}</select></label>`;
+  if (opts) return `<label>${label}<select name="${f.key}">${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>{
+    const tag=f.optionTags?.get(v);
+    return `<option value="${esc(v)}"${tag?` data-tag="${esc(tag)}"`:''}${v===value || (!value&&opts.length===1&&!f.optional)?' selected':''}>${esc(f.optionLabels?.get(v)??n)}</option>`;
+  }).join('')}</select></label>`;
   if (f.type==='file') return `<label>${label}<input type="file" name="${f.key}" accept="image/png,image/jpeg,application/pdf" multiple data-saved="${esc(JSON.stringify(Array.isArray(value)?value:[]))}">${Array.isArray(value)?value.map(file=>esc(file.name)).join(', '):''}</label>
     ${f.key==='billPhoto' ? '<button type="button" id="read-invoice">Read invoice photo</button>' : ''}`;
   return `<label>${label}<input name="${f.key}" type="${f.type}" ${f.type==='number'?'step="any"':''} value="${esc(value)}"></label>`;
@@ -97,8 +100,8 @@ function editableFields(meta, doc, rows, actor) {
     <div class="fields">${index===0 ? dateControl : ''}${render(fields)}</div></fieldset>`).join('')
     + '<div class="actions" id="phone-step-navigation" hidden><button type="button" data-step-back>Back</button><span aria-live="polite" data-step-count></span><button type="button" data-step-next>Next</button></div>';
 }
-export function detailPage(actor,d,rows,history,picture) {
-  const meta=byId[d.type],role=entryRole(actor);
+export function detailPage(actor,d,rows,history,picture,meta=byId[d.type]) {
+  const role=entryRole(actor);
   const editable=['Draft','Returned'].includes(d.status)&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=d.result.approvals?.[d.stage];
   const reviewable=mayApproveEntry(d,actor);
@@ -136,6 +139,6 @@ export function detailPage(actor,d,rows,history,picture) {
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${review.reasons.map(v=>option(v,v,false)).join('')}</select></label></div>`:''}
     <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
-    ${reviewable&&!actor.assignments&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
+    ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time></li>`).join('')}</ol></section>`:''}`);
 }

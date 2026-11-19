@@ -12,7 +12,7 @@ const expired = 'Your sign-in expired. Please sign in again.';
 const readCookie = (request, name) => (request.get('cookie') || '').split(';')
   .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 
-export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory }) {
+export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
@@ -27,11 +27,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
   const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
   const entryMode = env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review';
-  if (!['personal-review', 'assigned-pilot'].includes(entryMode)) {
-    throw new Error('DIESEL_ENTRY_ACCESS_MODE must be personal-review or assigned-pilot.');
+  if (!['personal-review', 'assigned-pilot','site-stock'].includes(entryMode)) {
+    throw new Error('DIESEL_ENTRY_ACCESS_MODE must be personal-review, assigned-pilot or site-stock.');
   }
-  const assigned = entryMode === 'assigned-pilot';
-  const entryAllowed = profile => Boolean(entryReviewDirectory && assigned && entryAssignments(profile).length);
+  const siteStock = entryMode === 'site-stock' && Boolean(siteMasterDb);
+  const assigned = entryMode === 'assigned-pilot' || siteStock;
+  const entryAllowed = profile => Boolean(entryReviewDirectory && assigned && entryAssignments(profile,siteStock).length);
   const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
@@ -65,7 +66,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     if (!configured) return page(response, 503, { message: unavailable });
     const state = newProof();
     const verifier = newProof();
-    response.cookie(stateCookie, `${state}.${verifier}${destination === 'entries' ? '.entries' : ''}`, { ...options, maxAge: 600_000 });
+    response.cookie(stateCookie, [state,verifier,destination].filter(Boolean).join('.'), { ...options, maxAge: 600_000 });
     response.redirect(303, pulse.authorizationUrl(state, verifier));
   }
 
@@ -85,7 +86,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (entryReviewDirectory) {
-    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,startSignIn:response=>startSignIn(response,'entries'),
+    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,
+      siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn:(response,opening)=>startSignIn(response,opening?'opening-stock':'entries'),
       async getProfile(request) {
         const result = await verifySession(request);
         if (assigned && typeof result?.profile?.login === 'string') {
@@ -136,6 +138,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
+    if (entryReviewDirectory && destination==='opening-stock') return response.redirect(303,'/entries/opening-stock');
     const openEntries = entryReviewDirectory && (destination === 'entries' || !allowed(verified?.profile));
     response.redirect(303, openEntries ? '/entries' : '/');
   }));
