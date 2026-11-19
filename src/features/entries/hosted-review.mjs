@@ -13,6 +13,9 @@ import { siteEntryTypes } from './site-masters.mjs';
 import { approvalContact } from './approval-delivery.mjs';
 import { telegramApprovalPath } from './remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
+import { masterAssignments } from '../masters/master-access.mjs';
+import { createLocationsFromPulseSites } from '../masters/pulse-site-locations.mjs';
+import { createPulseMasterStore } from '../pulse-masters/pulse-master-store.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -41,6 +44,19 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
   const cookie = (secure ? '__Host-' : '') + (siteStock ? 'diesel_stock_assignment' : assigned ? 'diesel_entry_assignment' : 'diesel_review_context');
+  // Each site named in a verified Pulse role starts with a Location Master record taken from Pulse's own Site Master.
+  const seen = new Set();
+  function locationsFromPulse(profile) {
+    const grants = [...masterAssignments(profile), ...(Array.isArray(profile.dieselEntryAccess) ? profile.dieselEntryAccess : [])]
+      .map(grant => ({ site: grant?.site, project: grant?.project ?? undefined }));
+    const mark = JSON.stringify(grants);
+    if (seen.has(mark)) return;
+    try {
+      const { missing } = createLocationsFromPulseSites(siteMasterDb, grants, createPulseMasterStore(siteMasterDb).read('site').records);
+      // A site Pulse has not listed yet is tried again once the Site Master copy has been fetched.
+      if (!missing.length) seen.add(mark);
+    } catch { /* A read-only or incomplete master source leaves locations to the master makers. */ }
+  }
   const gate = async (req,res,next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.get('origin') !== publicOrigin) return res.sendStatus(403);
     try {
@@ -58,15 +74,19 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       let context;
       try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
       const [site,role] = (context ?? '').split('.');
+      if (siteStock) locationsFromPulse(profile);
       const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
       // Until the first Location Master record is approved, each person gets a private trial workspace on sample data.
       // It never touches the live ledger and gives way to live Entry as soon as a location is approved.
-      const trial = siteStock && !locations.length;
-      req.dieselActor = assigned && !trial ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context)
-        : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
+      // A person with no Entry role at an approved site gets a private trial workspace on sample data.
+      // It never touches the live ledger, and live Entry opens for them once Pulse assigns a role at an approved site.
+      const live = assigned && (!siteStock || locations.length) ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context) : null;
+      const trial = siteStock && !live;
+      req.dieselActor = live ?? (assigned && !trial ? null
+        : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
-      if (trial) req.dieselActor.trial = true;
+      if (trial) req.dieselActor.trial = locations.length ? 'role' : 'location';
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
       req.reviewOwner = trial ? 'trial-'+owner : siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
