@@ -1,4 +1,5 @@
 import { needsCsvEscape, writeCsvTable, writeExcelTable } from './tabular-files.mjs';
+import { findRecordSheet, maxBulkRows, readRecordRows } from './bulk-rows.mjs';
 
 const headerKey = text => String(text ?? '').normalize('NFKC').trim().replace(/\s*\*$/, '').toLowerCase();
 const hasContent = row => row.some(value => String(value ?? '').trim());
@@ -23,6 +24,26 @@ export function readItemCsv(bytes, names, { parse }) {
   const rows = parse(text, { bom: true, skip_empty_lines: true, relax_column_count_less: true });
   return readItemTable(rows, names, value =>
     value.startsWith("'") && needsCsvEscape(value.slice(1)) ? value.slice(1) : value);
+}
+
+export function readRecordsCsv(bytes, fields, { parse }) {
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const rows = parse(text, { bom: true, relax_column_count: true });
+  return readRecordRows(rows.map(row => row.map(value => value.startsWith("'") && needsCsvEscape(value.slice(1)) ? value.slice(1) : value)), fields);
+}
+
+export function readRecordsExcel(bytes, fields, masterName, { read, utils }) {
+  const signature = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 4));
+  if (signature.length !== 4 || signature[0] !== 0x50 || signature[1] !== 0x4b || signature[2] !== 3 || signature[3] !== 4) {
+    throw new Error('Choose an Excel workbook in .xlsx format.');
+  }
+  const workbook = read(bytes, { sheetRows: maxBulkRows + 20, dateNF: 'yyyy-mm-dd' });
+  const name = findRecordSheet(workbook.SheetNames, masterName), sheet = workbook.Sheets[name];
+  if (!sheet?.['!ref']) throw new Error('The worksheet ' + name + ' has no records.');
+  const range = utils.decode_range(sheet['!ref']);
+  if (range.e.c > 300) throw new Error('Use a worksheet with up to 300 columns.');
+  sheet['!ref'] = utils.encode_range({ s: { r: 0, c: 0 }, e: range.e });
+  return { sheet: name, ...readRecordRows(utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '', blankrows: true }), fields) };
 }
 
 export function writeItemCsv(values, csv) {

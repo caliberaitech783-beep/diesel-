@@ -55,3 +55,15 @@
 .master-data-table a { color: var(--link); }
 .master-data-pager { display: flex; gap: 8px; padding-inline: 0; }
 .master-data-empty td { color: var(--muted); }
+.bulk-import { margin-block: 14px; }
+.bulk-import h2 { font-size: 1.05rem; margin-block: 0 6px; }
+.bulk-import button {
+  min-height: 36px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--control-bg);
+  color: var(--ink);
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}

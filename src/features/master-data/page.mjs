@@ -88,7 +88,19 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
       ${canImport ? `<input type="file" id="master-data-import-file" hidden data-master="${escape(master.slug)}"
         data-review-url="${escape(prefix + '/records?' + new URLSearchParams({ master: master.slug, new: '1' }))}"
         data-scope="${recordDraftScope(actor, master.slug)}"
-        data-columns="${escape(JSON.stringify(master.fields.filter(field => field.type !== 'file' && !field.readOnly).map(field => field.key)))}">` : ''}
+        data-columns="${escape(JSON.stringify(master.fields.filter(field => field.type !== 'file' && !field.readOnly).map(field => field.key)))}"
+        data-fields="${escape(JSON.stringify(master.fields.filter(field => field.type !== 'file' && !field.readOnly)
+          .map(({ key, label, type, options }) => ({ key, label: label ?? key, type, options }))))}"
+        data-master-name="${escape(master.name)}" data-code-field="${escape(master.codeField)}"
+        ${actor.canEditMasters === true ? `data-api="${escape(prefix + '/api/masters/' + master.slug + '/records')}"
+        data-record-home="${escape(prefix + '/records?' + new URLSearchParams({ master: master.slug }))}"` : ''}>
+      <section id="bulk-import" class="bulk-import" hidden aria-labelledby="bulk-import-title">
+        <h2 id="bulk-import-title">Import records</h2>
+        <p data-bulk-summary></p>
+        <div class="master-data-table" role="region" aria-label="Records to import" tabindex="0"><table>
+          <thead><tr><th data-bulk-column scope="col">File row</th><th data-bulk-column scope="col">Record</th><th data-bulk-column scope="col">Result</th></tr></thead><tbody></tbody></table></div>
+        <p><button type="button" data-bulk-save>Save all for review</button> <button type="button" data-bulk-cancel>Cancel</button></p>
+      </section>` : ''}
       ${canSave ? '<output class="master-data-feedback" aria-live="polite"></output>' : ''}
       ${warnings.length ? `<details open><summary>Attribute expiry alerts (${warnings.length})</summary><ul>${warnings.map(warning=>{
         const url=prefix+'/records?'+new URLSearchParams({master:master.slug,id:warning.id,revision:warning.revision});
