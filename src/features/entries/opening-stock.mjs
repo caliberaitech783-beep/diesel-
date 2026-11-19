@@ -7,6 +7,11 @@ export class OpeningStockError extends Error {
 }
 
 const assert = (condition,message,status) => { if (!condition) throw new OpeningStockError(message,status); };
+function rateValue(value) {
+  assert(/^\d+(?:\.\d{1,4})?$/.test(String(value)) && Number(value)>0 && Number(value)<=1e9,
+    'Enter the Accounts-approved opening stock value per kilolitre as a positive amount.');
+  return Number(value);
+}
 
 export function createOpeningStockStore(db, mastersFor) {
   db.exec(`CREATE TABLE IF NOT EXISTS diesel_opening_stock(site TEXT PRIMARY KEY, snapshot TEXT NOT NULL);
@@ -19,6 +24,7 @@ export function createOpeningStockStore(db, mastersFor) {
     const { items,storage } = mastersFor(site);
     const item = items.find(record=>record.code===input.item);
     assert(item,'Choose an approved active item for this site.');
+    assert(item.volumeBasis==='Observed litres','The site ledger needs an approved item measured in observed litres.');
     assert(storage.length,'Approve at least one tank or bowser in Storage Location Master first.');
     const measuredAt = input.measuredAt;
     assert(typeof measuredAt==='string' && /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(measuredAt)
@@ -34,7 +40,8 @@ export function createOpeningStockStore(db, mastersFor) {
       assert(record.type!=='UG tank'||chart,'Add an approved dip chart for '+record.code+' with increasing cm,litres rows up to safe fill.');
       return { ...record,chart,opening:Number(value) };
     });
-    return { item, storage:readings, measuredAt, businessDay:businessDay(asOf) };
+    const openingRate=input.openingRate===undefined||input.openingRate==='' ? undefined : rateValue(input.openingRate);
+    return { item, storage:readings, measuredAt, businessDay:businessDay(asOf), openingRate };
   }
   function transact(actor,update) {
     db.exec('BEGIN IMMEDIATE');
@@ -60,11 +67,31 @@ export function createOpeningStockStore(db, mastersFor) {
     return transact(actor,current=>{
       assert(current?.status==='pending' && current.revision===Number(revision),'Reopen the current submission before approval.',409);
       assert(current.maker!==actor.id,'A different person must approve opening stock.',403);
-      const fresh=snapshot(actor.site,{item:current.item.code,measuredAt:current.measuredAt,readings:current.storage.map(row=>({code:row.code,litres:row.opening}))});
+      const fresh=snapshot(actor.site,{item:current.item.code,measuredAt:current.measuredAt,openingRate:current.openingRate,readings:current.storage.map(row=>({code:row.code,litres:row.opening}))});
       assert(JSON.stringify(fresh.item)===JSON.stringify(current.item)&&JSON.stringify(fresh.storage)===JSON.stringify(current.storage),
         'An approved master changed. Ask the Site In-charge to review and resubmit.',409);
       return { ...current,status:'approved',revision:current.revision+1,checker:actor.id,approvedAt:new Date().toISOString() };
     });
   }
-  return { get,submit,approve };
+  function submitRate(actor,input) {
+    assert(entryRole(actor)==='Site In-charge','The Site In-charge records the approved opening rate.',403);
+    return transact(actor,current=>{
+      assert(current?.status==='approved'&&!current.openingRate&&current.revision===Number(input.revision),
+        'Reopen the current opening stock to add its valuation.',409);
+      return { ...current,revision:current.revision+1,
+        rateProposal:{ rate:rateValue(input.openingRate),maker:actor.id,savedAt:new Date().toISOString() } };
+    });
+  }
+  function approveRate(actor,revision) {
+    assert(entryRole(actor)==='Project Manager','A Project Manager approves the opening valuation.',403);
+    return transact(actor,current=>{
+      assert(current?.status==='approved'&&current.rateProposal&&!current.openingRate&&current.revision===Number(revision),
+        'Reopen the current opening valuation before approving.',409);
+      const {rateProposal,...record}=current;
+      assert(rateProposal.maker!==actor.id,'A different person must approve the opening valuation.',403);
+      return { ...record,revision:record.revision+1,openingRate:rateProposal.rate,
+        openingRateApprovedBy:actor.id,openingRateApprovedAt:new Date().toISOString() };
+    });
+  }
+  return { get,submit,approve,submitRate,approveRate };
 }

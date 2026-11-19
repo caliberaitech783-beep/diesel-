@@ -4,6 +4,7 @@ import { receiving } from './receiving.mjs';
 import { stockEntries } from './stock-entries.mjs';
 import { accountsAndClose } from './accounts-and-close.mjs';
 import { entryPolicy } from './entry-policy.mjs';
+import { siteAverageRate } from './site-valuation.mjs';
 
 export const round = value => Math.round((value + Number.EPSILON) * 10000) / 10000;
 export const money = value => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -57,6 +58,7 @@ export function evaluate(doc, all, moves, policy = entryPolicy(), siteConfig) {
     + moves.filter(m => m.site === atSite && m.storage === storage && m.day <= day).reduce((a,m)=>a+m.litres,0));
   const sum = (rows,field) => round(rows.reduce((total,row)=>total+Number(row.result[field] ?? 0),0));
   const cost = (throughDay=day) => {
+    if (siteConfig) return siteAverageRate(siteConfig,all,site,throughDay);
     const grns = posted('E7').filter(r=>r.day<=throughDay);
     const litres = review.tank.opening + review.bowser.opening;
     return (litres*ratePerKL()+grns.reduce((v,r)=>v+r.result.accepted*r.result.landed,0)) / (litres+sum(grns,'accepted'));

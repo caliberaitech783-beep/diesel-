@@ -1,5 +1,31 @@
 import { review, ratePerKL } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
+import { effectiveRecord } from './site-commercial.mjs';
+
+function siteOrder(data,c) {
+  const config=c.siteConfig, day=c.doc.day;
+  const supplier=config.accounts.find(account=>account.code===data.supplier);
+  check(supplier && supplier.pump===(data.type==='Retail'),'Choose an approved supplier or pump matching the PO type.');
+  const depot=data.depot || (supplier.pump ? supplier.code : undefined);
+  check(depot && (supplier.pump ? depot===supplier.code : config.depots.some(row=>row.supplier===supplier.code&&row.code===depot)),
+    'Choose an approved depot for this supplier.');
+  const rate=effectiveRecord(config.rates,day,row=>row.supplier===supplier.code&&row.depot===depot&&row.basis===data.basis);
+  check(rate?.rate>0&&rate.vat>=0&&rate.vat<=100,'Approve one effective Diesel Rate for this supplier, depot and price basis.');
+  const freight=data.basis==='Ex-depot' ? effectiveRecord(config.freightRates,day,row=>row.transporter===data.transporter
+    && row.depot===depot && [c.doc.site,...config.locations.map(location=>location.code)].includes(row.destination)) : null;
+  if (data.basis==='Ex-depot') {
+    check(config.accounts.some(account=>account.code===data.transporter&&!account.pump)
+      && freight?.rate>=0 && freight.shortageRate>=0,'Approve an applicable freight rate and transporter for this site.');
+  }
+  return { rate:rate.rate, rateRef:rate.id, rateRevision:rate.revision, vat:rate.vat, invoiceDiscount:rate.invoiceDiscount,
+    postSaleDiscount:rate.postSaleDiscount, freight:freight?.rate??0, shortageRate:freight?.shortageRate??rate.rate, depot };
+}
+
+export function approvedDeduction(amount,account,input) {
+  if (!account?.tds) check(!input,'The approved account is outside the deduction workflow.');
+  else check(input!==undefined && input>=0 && input<=amount,'Enter the deduction amount approved by Accounts, including zero if applicable.');
+  return money(input??0);
+}
 
 export const purchasing = {
   E1(d,c) {
@@ -23,19 +49,27 @@ export const purchasing = {
     const indent = c.linked('indent','E1'), litres=round(d.kl*1000);
     const allocated = c.sum(c.reserved('E2').filter(p=>p.data.indent===indent.id),'litres');
     check(litres>0 && litres<=round(indent.result.litres-allocated),'PO quantity exceeds the remaining indent balance.');
-    check((d.type==='Retail')===(d.supplier===review.pump),'Select the supplier that matches the PO type.');
     check(d.basis!=='Ex-depot' || d.transporter,'Select the transporter for an ex-depot purchase.');
-    const rate=ratePerKL(), freight=d.basis==='Ex-depot'?review.freightPerKL:0, value=money(d.kl*rate);
+    if (!c.siteConfig) check((d.type==='Retail')===(d.supplier===review.pump),'Select the supplier that matches the PO type.');
+    const pricing=c.siteConfig ? siteOrder(d,c) : {rate:ratePerKL(),freight:d.basis==='Ex-depot'?review.freightPerKL:0,state:review.projectState[c.doc.site]};
+    const {rate,freight}=pricing, value=money(d.kl*rate);
     const approvals=['Head – Procurement'];
     if (d.type==='Retail') approvals.push('Director / CMD'); else if (value>review.poSlab) approvals.push('CFO');
     const transitTolerance=d.tolerance??c.limits.tolerance;
     check(transitTolerance<=c.limits.tolerance,'Transit tolerance can only be lowered.');
-    return { litres,rate,freight,landed:rate+freight,value,state:review.projectState[c.doc.site],shortageParty:d.basis==='Ex-depot'?d.transporter:d.supplier,transitTolerance,approvals };
+    return { litres,...pricing,landed:rate+freight,value,shortageParty:d.basis==='Ex-depot'?d.transporter:d.supplier,transitTolerance,approvals };
   },
   E3(d,c) {
     const po=c.linked('po','E2');
     const allocated=c.sum(c.reserved('E3').filter(row=>row.data.po===po.id),'amount');
     check(d.amount>0 && d.amount<=money(po.result.value-allocated),'Amount exceeds the unpaid PO balance.');
+    if (c.siteConfig) {
+      const supplier=c.siteConfig.accounts.find(account=>account.code===po.data.supplier);
+      check(supplier?.bankVerified,'Verify the supplier bank record in the approved Account Master.');
+      const tds=approvedDeduction(d.amount,supplier,d.tds);
+      return { supplier:supplier.code,bank:'Verified supplier account',amount:d.amount,tds,net:money(d.amount-tds),
+        approvals:['Head – Accounts','CFO'] };
+    }
     const yearStart=Number(c.doc.day.slice(0,4))-(c.doc.day.slice(5,7)<'04'?1:0)+'-04-01';
     const paid=c.all.filter(r=>r.type==='E3'&&r.status==='Posted'&&r.day>=yearStart&&r.day<=c.doc.day&&r.result.supplier===po.data.supplier)
       .reduce((sum,r)=>sum+r.result.amount,0);

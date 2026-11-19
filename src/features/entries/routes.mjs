@@ -40,7 +40,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   }
   router.use('/assets',express.static(fileURLToPath(new URL('./assets/',import.meta.url))));
   router.get('/assets/qr-decoder.js',(_req,res)=>res.type('js').sendFile(basename(qrDecoder),{root:dirname(qrDecoder)}));
-  if (!assigned&&!opening) router.post('/invoice-photo', express.raw({ type: 'image/png', limit: '5mb' }), async (req,res) => {
+  if (!assigned||opening) router.post('/invoice-photo', express.raw({ type: 'image/png', limit: '5mb' }), async (req,res) => {
     if (entryRole(req.dieselActor) !== 'Site Store') return res.sendStatus(403);
     if (!isInvoiceImage(req.body)) return res.status(422).json({error:'Choose a clear invoice photo.'});
     if (readingInvoice) return res.status(429).json({error:'Another invoice is being read. Try again in a moment.'});
@@ -95,7 +95,8 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     try {
       const d=store.read(req.params.id,req.dieselActor.site);
       if(entryRole(req.dieselActor)!=='Treasury'||d.type!=='E3'||!d.result.bankFileAt) return res.sendStatus(403);
-      res.attachment(d.number+'-review.csv').type('text/csv').send('Advice,Supplier,Review account,Net INR\r\n'+[d.number,d.result.supplier,d.result.bank,d.result.net].join(',')+'\r\n');
+      res.attachment(d.number+(opening?'-advice.csv':'-review.csv')).type('text/csv')
+        .send(entryCsv([['Advice','Supplier','Account status','Net INR'],[d.number,d.result.supplier,d.result.bank,d.result.net]]));
     } catch {res.sendStatus(404);}
   });
   if (inbox) router.post('/approval/:id/:step',express.json({limit:'4kb'}),(req,res)=>{

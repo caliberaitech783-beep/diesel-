@@ -1,8 +1,9 @@
 import { readActiveMasters } from '../masters/records.mjs';
-import { byId } from './catalog.mjs';
+import { byId, entries } from './catalog.mjs';
+import { commercialMasters, commercialMastersFor } from './site-commercial.mjs';
 
-export const siteEntryTypes = ['E1','E10A','E11','E15'];
-const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master'];
+export const siteEntryTypes = entries.map(entry=>entry.id);
+const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master','location-master',...commercialMasters];
 const ref = record => ({ id:record.id, revision:record.revision, code:record.code, name:record.name });
 
 export function readSiteMasters(db,site) {
@@ -22,7 +23,13 @@ export function readSiteMasters(db,site) {
       firstReading, meterType:v['Meter type'], repeatHours:v['Minimum hours between fills']===undefined ? undefined : Number(v['Minimum hours between fills']) }];
   });
   const uniqueVehicles = vehicles.filter(v => vehicles.filter(candidate=>candidate.code.toLowerCase()===v.code.toLowerCase()).length===1);
-  return { items:data['item-master'].map(ref), storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(ref), reasons:data['reason-code-master'].map(ref) };
+  const locations=data['location-master'].map(ref);
+  const items=data['item-master'].map(record=>({
+    ...ref(record),densityMin:Number(record.values['Density minimum (kg/m³)']),densityMax:Number(record.values['Density maximum (kg/m³)']),
+    volumeBasis:record.values['Volume basis'],
+  }));
+  return { items, storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(ref), reasons:data['reason-code-master'].map(ref),
+    locations, ...commercialMastersFor(data) };
 }
 
 export function siteDefinition(type, config) {
@@ -34,14 +41,30 @@ export function siteDefinition(type, config) {
       optionLabels:new Map(list.map(item=>[item.code,item.code+' · '+item.name])),
       optionTags:new Map(list.filter(item=>item.tag||item.meter).map(item=>[item.code,item.tag||item.meter])) };
   }
-  const lists = { tank:storage('UG tank'), bowser:storage('Bowser'), vehicle:config.vehicles, driver:config.drivers, reason:config.reasons };
+  const unique = list => [...new Map(list.map(item=>[item.code,item])).values()];
+  const lists = { tank:storage('UG tank'), bowser:storage('Bowser'), vehicle:config.vehicles, driver:config.drivers, reason:config.reasons,
+    supplier:config.accounts, depot:unique(config.depots), transporter:config.accounts.filter(account=>!account.pump),
+    instrument:config.instruments, pump:config.accounts.filter(account=>account.pump),
+    from:config.storage, to:config.destination?.storage??[],
+    party:config.accounts.filter(account=>account.recovery), clearingAccount:config.accounts,
+    consumptionAccount:config.accounts, gst:unique(config.gst) };
   if (type==='E15') {
     const fields = standard.fields.filter(field=>['reason','evidence'].includes(field.key)).map(field=>lists[field.key]?choices(field,lists[field.key]):field);
     return { ...standard, fields:[...config.storage.map((item,index)=>({
       key:'measured'+index, type:'number', label:item.code+' · '+item.name+(item.type==='UG tank'?' dip (cm)':' measured stock (L)'),
     })), ...fields] };
   }
-  return { ...standard, fields:standard.fields.map(field=>{
+  const extra = {
+    E3:[{key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
+    E9:[{key:'gst',label:'Approved freight GST code',type:'select',optional:true},
+      {key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
+    E17:[{key:'clearingAccount',label:'Approved diesel clearing account',type:'select'},
+      {key:'consumptionAccount',label:'Approved diesel consumption account',type:'select'}],
+  };
+  return { ...standard, receiptReasons:config.reasons.map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
+    if (type==='E5' && field.key==='driver') return field;
+    if (type==='E5' && field.key==='transporter') return {...field, type:'text', options:undefined };
+    if (type==='E2' && field.key==='depot') return choices({...field,optional:true},lists.depot);
     const adjusted = field.key==='reading'?{...field,label:'Vehicle meter reading'}:field;
     return lists[field.key]?choices(adjusted,lists[field.key]):adjusted;
   }) };

@@ -5,6 +5,7 @@ import { entryRole, otherSite, review, roleKey } from './review-masters.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
+import { siteDocumentSeries } from './site-document-number.mjs';
 
 const unpack = row => row && JSON.parse(row.document);
 const finalStates = ['Posted','Superseded'];
@@ -44,6 +45,15 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   }
   function assignNumber(doc) {
     if (doc.number) return;
+    if (siteFor) {
+      const series=siteDocumentSeries(doc,siteConfig(doc.type,doc.site,doc.day));
+      const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,?) ON CONFLICT(site,type,year) DO UPDATE SET n=MAX(n+1,excluded.n) RETURNING n')
+        .get(series.scope,doc.type,series.year,series.next);
+      const number=series.label+'/'+String(n).padStart(4,'0');
+      check(!all().some(row=>row.number===number),'This document number already exists. Review the approved prefix and series.');
+      doc.number=number;
+      return;
+    }
     const year=doc.day.slice(0,4);
     const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(doc.site,doc.type,year);
     doc.number=[doc.type,doc.site.slice(0,3).toUpperCase(),year,String(n).padStart(4,'0')].join('-');
@@ -117,12 +127,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     const gate=get(source.data.gate),po=get(gate.data.po);
     const doc=fresh('E7',{site:source.site,id:'Pulse'});
     Object.assign(doc,{maker:'Pulse',role:'System',day:source.day,status:'Posted',data:{gate:gate.id,po:po.id,inspection:source.type==='E6'?source.id:all().find(r=>r.type==='E6'&&r.data.gate===gate.id&&r.status==='Posted')?.id,source:source.id}});
-    doc.result={ ...source.result,generateGRN:false,approvals:[],supplier:po.data.supplier,invoice:gate.data.invoice,rate:po.result.rate,freight:po.result.freight,
-      landed:po.result.landed,basis:po.data.basis,shortageParty:po.result.shortageParty,stockBookedTo:source.type==='E6'?review.tank.label:review.bowser.label };
+    const fromTank=source.type==='E6';
+    const storage=fromTank ? (siteFor?source.data.tank:review.tank.label)
+      : (siteFor ? [...new Set(all().filter(row=>row.type==='E10B'&&row.status==='Posted'&&row.data.gate===gate.id).map(row=>row.data.bowser))] : review.bowser.label);
+    const price=siteFor ? { vat:po.result.vat, invoiceDiscount:po.result.invoiceDiscount, postSaleDiscount:po.result.postSaleDiscount,
+      shortageRate:po.result.shortageRate, rateRef:po.result.rateRef } : {};
+    doc.result={ ...source.result,...price,generateGRN:false,approvals:[],supplier:po.data.supplier,invoice:gate.data.invoice,rate:po.result.rate,freight:po.result.freight,
+      landed:po.result.landed,basis:po.data.basis,shortageParty:po.result.shortageParty,stockBookedTo:storage };
     assignNumber(doc);
-    if (source.type==='E6') book(doc,[{storage:review.tank.label,litres:doc.result.accepted}]);
+    if (fromTank) book(doc,[{storage,litres:doc.result.accepted}]);
     persist(doc,'Pulse','GRN generated');
-    if (doc.result.shortage>0) {
+    if (doc.result.shortage>0&&!siteFor) {
       const debit=fresh('E9',{site:doc.site,id:doc.site+'-'+roleKey('Accounts Executive'),profile:roleKey('Accounts Executive')});
       debit.day=doc.day; debit.data={grn:doc.id}; persist(debit,'Pulse','Debit note opened for shortage');
     }
@@ -136,7 +151,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     check(!dependent,'A downstream entry already uses this version. Resolve it before correcting.');
     const replacement={...original,id:randomUUID(),rev:0,number:'',data:{...original.data,[doc.data.field]:doc.data.value},replaces:original.id};
     if (replacement.type==='E14' && ['rate','litres'].includes(doc.data.field)) replacement.data.total=money(Number(replacement.data.rate)*Number(replacement.data.litres));
-    replacement.data=validateFields(byId[replacement.type],replacement.data);
+    replacement.data=validateFields(definition(replacement.type,replacement.site),replacement.data);
     original.status='Superseded'; persist(original,doc.maker,'Reversed by '+doc.number);
     book(original,(original.result.moves??[]).map(m=>({...m,litres:-m.litres})));
     replacement.result=calculate(replacement); book(replacement,replacement.result.moves); assignNumber(replacement);
@@ -199,18 +214,22 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         Object.assign(doc.result,{utr,paymentDate:body.paymentDate});doc.status='Posted';
       } else if (action==='Confirm receipt' || action==='Approve transfer variance') {
         const first=action==='Confirm receipt';
-        check(doc.type==='E12' && doc.result.destination===actor.site && (first?doc.status==='In transit'&&role==='Site Store':doc.status==='Receipt review'&&role==='Project Manager'),'Switch to the receiving site and assigned role.');
+        check(doc.type==='E12' && doc.result.destination===actor.site && doc.maker!==actor.id && (first?doc.status==='In transit'&&role==='Site Store':doc.status==='Receipt review'&&role==='Project Manager'),'Switch to the receiving site and assigned role.');
+        const receiptDay=doc.result.receiptDay??(siteFor?businessDay():doc.day);
         if (first) {
           const received=Number(body.received);
           check(Number.isFinite(received) && received>0 && received<=doc.data.sent,'Enter received litres up to dispatched litres.');
           const evidence=files(doc,'receiptEvidence',body.evidence??[]);check(evidence.length,'Attach a receipt reading.');
           const difference=round(100*(doc.data.sent-received)/doc.data.sent);
-          const limit = policyFor(actor.site, doc.day).limits.transferLimit;
-          check(difference<=limit || review.reasons.includes(body.reason),'Select a transfer difference reason.');
+          const limit = policyFor(actor.site, receiptDay).limits.transferLimit;
+          const destination=siteConfig(doc.type,actor.site,receiptDay);
+          const reasons=destination?destination.reasons.map(row=>row.code):review.reasons;
+          check(difference<=limit || reasons.includes(body.reason),'Select a transfer difference reason.');
           Object.assign(doc.result,{received,difference,receiptEvidence:evidence,reason:body.reason??''});
+          if (siteFor) doc.result.receiptDay=receiptDay;
           doc.status=difference>limit?'Receipt review':'Posted';
         } else doc.status='Posted';
-        if (doc.status==='Posted') book(doc,[{site:actor.site,storage:doc.data.to,litres:doc.result.received}]);
+        if (doc.status==='Posted') book({...doc,day:receiptDay},[{site:actor.site,storage:doc.data.to,litres:doc.result.received}]);
       } else throw Error('Choose an available action.');
       if(channel==='Local Telegram') log+=' · Local Telegram / OTP';
       doc.lastAction={role,channel,device:String(body.device??'Local workspace').slice(0,220)};

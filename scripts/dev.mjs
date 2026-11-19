@@ -5,7 +5,7 @@ import { createApp } from '../src/server.mjs';
 
 const preview = process.argv.includes('--preview');
 const siteStock = process.argv.includes('--site-stock');
-const port = siteStock ? 4323 : preview ? 4313 : Number(process.env.PORT || 3000);
+const port = siteStock ? Number(process.env.DIESEL_LOCAL_SITE_PORT || 4323) : preview ? 4313 : Number(process.env.PORT || 3000);
 const localWorkspace = preview || siteStock || (process.env.DIESEL_ACCESS_MODE ?? 'guest') === 'guest';
 const localFile = name => fileURLToPath(new URL('../.local-diesel/'+name, import.meta.url));
 const db = localWorkspace ? openDieselDatabase(process.env.DIESEL_LOCAL_MASTER_DB || localFile('items.sqlite')) : null;

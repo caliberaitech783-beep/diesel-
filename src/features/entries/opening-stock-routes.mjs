@@ -26,4 +26,16 @@ export function registerOpeningStock(router,store,mastersFor) {
       res.redirect(303,'/entries/opening-stock');
     } catch(error) { if(error instanceof OpeningStockError) page(req,res,error); else next(error); }
   });
+  router.post('/opening-stock/valuation',body,(req,res,next)=>{
+    try {
+      store.submitRate(req.dieselActor,req.body??{});
+      res.redirect(303,'/entries/opening-stock');
+    } catch(error) { if(error instanceof OpeningStockError) page(req,res,error,req.body); else next(error); }
+  });
+  router.post('/opening-stock/valuation/approve',body,(req,res,next)=>{
+    try {
+      store.approveRate(req.dieselActor,req.body?.revision);
+      res.redirect(303,'/entries/opening-stock');
+    } catch(error) { if(error instanceof OpeningStockError) page(req,res,error); else next(error); }
+  });
 }
