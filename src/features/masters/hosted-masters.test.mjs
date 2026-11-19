@@ -33,7 +33,9 @@ const alertFields = {Alert:'Transit shortage',Limit:'0.5%','First owner (role)':
   'Escalate to (role)':'Project Manager','Escalate after (hours)':'2','Channel (app, e-mail, Telegram)':'App'};
 const valueOverrides = {'item-master':itemFields,'location-master':{'Location Code':'SH-01','Location Name':'Browser override','Receipt scenario allowed':'Both'},
   'storage-location-master':storageFields,'approval-limit-master':approvalFields,'tolerance-and-alert-master':alertFields,
-  'shift-master':{Site:site,'Start time':'06:00','End time':'18:00'}};
+  'shift-master':{Site:site,'Start time':'06:00','End time':'18:00'},
+  'account-master':{'Is Market Petrol Pump':'No'},'transport-freight-master':{'To site':'SH-01'},
+  'measuring-instrument-master':{'Fitted on (tank, bowser)':'B01'}};
 
 test('shared Master Data uses verified Pulse roles and feeds approved Item, Location and Storage directly to Opening stock',async t=>{
   const dir = await mkdtemp(join(tmpdir(),'diesel-shared-masters-'));
@@ -177,6 +179,14 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   for (const slug of recordMasters.filter(value=>!['item-master','location-master','storage-location-master'].includes(value))) {
     await approve(await submit(slug,valueOverrides[slug]));
   }
+  const unknownSupplier = await save('diesel-rate-master',{Supplier:'Tset','Effective from':'2031-01-01'});
+  assert.equal(unknownSupplier.status,422);
+  assert.match((await unknownSupplier.json()).error,/approved Account Master record for Supplier/);
+  const wrongDepot = await save('diesel-rate-master',{Depot:'Elsewhere','Effective from':'2031-01-01'});
+  assert.match((await wrongDepot.json()).error,/approved Supplier Depot Master record for Depot/);
+  const freightForm = await (await req(root+'/records?master=transport-freight-master&new=1','m')).text();
+  assert.match(freightForm,/<select[^>]*name="Transporter"[^>]*>.*?<option value="Test">Test · Test<\/option>/s);
+  assert.match(freightForm,/<select[^>]*name="To site"[^>]*>.*?<option value="SH-01">Pulse Silver Hill · SH-01<\/option>/s);
   const all = await (await req(root+'/api/master-data/records','c')).json();
   assert.equal(new Set(all.records.map(record=>record.slug)).size,20);
   const cmllId=all.records.find(record=>record.slug==='cmll-master').id;
