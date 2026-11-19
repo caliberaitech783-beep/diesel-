@@ -3,15 +3,20 @@ import { requireValue as check, round, money, dayBefore } from './entry-rules.mj
 
 export const purchasing = {
   E1(d,c) {
-    const stock = round(c.balance(review.tank.label)+c.balance(review.bowser.label));
+    const storage = c.siteConfig?.storage ?? [
+      {code:review.tank.label,type:'UG tank',safe:review.tank.safe},{code:review.bowser.label,type:'Bowser',safe:review.bowser.safe},
+    ];
+    const stock = round(storage.reduce((sum,location)=>sum+c.balance(location.code),0));
     const inTransit = Math.max(0,round(c.sum(c.posted('E2'),'litres')-c.sum(c.posted('E7'),'invoiceLitres')));
     const average = c.sum(c.posted('E11').filter(r=>r.day>=dayBefore(c.doc.day,6)),'litres')/7;
-    const suggested = Math.max(0,round(review.tank.safe-stock-inTransit));
+    const tankCapacity = storage.filter(location=>location.type==='UG tank').reduce((sum,location)=>sum+location.safe,0);
+    const suggested = Math.max(0,round(tankCapacity-stock-inTransit));
     check(d.litres>0 && d.requiredBy>=c.doc.day,'Enter positive litres and a required-by date on or after the request.');
     check(d.litres<=suggested || d.reason,'Select a reason for requesting more than suggested.');
     const approvals = ['Project Manager','Head – Procurement'];
     if (d.litres>review.indentSlab) approvals.push('Director / CMD');
-    return { item:review.item, litres:d.litres, stock, inTransit, averageDaily:round(average), daysOfStock:average?round(stock/average):null, suggested,
+    const item = c.siteConfig?.item;
+    return { item:item?item.code+' · '+item.name:review.item, litres:d.litres, stock, inTransit, averageDaily:round(average), daysOfStock:average?round(stock/average):null, suggested,
       otherOpenIndents:c.posted('E1').filter(r=>r.result.litres>c.sum(c.reserved('E2').filter(p=>p.data.indent===r.id),'litres')).length, approvals };
   },
   E2(d,c) {

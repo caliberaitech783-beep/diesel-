@@ -1,11 +1,12 @@
 import express from 'express';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import manifest from '../package.json' with { type: 'json' };
 import { openItemSubmissions } from './features/masters/item-submissions.mjs';
 import { registerItemFileAssets } from './features/masters/item-file-assets.mjs';
 import { registerSignIn } from './features/sign-in/routes.mjs';
 
-export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory } = {}) {
+export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory, siteMasterDb } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use((_request, response, next) => {
@@ -19,13 +20,14 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
   });
   app.get('/healthz', (_request, response) => {
     response.json({ status: 'ok', commit: manifest.releaseCommit ?? null,
-      ...(itemSubmissions ? { itemMaster: 'ready', masters: 'ready' } : {}) });
+      ...(itemSubmissions ? { itemMaster: 'ready', masters: 'ready' } : {}),
+      ...(entryReviewDirectory ? { openingStock: env.DIESEL_ENTRY_ACCESS_MODE==='site-stock' && siteMasterDb ? 'ready' : 'setup' } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));
   app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
   registerItemFileAssets(app);
-  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory });
+  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb });
   return app;
 }
 
@@ -40,5 +42,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   }
   const entryReviewDirectory = itemSubmissions ? '/home/data/diesel-entry-review' : undefined;
-  createApp({ itemSubmissions, entryReviewDirectory }).listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
+  let siteMasterDb;
+  if (entryReviewDirectory && process.env.DIESEL_ENTRY_ACCESS_MODE==='site-stock') {
+    let source;
+    try {
+      const path = process.env.DIESEL_SITE_MASTER_DB;
+      if (!path) throw new Error('Set DIESEL_SITE_MASTER_DB.');
+      source = new DatabaseSync(path,{readOnly:true});
+      source.prepare('SELECT m.approved_revision, m.approved_site_key, m.status, h.snapshot FROM master_records m JOIN master_history h ON h.record_id=m.id LIMIT 1').get();
+      siteMasterDb = source;
+    } catch(error) {
+      source?.close();
+      console.error('Diesel site stock setup incomplete:',error.code??error.message);
+    }
+  }
+  const server=createApp({ itemSubmissions, entryReviewDirectory, siteMasterDb }).listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
+  if (siteMasterDb) server.once('close',()=>siteMasterDb.close());
 }

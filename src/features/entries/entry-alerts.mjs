@@ -25,8 +25,12 @@ export function entryAlerts(rows, actor, policy, now = Date.now()) {
         add('Transit shortage', doc, result.shortage + ' L short');
       }
       if (type === 'E10A' && result.difference > limits.bowserLimit) add('Tank to bowser variance', doc, result.difference + '%');
-      if (type === 'E15' && (result.variancePercent > limits.countLimit || (result.variancePercent === null && (result.tankVariance || result.bowserVariance)))) {
-        add('Daily variance', doc, 'Tank ' + result.tankVariance + ' L · Bowser ' + result.bowserVariance + ' L');
+      if (type === 'E15') {
+        const measurements = result.measurements ?? [{code:'Tank',variance:result.tankVariance},{code:'Bowser',variance:result.bowserVariance}];
+        const differences = measurements.filter(row=>row.variance);
+        if (result.variancePercent > limits.countLimit || (result.variancePercent === null && differences.length)) {
+          add('Daily variance', doc, differences.map(row=>row.code+' '+row.variance+' L').join(' · '));
+        }
       }
       if (type === 'E5' && doc.status === 'Posted' && doc.data.scenario === 'Direct to bowsers'
         && hoursSince(doc.updated ?? doc.created) >= limits.ttAlertHours

@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createApp } from '../../server.mjs';
+import { openDieselDatabase } from '../../data/database.mjs';
+import { createMasterStore } from '../masters/records.mjs';
 
 test('hosted Entry checks Pulse for every site, file, export and role action and separates review accounts', async t=>{
   const dir=await mkdtemp(join(tmpdir(),'diesel-hosted-review-'));
@@ -23,6 +25,10 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   }
   const get=await request('/entries','a');assert.equal(get.status,200);
   const html=await get.text();assert.match(html,/Personal review · sample data/);
+  assert.match(html,/href="\/entries\/opening-stock"/);
+  assert.match(await (await request('/entries/opening-stock','a')).text(),/Site stock is awaiting setup/);
+  assert.equal((await request('/entries/opening-stock','a',{method:'POST',headers:{Origin:origin},
+    body:new URLSearchParams({item:'example',measuredAt:'2026-11-18T06:00'})})).status,404);
   const offlineScope=html.match(/data-offline-scope="([a-f0-9]{64})"/)?.[1];
   assert.ok(offlineScope);
   assert.doesNotMatch(await (await request('/entries','b')).text(),new RegExp(offlineScope));
@@ -41,4 +47,29 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   const headers={Origin:origin,'Content-Type':'application/json',cookie:'__Host-diesel_session='+'a'.repeat(43)+'; '+roleCookie};
   const approved=await request(path,'a',{method:'POST',headers,body:JSON.stringify({action:'Approve',rev:1,actor:'Jayant-entry-2',offlineScope})});
   assert.equal((await approved.json()).status,'Posted');
+});
+
+test('hosted site stock requires trusted site assignments and approved masters',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'diesel-site-stock-'));
+  const origin='https://diesel.test', masterDb=openDieselDatabase(':memory:');
+  createMasterStore(masterDb);
+  const env={WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),
+    DIESEL_ENTRY_ACCESS_MODE:'site-stock',DIESEL_ALLOWED_PULSE_LOGINS:'legacy'};
+  const profiles={ s:{login:'site-maker',dieselEntryAccess:[{site:'Jayant',role:'Site In-charge'}]},
+    b:{login:'bowser',dieselEntryAccess:[{site:'Jayant',role:'Bowser operator'}]}, l:{login:'legacy'} };
+  const app=createApp({env,entryReviewDirectory:dir,siteMasterDb:masterDb,
+    fetcher:async(_url,options)=>Response.json({profile:profiles[JSON.parse(options.body).grant[0]]})});
+  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));masterDb.close();await rm(dir,{recursive:true,force:true});});
+  const address='http://127.0.0.1:'+server.address().port;
+  const request=(path,who,body)=>fetch(address+path,{redirect:'manual',method:body?'POST':'GET',
+    headers:{Origin:origin,...(who?{cookie:'__Host-diesel_session='+who.repeat(43)}:{})},body});
+  assert.equal((await (await request('/healthz')).json()).openingStock,'ready');
+  assert.equal((await request('/entries/opening-stock')).status,303);
+  assert.equal((await request('/entries/opening-stock','l')).status,403);
+  assert.match(await(await request('/entries/opening-stock','s')).text(),/Approve an Item Master record/);
+  assert.equal((await request('/entries/new/E11','b')).headers.get('location'),'/entries/opening-stock');
+  assert.equal((await request('/entries/type/E2','s')).status,404);
+  assert.equal((await request('/workspace/role','b',new URLSearchParams({site:'Sasti',role:'entry-0'}))).status,403);
+  assert.equal((await request('/entries/opening-stock','b',new URLSearchParams({item:'anything'}))).status,403);
 });

@@ -5,14 +5,19 @@ import { recordMasters } from '../masters/records-fields.mjs';
 import { registerLocalSession } from './session.mjs';
 import { registerIndents } from '../diesel-indent/indent-routes.mjs';
 import { registerEntries } from '../entries/routes.mjs';
+import { siteEntryTypes } from '../entries/site-masters.mjs';
 
-export function createLocalWorkspace(db) {
+export function createLocalWorkspace(db, { siteEntryDb } = {}) {
   const app = express();
   app.disable('x-powered-by');
   registerLocalSession(app);
+  if (siteEntryDb) app.use((request,_response,next)=>{
+    request.dieselActor.siteEntryTypes=siteEntryTypes;
+    next();
+  });
   registerMasterRecords(app, { db, getActor: request => request.dieselActor, enabledMasters: recordMasters });
-  registerIndents(app, db);
-  registerEntries(app, db);
+  if (!siteEntryDb) registerIndents(app, db);
+  registerEntries(app, db, siteEntryDb);
   app.get('/', (request, response, next) => {
     const { master } = request.query;
     if (!master) return response.redirect(302, '/records');

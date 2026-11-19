@@ -28,8 +28,7 @@ export const review = {
 export const ratePerKL = () => review.invoiceTotal / review.invoiceLitres * 1000;
 export const storageLabels = [review.tank.label, review.bowser.label];
 export const otherSite = site => sites.find(value => value !== site);
-export function litresAtDip(cm) {
-  const chart = review.dipChart;
+export function litresAtDip(cm, chart = review.dipChart) {
   if (cm < chart[0][0] || cm > chart.at(-1)[0]) throw Error('Dip is outside the calibration chart.');
   for (let i = 1; i < chart.length; i++) {
     const [x,y] = chart[i], [a,b] = chart[i-1];

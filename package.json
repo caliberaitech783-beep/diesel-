@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch scripts/dev.mjs",
     "preview:masters": "node --watch scripts/dev.mjs --preview",
+    "preview:site-stock": "node --env-file-if-exists=.env --watch scripts/dev.mjs --site-stock",
     "sync:pulse-projects": "node scripts/sync-pulse-projects.mjs",
     "start": "node src/server.mjs",
     "test": "node --test",
