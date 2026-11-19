@@ -1,6 +1,7 @@
 import { review, litresAtDip } from './review-masters.mjs';
 import { requireValue as check, round, money } from './entry-rules.mjs';
 import { gateContext } from './receiving.mjs';
+import { transferTarget } from './transfer-destination.mjs';
 
 function meter(d) {
   check(d.end>d.start,'Meter end must be higher than the start.');
@@ -54,11 +55,10 @@ export const stockEntries = {
   },
   E12(d,c) {
     check(d.sent>0,'Enter dispatched litres.');
-    const destination=c.siteConfig?.destination;
+    const destination=c.siteConfig && transferTarget(c.siteConfig,d.to,c.doc.result?.destination);
     if (c.siteConfig) {
-      check(destination?.storage.some(row=>row.code===d.to)&&destination.businessDay<=c.doc.day,
-        'Approve opening stock and select a storage location at the receiving site.');
-      check(destination.item.code===c.siteConfig.item.code,'Both sites must use the same diesel item for this transfer.');
+      check(destination && destination.businessDay<=c.doc.day,
+        'Choose receiving storage with approved opening stock for the same diesel item.');
     }
     const valuation=c.siteConfig ? { transferRate:round(c.cost()) } : {};
     return { sent:d.sent,destination:destination?.site??c.other,...valuation,approvals:['Site In-charge'],moves:[{storage:d.from,litres:-d.sent}] };

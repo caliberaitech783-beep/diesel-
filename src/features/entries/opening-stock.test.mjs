@@ -11,6 +11,8 @@ import { businessDay, dayBefore } from './entry-rules.mjs';
 import { createEntryStore } from './entry-store.mjs';
 import { roleKey } from './review-masters.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
+import { siteEntryWorkspace } from './site-entry-workspace.mjs';
+import { transferKey } from './transfer-destination.mjs';
 
 const proof={name:'meter.png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='};
 const pdf={name:'fixture.pdf',base64:Buffer.from('%PDF-1.4\n%%EOF').toString('base64')};
@@ -21,7 +23,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   await once(server,'listening');
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));siteDb.close();mastersDb.close();});
   const origin='http://127.0.0.1:'+server.address().port;
-  syncPulseProjects(mastersDb,[{ name:'Test Client 1', sites:['Jayant OC'] },{ name:'Test Client 2', sites:['Sasti OC'] }]);
+  syncPulseProjects(mastersDb,[{ name:'Test Client 1', sites:['Jayant OC'] },{ name:'Test Client 2', sites:['Sasti OC','Majri'] }]);
   const kinds=['item-master','location-master','storage-location-master','cost-centre-vehicle-master','driver-master','account-master',
     'supplier-depot-master','diesel-rate-master','transport-freight-master','measuring-instrument-master','gst-master',
     'document-numbering-master','reason-code-master'];
@@ -47,6 +49,9 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'},{site:'Sasti'});
   master('location-master',{'Location Code':'S-01'},{site:'Sasti'});
   master('storage-location-master',{...storage,Location:'S-01','Storage type':'Bowser','Storage Loc Code':'S-B','Storage Loc. Name':'Receiving bowser'},{site:'Sasti'});
+  master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'},{site:'Majri'});
+  master('location-master',{'Location Code':'M-01'},{site:'Majri'});
+  master('storage-location-master',{...storage,Location:'M-01','Storage type':'Bowser','Storage Loc Code':'S-B','Storage Loc. Name':'Majri bowser'},{site:'Majri'});
   master('reason-code-master',{Code:'REV',Description:'Correction supported by evidence'});
   master('cost-centre-vehicle-master',{'Cost Centre Code':'CC-21','Fleet No.':'F-21','Registration No.':'TEST02',Ownership:'Hired',
     'Hire party or contractor':'HIRE','Fuel tank capacity (L)':'120','Meter reading at go-live':'200','QR or RFID tag No.':'TAG-21'});
@@ -109,6 +114,10 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.equal((await request(opening+'/valuation',sastiMaker,new URLSearchParams({revision:'2',openingRate:'90000'}))).status,303);
   assert.equal((await request(opening+'/valuation/approve',sastiMaker,new URLSearchParams({revision:'3'}))).status,403);
   assert.equal((await request(opening+'/valuation/approve',other,new URLSearchParams({revision:'3'}))).status,303);
+  const majri = siteEntryWorkspace(siteDb,mastersDb).opening;
+  majri.submit({site:'Majri',id:'majri-maker',profile:roleKey('Site In-charge')},
+    {item:'HSD-A',measuredAt:last+'T07:00',revision:0,readings:[{code:'S-B',litres:0}]});
+  majri.approve({site:'Majri',id:'majri-reviewer',profile:roleKey('Project Manager')},1);
   const indent=await (await request('/entries/new/E1',maker)).text();
   assert.match(indent,/HSD-A · Site diesel/);
   assert.match(indent,/1,400/);
@@ -191,7 +200,15 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     type:'E10A',day:last,action:'Submit',rev:0,
     data:{ tank:'T-1',bowser:'B-2',before:26,after:25,start:0,end:50,evidence:issueData.evidence }});
   assert.equal(transfer.status,200,await transfer.text());
-  const siteTransfer=await approve(await submit('E12','Site Store',{from:'B-2',to:'S-B',bowser:'B-2',driver:'D-20',sent:30,evidence:[proof]}));
+  const transferForm = await (await request('/entries/new/E12',await signIn('Site Store'))).text();
+  assert.match(transferForm,/Majri · S-B · Majri bowser/);
+  assert.match(transferForm,/Sasti · S-B · Receiving bowser/);
+  const dispatch = {from:'B-2',bowser:'B-2',driver:'D-20',sent:30,evidence:[proof]};
+  assert.equal((await request('/entries/record/'+randomUUID(),await signIn('Site Store'),{
+    actor:'Jayant-'+roleKey('Site Store'),type:'E12',day:last,action:'Submit',rev:0,data:{...dispatch,to:'S-B'},
+  })).status,422);
+  const siteTransfer=await approve(await submit('E12','Site Store',{...dispatch,to:transferKey('Sasti','S-B')}));
+  assert.equal(siteTransfer.result.destination,'Sasti');
   const received=await request('/entries/record/'+siteTransfer.id,sastiStore,{actor:'Sasti-'+roleKey('Site Store'),action:'Confirm receipt',rev:siteTransfer.rev,received:30,evidence:[proof]});
   assert.equal(received.status,200,await received.text());
   assert.equal(store.read(siteTransfer.id,'Sasti').result.received,30);

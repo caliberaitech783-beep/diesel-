@@ -5,12 +5,18 @@ import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 import { registerHostedReview } from '../entries/hosted-review.mjs';
 import { entryAssignments } from '../entries/entry-access.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
+import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
+import { telegramApprovalPath } from '../entries/remote-approval.mjs';
+import { approvedLocationDirectory } from '../masters/records.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
 const expired = 'Your sign-in expired. Please sign in again.';
-const readCookie = (request, name) => (request.get('cookie') || '').split(';')
-  .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
+function readCookie(request, name) {
+  const value = (request.get('cookie') || '').split(';')
+    .map(entry => entry.trim()).find(entry => entry.startsWith(`${name}=`))?.slice(name.length + 1) || '';
+  try { return decodeURIComponent(value); } catch { return ''; }
+}
 
 export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb }) {
   const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
@@ -32,7 +38,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
   const siteStock = entryMode === 'site-stock' && Boolean(siteMasterDb);
   const assigned = entryMode === 'assigned-pilot' || siteStock;
-  const entryAllowed = profile => Boolean(entryReviewDirectory && assigned && entryAssignments(profile,siteStock).length);
+  const entryAllowed = profile => Boolean(entryReviewDirectory && assigned
+    && entryAssignments(profile,siteStock,siteStock ? approvedLocationDirectory(siteMasterDb) : []).length);
   const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
@@ -86,8 +93,10 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (entryReviewDirectory) {
+    const delivery = siteStock && configured && createApprovalDelivery(env, publicUrl.origin, fetcher);
     registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,
-      siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn:(response,opening)=>startSignIn(response,opening?'opening-stock':'entries'),
+      siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
+      approvalOptions:delivery ? { delivery, secret: env.DIESEL_SSO_CLIENT_SECRET } : undefined,
       async getProfile(request) {
         const result = await verifySession(request);
         if (assigned && typeof result?.profile?.login === 'string') {
@@ -138,8 +147,11 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
-    if (entryReviewDirectory && destination==='opening-stock') return response.redirect(303,'/entries/opening-stock');
-    const openEntries = entryReviewDirectory && (destination === 'entries' || !allowed(verified?.profile));
+    if (entryReviewDirectory && (destination==='/entries/opening-stock' || destination==='opening-stock')) {
+      return response.redirect(303,'/entries/opening-stock');
+    }
+    if (entryAllowed(verified?.profile) && telegramApprovalPath(destination)) return response.redirect(303, destination);
+    const openEntries = entryReviewDirectory && (destination === '/entries' || destination === 'entries' || !allowed(verified?.profile));
     response.redirect(303, openEntries ? '/entries' : '/');
   }));
 

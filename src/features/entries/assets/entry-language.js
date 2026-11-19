@@ -7,6 +7,8 @@ const labels={
   'Draft':'मसौदा','Drafts':'मसौदे','Posted':'दर्ज','Awaiting approval':'अनुमोदन लंबित','Awaiting Treasury':'कोषागार की प्रतीक्षा','In transit':'रास्ते में','Receipt review':'प्राप्ति समीक्षा','Returned':'वापस भेजा गया','Superseded':'संशोधित','All statuses':'सभी स्थितियाँ',
   'Entry':'प्रविष्टि','Document':'दस्तावेज़','Business day':'कार्य दिवस','New entry':'नई प्रविष्टि','New draft':'नया मसौदा','Open diesel indent':'डीज़ल मांग खोलें','No entries match this view.':'इस सूची में कोई प्रविष्टि नहीं है।',
   'Entry details':'प्रविष्टि विवरण','History':'इतिहास','Calculated and carried forward':'गणना और पिछली प्रविष्टि से विवरण','Site stock':'साइट का स्टॉक',
+  'Review via Telegram':'Telegram पर समीक्षा करें','Send SMS code':'SMS कोड भेजें','Six-digit code':'छह अंकों का कोड',
+  'Receiving site and storage':'प्राप्तकर्ता साइट और भंडारण','Review the entry details':'प्रविष्टि का विवरण देखें',
   'Save draft':'मसौदा सहेजें','Submit':'जमा करें','Approve':'अनुमोदित करें','Return':'वापस भेजें','Reason for return':'वापस भेजने का कारण','Confirm UTR':'UTR की पुष्टि करें','Confirm receipt':'प्राप्ति की पुष्टि करें','Approve transfer variance':'अंतर अनुमोदित करें','Capture GPS':'GPS दर्ज करें',
   'Scan storage or vehicle tag':'भंडारण या वाहन टैग स्कैन करें','Use scanned tag':'स्कैन किया टैग चुनें','Select…':'चुनें…','Remarks':'टिप्पणी','Reason code':'कारण कोड','Required by':'आवश्यक तिथि',
   'Diesel indent':'डीज़ल मांग','Purchase order':'खरीद आदेश','Payment advice and UTR':'भुगतान सलाह और UTR','Gate entry':'गेट प्रविष्टि','Inspection':'निरीक्षण','Goods receipt note':'माल प्राप्ति नोट',
