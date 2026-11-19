@@ -71,7 +71,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home })}
+    ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
     <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
       ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
       <header class="workspace-heading">
