@@ -26,7 +26,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   syncPulseProjects(mastersDb,[{ name:'Test Client 1', sites:['Jayant OC'] },{ name:'Test Client 2', sites:['Sasti OC','Majri'] }]);
   const kinds=['item-master','location-master','storage-location-master','cost-centre-vehicle-master','driver-master','account-master',
     'supplier-depot-master','diesel-rate-master','transport-freight-master','measuring-instrument-master','gst-master',
-    'document-numbering-master','reason-code-master'];
+    'document-numbering-master','reason-code-master','shift-master'];
   const masters=createMasterStore(mastersDb,kinds);
   const sample={number:'10',date:'2025-01-01',time:'06:00',email:'test@example.com',file:pdf};
   function master(kind,fields,{approve=true,site='Jayant'}={}) {
@@ -36,7 +36,9 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     if(approve) masters.changeStatus(kind,record.id,record.revision,'approve',{id:'master-checker'});
   }
   master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'});
-  master('location-master',{'Location Code':'J-01'});
+  master('location-master',{'Location Code':'J-01','Receipt scenario allowed':'Both'});
+  master('shift-master',{Site:'Jayant','Shift name':'Day shift','Start time':'06:00','End time':'18:00','Business day cut-off':'06:00'});
+  master('shift-master',{Site:'Jayant','Shift name':'Night shift','Start time':'18:00','End time':'06:00','Business day cut-off':'06:00'});
   const storage={'Storage type':'UG tank',Location:'J-01','Capacity (L)':'2000','Safe fill level (L)':'1500',
     'Calibration chart (dip-to-litres table, UG tanks)':'cm,litres\n0,0\n20,1000\n40,2000'};
   master('storage-location-master',{...storage,'Storage Loc Code':'T-1','Storage Loc. Name':'Main tank'});
@@ -47,12 +49,13 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     'Fuel tank capacity (L)':'120','Meter reading at go-live':'200','QR or RFID tag No.':'TAG-20'});
   master('driver-master',{'Employee Code':'D-20','Employee Name':'Site driver'});
   master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'},{site:'Sasti'});
-  master('location-master',{'Location Code':'S-01'},{site:'Sasti'});
+  master('location-master',{'Location Code':'S-01','Receipt scenario allowed':'Both'},{site:'Sasti'});
   master('storage-location-master',{...storage,Location:'S-01','Storage type':'Bowser','Storage Loc Code':'S-B','Storage Loc. Name':'Receiving bowser'},{site:'Sasti'});
   master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'},{site:'Majri'});
-  master('location-master',{'Location Code':'M-01'},{site:'Majri'});
+  master('location-master',{'Location Code':'M-01','Receipt scenario allowed':'Both'},{site:'Majri'});
   master('storage-location-master',{...storage,Location:'M-01','Storage type':'Bowser','Storage Loc Code':'S-B','Storage Loc. Name':'Majri bowser'},{site:'Majri'});
-  master('reason-code-master',{Code:'REV',Description:'Correction supported by evidence'});
+  master('reason-code-master',{Code:'REV',Description:'Correction supported by evidence',
+    'Used for (rejection, shortage, variance, correction, override)':'Correction','Evidence required':'Yes'});
   master('cost-centre-vehicle-master',{'Cost Centre Code':'CC-21','Fleet No.':'F-21','Registration No.':'TEST02',Ownership:'Hired',
     'Hire party or contractor':'HIRE','Fuel tank capacity (L)':'120','Meter reading at go-live':'200','QR or RFID tag No.':'TAG-21'});
   const day=businessDay(), last=dayBefore(day.slice(0,7)+'-01');
@@ -176,14 +179,19 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   const issueForm=await (await request('/entries/new/E11',operator)).text();
   assert.match(issueForm,/value="F-20" data-tag="TAG-20"/);
   assert.match(issueForm,/D-20 · Site driver/);
+  assert.match(issueForm,/name="readingTime"/);
+  assert.match(issueForm,/data-capacity="120"/);
   assert.doesNotMatch(issueForm,/Fleet 01|Review driver/);
-  const issue=randomUUID(), issueData={bowser:'B-2',vehicle:'F-20',driver:'D-20',reading:200,start:0,end:70,
+  const issue=randomUUID(), issueData={bowser:'B-2',vehicle:'F-20',driver:'D-20',reading:200,start:0,end:70,readingTime:last+'T08:00',
     evidence:[proof]};
   const body={actor:'Jayant-'+roleKey('Bowser operator'), type:'E11', day:last, action:'Submit', rev:0, data:issueData};
   const invalid=await request('/entries/record/'+issue,operator,{...body,data:{...issueData,vehicle:'Fleet 01'}});
   assert.equal(invalid.status,422);
   const posted=await request('/entries/record/'+issue,operator,body);
   assert.equal(posted.status,200,await posted.text());
+  assert.equal(store.read(issue,'Jayant').shift.name,'Day shift');
+  assert.match(await (await request('/entries/record/'+issue,operator)).text(),/Day shift/);
+  assert.match(await (await request('/entries/new/E11',operator)).text(),/data-last-end="70"/);
   await submit('E11','Bowser operator',{...issueData,vehicle:'F-21',start:70,end:80});
   await approve(await submit('E14','Site Store',{pump:'PUMP',vehicle:'F-21',slip:'SLIP33',slipDate:last,litres:20,
     rate:95,total:1900,reading:203,evidence:[proof]}));

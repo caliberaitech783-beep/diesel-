@@ -2,9 +2,14 @@ import { readActiveMasters } from '../masters/records.mjs';
 import { byId, entries } from './catalog.mjs';
 import { commercialMasters, commercialMastersFor } from './site-commercial.mjs';
 import { transferOptions } from './transfer-destination.mjs';
+import { entryCalendar } from './entry-calendar.mjs';
+import { routeStandards } from './vehicle-route-standards.mjs';
+import { allowedReceiptScenarios } from './receipt-scenarios.mjs';
+import { entryReasons } from './entry-reasons.mjs';
 
 export const siteEntryTypes = entries.map(entry=>entry.id);
-const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master','location-master',...commercialMasters];
+const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master','location-master',
+  'shift-master','route-wise-diesel-master',...commercialMasters];
 const ref = record => ({ id:record.id, revision:record.revision, code:record.code, name:record.name });
 
 export function readSiteMasters(db,site) {
@@ -21,16 +26,23 @@ export function readSiteMasters(db,site) {
     const costCentre = ['Hired','Contractor'].includes(owner) ? v['Hire party or contractor'] : record.code;
     if (!owner || !costCentre || !(capacity>0) || !Number.isFinite(firstReading) || firstReading<0) return [];
     return [{ code:v['Fleet No.'], name:v['Registration No.'], tag:v['QR or RFID tag No.'], capacity, owner, costCentre,
-      firstReading, meterType:v['Meter type'], repeatHours:v['Minimum hours between fills']===undefined ? undefined : Number(v['Minimum hours between fills']) }];
+      firstReading, vehicleType:v['Vehicle type'], model:v['Make and model'], meterType:v['Meter type'],
+      repeatHours:v['Minimum hours between fills']===undefined ? undefined : Number(v['Minimum hours between fills']) }];
   });
   const uniqueVehicles = vehicles.filter(v => vehicles.filter(candidate=>candidate.code.toLowerCase()===v.code.toLowerCase()).length===1);
   const locations=data['location-master'].map(ref);
+  const location=data['location-master'].find(record=>record.site===site);
   const items=data['item-master'].map(record=>({
     ...ref(record),densityMin:Number(record.values['Density minimum (kg/m³)']),densityMax:Number(record.values['Density maximum (kg/m³)']),
     volumeBasis:record.values['Volume basis'],
   }));
-  return { items, storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(ref), reasons:data['reason-code-master'].map(ref),
-    locations, ...commercialMastersFor(data) };
+  const reasons=data['reason-code-master'].map(record=>({...ref(record),
+    category:record.values['Used for (rejection, shortage, variance, correction, override)'],
+    evidenceRequired:String(record.values['Evidence required']).trim().toLowerCase()==='yes'}));
+  return { items, storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(ref), reasons,
+    locations, calendar:entryCalendar(data['shift-master'],location),
+    receiptScenarios:allowedReceiptScenarios(location?.values['Receipt scenario allowed']),
+    routeStandards:routeStandards(data['route-wise-diesel-master'],site,locations), ...commercialMastersFor(data) };
 }
 
 export function siteDefinition(type, config) {
@@ -43,7 +55,7 @@ export function siteDefinition(type, config) {
       optionTags:new Map(list.filter(item=>item.tag||item.meter).map(item=>[item.code,item.tag||item.meter])) };
   }
   const unique = list => [...new Map(list.map(item=>[item.code,item])).values()];
-  const lists = { tank:storage('UG tank'), bowser:storage('Bowser'), vehicle:config.vehicles, driver:config.drivers, reason:config.reasons,
+  const lists = { tank:storage('UG tank'), bowser:storage('Bowser'), vehicle:config.vehicles, driver:config.drivers, reason:entryReasons(type,config.reasons),
     supplier:config.accounts, depot:unique(config.depots), transporter:config.accounts.filter(account=>!account.pump),
     instrument:config.instruments, pump:config.accounts.filter(account=>account.pump),
     from:config.storage,
@@ -56,13 +68,17 @@ export function siteDefinition(type, config) {
     })), ...fields] };
   }
   const extra = {
+    E1:[{key:'evidence',label:'Reason evidence',type:'file',optional:true}],
     E3:[{key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
     E9:[{key:'gst',label:'Approved freight GST code',type:'select',optional:true},
       {key:'tds',label:'Accounts-approved deduction (₹)',type:'number',optional:true}],
+    E11:[{key:'routeStandard',label:'Operating route standard',type:'select',optional:true},
+      {key:'loadedTrips',label:'Loaded trips since last fill',type:'number',optional:true},
+      {key:'emptyTrips',label:'Empty trips since last fill',type:'number',optional:true}],
     E17:[{key:'clearingAccount',label:'Approved diesel clearing account',type:'select'},
       {key:'consumptionAccount',label:'Approved diesel consumption account',type:'select'}],
   };
-  return { ...standard, receiptReasons:config.reasons.map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
+  return { ...standard, receiptReasons:entryReasons('E12',config.reasons).map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
     if (type==='E12' && field.key==='to') {
       const targets = transferOptions(config);
       const counts = new Map();
@@ -72,8 +88,15 @@ export function siteDefinition(type, config) {
         oldOptions:new Map(targets.filter(target=>counts.get(target.code)===1).map(target=>[target.code,target.key])) };
     }
     if (type==='E5' && field.key==='driver') return field;
-    if (type==='E5' && field.key==='transporter') return {...field, type:'text', options:undefined };
+    if (type==='E5' && field.key==='scenario') return {...field,options:config.receiptScenarios };
     if (type==='E2' && field.key==='depot') return choices({...field,optional:true},lists.depot);
+    if (type==='E11' && field.key==='vehicle') {
+      return { ...choices(field,config.vehicles), vehicleDetails:new Map(config.vehicles.map(vehicle=>[vehicle.code,vehicle])) };
+    }
+    if (type==='E11' && field.key==='routeStandard') {
+      const optionLabels = new Map(config.routeStandards.map(rule=>[rule.id,rule.code+' · '+rule.name]));
+      return { ...field, options:[...optionLabels.keys()],optionLabels };
+    }
     const adjusted = field.key==='reading'?{...field,label:'Vehicle meter reading'}:field;
     return lists[field.key]?choices(adjusted,lists[field.key]):adjusted;
   }) };

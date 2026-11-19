@@ -21,7 +21,11 @@ function savedTable(master, rows, canSave, prefix) {
   const records = rows.map(row => {
     const href = prefix + '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
     const values = new Map(row.fields);
-    const cells = master.fields.map(({ key }) => {
+    const cells = master.fields.map(({ key,type }) => {
+      if (type==='attributes') {
+        const count = JSON.parse(values.get(key)||'[]').length;
+        return count ? `<td><a href="${escape(href)}">${count} attributes</a></td>` : '<td></td>';
+      }
       const value = escape(values.get(key));
       return key === master.codeField
         ? `<th scope="row"><a href="${escape(href)}">${value}</a></th>`
@@ -38,7 +42,7 @@ function savedTable(master, rows, canSave, prefix) {
   </div>`;
 }
 
-export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '' }) {
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [] }) {
   const heading = master?.name ?? 'Master Data';
   const home = prefix + '/master-data';
   const selection = master ? '?master=' + master.slug : '';
@@ -86,6 +90,11 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         data-scope="${recordDraftScope(actor, master.slug)}"
         data-columns="${escape(JSON.stringify(master.fields.filter(field => field.type !== 'file' && !field.readOnly).map(field => field.key)))}">` : ''}
       ${canSave ? '<output class="master-data-feedback" aria-live="polite"></output>' : ''}
+      ${warnings.length ? `<details open><summary>Attribute expiry alerts (${warnings.length})</summary><ul>${warnings.map(warning=>{
+        const url=prefix+'/records?'+new URLSearchParams({master:master.slug,id:warning.id,revision:warning.revision});
+        return `<li><a href="${escape(url)}">${escape(warning.code)}</a> · ${escape(warning.name)}
+          ${warning.reference ? ' · '+escape(warning.reference) : ''} · ${escape(warning.due)} · ${escape(warning.status)}</li>`;
+      }).join('')}</ul></details>` : ''}
       ${master ? savedTable(master, rows, canSave, prefix) : '<p>Choose a master from the sidebar to view its saved records.</p>'}
       ${master && (offset || hasMore) ? `<nav class="master-data-pager" aria-label="Master Data pages">
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}

@@ -28,7 +28,7 @@ export const locationMaster = [
       { label: 'Business day cut-off', required: true, type: 'time' },
       { label: 'Site In-charge', required: true },
       { label: 'Project Manager', required: true },
-      { label: 'Receipt scenario allowed', required: true },
+      { label: 'Receipt scenario allowed', required: true, suggestions: ['UG tank','Direct to bowsers','Both'] },
       { label: 'Site gate geofence', required: false },
     ],
   },

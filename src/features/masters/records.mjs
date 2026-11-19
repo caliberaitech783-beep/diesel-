@@ -4,6 +4,9 @@ import { preparePulseProjects, masterLocationProject } from './pulse-projects.mj
 import { validateStorage } from './storage-rules.mjs';
 import { invoiceRate } from './assets/invoice-rate.mjs';
 import { validatePolicyMaster } from '../entries/entry-policy.mjs';
+import { validateEntryShift } from '../entries/entry-calendar.mjs';
+import { allowedReceiptScenarios } from '../entries/receipt-scenarios.mjs';
+import { cleanAttributes } from './attribute-storage.mjs';
 
 const maxFileBytes = 5 * 1024 * 1024;
 const normalize = text => text.trim().normalize('NFKC').toLowerCase();
@@ -31,18 +34,26 @@ function identity(actor) {
 }
 
 function unpack(row) {
+  const { $attributes, ...values } = JSON.parse(row.values_json);
   return {
     id: row.id, master: row.master, code: row.code, name: row.name, site: row.site,
-    status: row.status, revision: row.revision, values: JSON.parse(row.values_json),
+    status: row.status, revision: row.revision, values, ...($attributes?.length ? {attributes:$attributes} : {}),
     editedBy: row.edited_by, updatedAt: row.updated_at,
   };
 }
 
+function storedValues(values, attributes) {
+  return JSON.stringify(attributes?.length ? {...values,$attributes:attributes} : values);
+}
+
 export function readActiveMasters(db, site, enabledMasters = ['item-master']) {
   const available = Object.fromEntries(enabledMasters.filter(slug => recordMasters.includes(slug)).map(slug => [slug, []]));
+  const slugs = Object.keys(available);
+  if (!slugs.length) return available;
   const approved = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
     ON h.record_id=m.id AND h.revision=m.approved_revision
-    WHERE m.status!='inactive' AND (m.approved_site_key='' OR m.approved_site_key=?) ORDER BY m.master, m.code`).all(normalize(String(site ?? '')));
+    WHERE m.status!='inactive' AND (m.approved_site_key='' OR m.approved_site_key=?)
+    AND m.master IN (${slugs.map(()=>'?').join(',')}) ORDER BY m.master, m.code`).all(normalize(String(site ?? '')),...slugs);
   for (const row of approved) {
     const item = JSON.parse(row.snapshot);
     if (available[item.master] && isActive(item)) available[item.master].push(item);
@@ -215,6 +226,8 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       input = { ...input, 'Location Code': input?.['Location Code'] ?? current?.code, 'Location Name': project.name, Client: project.client };
     }
     const values = cleanValues(master, recordId, input);
+    const attributes = cleanAttributes(slug,payload.attributes,current?.attributes,
+      (key,raw)=>fileValue(recordId,{key,label:'dated attribute'},raw));
     const { code, name } = recordIdentity(slug, values);
     if (slug === 'location-master' && current && current.code !== code) throw new MasterRecordError('The saved location code is used by storage records and cannot change.');
     if (slug === 'storage-location-master' && !privateSubmission) requireLocation(site, values.Location);
@@ -230,7 +243,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       VALUES (?,?,?,?,?,?,?,?,'pending',?,?,?) ON CONFLICT(id) DO UPDATE SET code=excluded.code,code_key=excluded.code_key,
       name=excluded.name,site=excluded.site,site_key=excluded.site_key,revision=excluded.revision,status='pending',
       values_json=excluded.values_json,edited_by=excluded.edited_by,updated_at=excluded.updated_at`)
-      .run(recordId, slug, code, codeKey, name, site.trim(), siteKey, revision, JSON.stringify(values), editor.id, updatedAt);
+      .run(recordId, slug, code, codeKey, name, site.trim(), siteKey, revision, storedValues(values,attributes), editor.id, updatedAt);
     return audit(get(slug, recordId), current ? 'edited' : 'created', editor, current ? changeReason(payload.reason) : '');
   }
 
@@ -252,7 +265,11 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
         status = action === 'return' ? 'returned'
           : current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
         if (status === 'approved') {
-          const problem = validatePolicyMaster(slug, current.values);
+          const problem = slug==='shift-master'
+            ? validateEntryShift(current,readActiveMasters(db,current.site,[slug])[slug])
+            : slug==='location-master' && !allowedReceiptScenarios(current.values['Receipt scenario allowed']).length
+              ? 'Choose UG tank, Direct to bowsers, or Both for the receipt scenario.'
+              : validatePolicyMaster(slug, current.values);
           if (problem) throw new MasterRecordError(problem);
         }
       } else if (action === 'deactivate' && ['approved','pending','returned'].includes(current.status)) {
@@ -276,7 +293,8 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
         approved_revision=CASE WHEN ?='approved' THEN ? WHEN ?='inactive' THEN NULL ELSE approved_revision END,
         approved_code_key=CASE WHEN ?='approved' THEN code_key WHEN ?='inactive' THEN NULL ELSE approved_code_key END,
         approved_site_key=CASE WHEN ?='approved' THEN site_key WHEN ?='inactive' THEN NULL ELSE approved_site_key END WHERE id=?`)
-        .run(status, nextRevision, timestamp, ['approve','return'].includes(action) ? current.editedBy : editor.id, JSON.stringify(values), status, nextRevision, status, status, status, status, status, id);
+        .run(status, nextRevision, timestamp, ['approve','return'].includes(action) ? current.editedBy : editor.id,
+          storedValues(values,current.attributes), status, nextRevision, status, status, status, status, status, id);
       return audit(get(slug, id), action, editor, action === 'approve' ? '' : changeReason(reason));
     });
   }

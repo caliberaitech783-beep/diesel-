@@ -4,6 +4,7 @@ import { masterLocationProject } from './pulse-projects.mjs';
 import { recordMasters, masterDefinition, MasterRecordError, recordDraftScope } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
+import { attributeExpiry, attributeMasters } from './master-attributes.mjs';
 
 function requirePermission(actor, permission) {
   if (actor[permission] !== true) throw new MasterRecordError('Your workspace role cannot perform this action.', 403);
@@ -29,6 +30,15 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   registerMasterDataRoutes(app, {
     enabledMasters, local: !prefix, prefix, getActor: workspaceActor,
     listRecords: (actor, slugs, page) => store.listSaved(slugs, { ...page, site: actor.site }),
+    attributeWarnings(actor,slug) {
+      if (!attributeMasters.has(slug)) return [];
+      return readActiveMasters(db,actor.site,[slug])[slug].flatMap(record=>
+        (record.attributes??[]).flatMap(attribute=>{
+          const status=attributeExpiry(attribute.validTo);
+          return status ? [{id:record.id,code:record.code,revision:record.revision,name:attribute.name,
+            reference:attribute.reference,due:attribute.validTo,status}] : [];
+        })).sort((a,b)=>a.due.localeCompare(b.due));
+    },
   });
   function enabled(slug) {
     if (!enabledMasters.includes(slug) || !recordMasters.includes(slug)) throw new MasterRecordError('Records are unavailable for this master.', 404);
@@ -60,6 +70,8 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     next();
   }
   const json = express.json({ limit: '7mb' });
+  const attributeJson = express.json({ limit: '40mb' });
+  const recordJson = (req,res,next) => (attributeMasters.has(req.params.master) ? attributeJson : json)(req,res,next);
   function checkScope(req,actor,slug) {
     if (prefix && req.body?.scope !== recordDraftScope(actor,slug)) {
       throw new MasterRecordError('Reopen this record with the Pulse account and site that prepared it.',409);
@@ -111,8 +123,8 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
       res.json(store.update(slug, req.params.id, payload, actor));
     } else res.status(201).json(store.create(slug, payload, actor));
   };
-  app.post(api, checkWrite, json, route(write));
-  app.put(resource, checkWrite, json, route(write));
+  app.post(api, checkWrite, recordJson, route(write));
+  app.put(resource, checkWrite, recordJson, route(write));
   for (const action of ['approve', 'return', 'deactivate', 'reactivate']) {
     app.post(resource + '/' + action, checkWrite, json, route((req, res, actor, slug) => {
       requirePermission(actor, ['approve', 'return'].includes(action) ? 'canApproveMasters' : 'canEditMasters');

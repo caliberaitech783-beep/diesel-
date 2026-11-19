@@ -31,9 +31,9 @@ const approvalFields = {Entry:'E1','Initiator role':'Site In-charge','Quantity o
   'Approver level 1 role':'Project Manager','Approval on Telegram with OTP allowed (Y/N)':'No','Effective from':day};
 const alertFields = {Alert:'Transit shortage',Limit:'0.5%','First owner (role)':'Site In-charge',
   'Escalate to (role)':'Project Manager','Escalate after (hours)':'2','Channel (app, e-mail, Telegram)':'App'};
-const valueOverrides = {'item-master':itemFields,'location-master':{'Location Code':'SH-01','Location Name':'Browser override'},
+const valueOverrides = {'item-master':itemFields,'location-master':{'Location Code':'SH-01','Location Name':'Browser override','Receipt scenario allowed':'Both'},
   'storage-location-master':storageFields,'approval-limit-master':approvalFields,'tolerance-and-alert-master':alertFields,
-  'shift-master':{Site:site}};
+  'shift-master':{Site:site,'Start time':'06:00','End time':'18:00'}};
 
 test('shared Master Data uses verified Pulse roles and feeds approved Item, Location and Storage directly to Opening stock',async t=>{
   const dir = await mkdtemp(join(tmpdir(),'diesel-shared-masters-'));
@@ -179,6 +179,32 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   }
   const all = await (await req(root+'/api/master-data/records','c')).json();
   assert.equal(new Set(all.records.map(record=>record.slug)).size,20);
+  const cmllId=all.records.find(record=>record.slug==='cmll-master').id;
+  const cmllPath=api('cmll-master')+'/'+cmllId;
+  const cmll=await (await req(cmllPath,'m')).json();
+  const attributes=[
+    {name:'GSTIN',reference:'Maharashtra',value:'GST-Registration-1',validFrom:'2020-01-01',attachment:doc},
+    {name:'Licence or certificate',reference:'Site licence',value:'Licence-02',validTo:day,attachment:{...doc,name:'licence.pdf'}},
+  ];
+  const change=attrs=>req(cmllPath,'m',{method:'PUT',body:{revision:cmll.revision,scope:scope('cmll-master','m'),
+    reason:'Add dated registrations',values:cmll.values,attributes:attrs}});
+  assert.equal((await change([{...attributes[0],validTo:'2019-12-31'}])).status,422);
+  const attrRevision=await (await change(attributes)).json();
+  assert.equal(attrRevision.attributes.length,2);
+  assert.notEqual(attrRevision.attributes[0].attachment.id,attrRevision.attributes[1].attachment.id);
+  const expiryPage=root+'/master-data?master=cmll-master';
+  assert.doesNotMatch(await (await req(expiryPage,'c')).text(),/Attribute expiry alerts/);
+  await approve(attrRevision);
+  const attributeHtml=await (await req(detail('cmll-master',cmllId),'c')).text();
+  assert.match(attributeHtml,/GST-Registration-1/);
+  assert.match(attributeHtml,/licence.pdf/);
+  assert.match(await (await req(expiryPage,'c')).text(),/Attribute expiry alerts/);
+  const attributeFile=cmllPath+'/attachments/'+attrRevision.attributes[1].attachment.id;
+  assert.equal((await req(attributeFile,'c')).status,200);
+  assert.equal((await req(attributeFile,'o')).status,404);
+  const cmllExport=await (await req(root+'/api/master-data/records?master=cmll-master','c')).json();
+  const publishedAttributes=JSON.parse(cmllExport.records[0].fields.find(([key])=>key==='Dated attributes')[1]);
+  assert.equal(publishedAttributes[1].attachmentName,'licence.pdf');
   const {id:reasonId} = all.records.find(record=>record.slug==='reason-code-master');
   const reason = await (await req(api('reason-code-master')+'/'+reasonId,'m')).json();
   const retirement = await (await act(reason,'deactivate','m',{reason:'Retire the test reason'})).json();

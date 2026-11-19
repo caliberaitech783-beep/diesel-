@@ -5,6 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { read as readWorkbook, utils as workbookUtils } from 'xlsx';
 import { createApp } from '../../server.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { masterDefinition } from '../masters/records-fields.mjs';
@@ -31,11 +32,12 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
     return masters.changeStatus(kind, record.id, record.revision, 'approve', { id: 'master-checker' });
   }
   master('item-master', { 'Item Code':'HSD', 'Density minimum (kg/m³)':'815', 'Density maximum (kg/m³)':'845' });
-  master('location-master', { 'Location Code':'MN-1' });
-  master('location-master', { 'Location Code':'OTHER-1' }, otherSite);
+  master('location-master', { 'Location Code':'MN-1','Receipt scenario allowed':'UG tank' });
+  master('location-master', { 'Location Code':'OTHER-1','Receipt scenario allowed':'UG tank' }, otherSite);
   master('storage-location-master', { 'Storage type':'Bowser', Location:'MN-1', 'Storage Loc Code':'MN-B',
     'Capacity (L)':'2000', 'Safe fill level (L)':'1500' });
-  master('reason-code-master', { Code:'START', Description:'Start of operations' });
+  master('reason-code-master', { Code:'START', Description:'Start of operations',
+    'Used for (rejection, shortage, variance, correction, override)':'Override','Evidence required':'No' });
   master('document-numbering-master', { Entry:'E1', Prefix:'IND', 'Financial year':year+'-'+String(year+1).slice(-2),
     'Next number':'1', 'Site-wise series (Y/N)':'Yes' });
   const telegramRule = master('approval-limit-master', { Entry:'E1', 'Initiator role':'Site In-charge',
@@ -49,6 +51,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
     r:{ login:'reviewer', dieselEntryAccess:[{site:otherSite,role:'Project Manager'},projectManager], dieselApprovalContact:contact },
     s:{ login:'second', dieselEntryAccess:[projectManager], dieselApprovalContact:{...contact,telegramChatId:'2345678'} },
     o:{ login:'other', dieselEntryAccess:[{site:otherSite,role:'Project Manager'}], dieselApprovalContact:contact },
+    b:{ login:'bowser', dieselEntryAccess:[{site,role:'Bowser operator'}] },
     u:{ login:'unknown', dieselEntryAccess:[{site:'Unknown Site',role:'Project Manager'}], dieselApprovalContact:contact },
   };
   const delivered = [];
@@ -107,6 +110,16 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   }
 
   const record = await submit();
+  assert.equal((await request(record,'b')).status,404);
+  assert.equal((await request('/entries/type/E1','b')).status,403);
+  assert.doesNotMatch(await (await request('/entries/export.csv?type=E1','b')).text(),/IND\/MN-1/);
+  const excel = await request('/entries/export.xlsx?type=E1&from='+day,'r',null,reviewerSite);
+  assert.equal(excel.status,200);
+  const workbook = readWorkbook(Buffer.from(await excel.arrayBuffer()));
+  const rows = workbookUtils.sheet_to_json(workbook.Sheets['Diesel Entries']);
+  assert.equal(rows.length,1);
+  assert.match(rows[0].Document,/^IND\/MN-1/);
+  assert.equal(rows[0].Site,site);
   assert.match(await (await request(record,'r',null,reviewerSite)).text(),/Review via Telegram/);
   assert.doesNotMatch(await (await request(record,'i')).text(),/Review via Telegram/);
   const invite = record + '/telegram';

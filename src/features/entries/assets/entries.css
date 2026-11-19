@@ -97,6 +97,7 @@ output { display: block; font-weight: 600; color: var(--link); }output:not(:empt
   td,th { padding-inline: 11px; }
 }
 @media (max-width: 700px) {
+  #entry-form :is(input:not([type="hidden"]), select, button) { min-height: 44px; }
   .masthead { padding: 10px 14px; flex-wrap: wrap; }.tools { gap: 6px; }.environment { font-size: 11px; }
   .shell { display: block; }.rail-title { padding: 8px 16px; justify-content: space-between; font-size: 16px; min-height: 45px; }
   #nav-toggle:not([hidden]) { display: inline-flex; background: var(--rail-active); color: var(--rail-text); border-color: #655571; font-size: 12px; padding: 6px 10px; }

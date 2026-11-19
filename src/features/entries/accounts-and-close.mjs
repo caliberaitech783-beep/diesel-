@@ -3,17 +3,43 @@ import { money, round, requireValue as check,dayBefore } from './entry-rules.mjs
 import { approvedDeduction } from './purchasing.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
 
+const financialYear = day => Number(day.slice(0,4))-Number(day.slice(5,7)<'04');
+
 export const accountsAndClose = {
   E8(d,c) {
     const grn=c.linked('grn','E7'), g=grn.result;
-    check(!c.reserved('E8').some(r=>r.data.grn===grn.id || r.data.bill.toLowerCase()===d.bill.toLowerCase()),'Bill or GRN already matched.');
     check(d.billDate<=c.doc.day,'Check the bill date.');
+    let expected = { rate:g.rate, vat:g.vat??review.vatPercent, invoiceDiscount:g.invoiceDiscount??review.invoiceDiscount,
+      postSaleDiscount:g.postSaleDiscount??review.postSaleDiscount };
+    const siteBill = c.siteConfig && c.doc.billChecksVersion;
+    if (siteBill) {
+      const suppliers=new Map(c.all.filter(row=>row.type==='E7').map(row=>[row.id,row.result.supplier]));
+      const duplicate=c.all.some(row=>{
+        if (row.id===c.doc.id || row.type!=='E8' || ['Draft','Returned','Superseded'].includes(row.status)) return false;
+        if (row.data.grn===grn.id) return true;
+        return (row.result.supplier??suppliers.get(row.data.grn))===g.supplier
+          && row.data.bill.toLowerCase()===d.bill.toLowerCase() && financialYear(row.data.billDate)===financialYear(d.billDate);
+      });
+      check(!duplicate,'This GRN or supplier bill is already matched in the financial year.');
+      const gate=c.posted('E5').find(row=>row.id===grn.data.gate);
+      const order=c.posted('E2').find(row=>row.id===grn.data.po);
+      check(gate && order,'Open the posted gate entry and purchase order linked to this GRN.');
+      const dated=effectiveRecord(c.siteConfig.rates,gate.data.invoiceDate,row=>row.supplier===g.supplier
+        && row.depot===gate.result.depot && row.basis===g.basis);
+      check(dated?.rate>0 && dated.vat>=0 && dated.vat<=100,'Approve a Diesel Rate effective on the dispatch invoice date.');
+      expected=dated;
+    } else {
+      check(!c.reserved('E8').some(r=>r.data.grn===grn.id || r.data.bill.toLowerCase()===d.bill.toLowerCase()),'Bill or GRN already matched.');
+    }
     const issues=[];
     if (d.litres!==g.invoiceLitres) issues.push('Invoice litres');
-    if (d.rate!==g.rate) issues.push('PO rate');
-    if (d.vat!==(g.vat??review.vatPercent)) issues.push('VAT');
-    if ((d.discount??0)!==(g.invoiceDiscount??review.invoiceDiscount)) issues.push('Invoice discount');
-    return { passLitres:g.accepted,amount:money(g.accepted/1000*g.rate),expectedPostSaleDiscount:money(g.accepted/1000*(g.postSaleDiscount??review.postSaleDiscount)),match:issues.join(', ') || 'Matched',approvals:issues.length?['Head – Accounts','CFO']:['Head – Accounts'] };
+    if (d.rate!==expected.rate) issues.push(siteBill?'Dispatch rate':'PO rate');
+    if (d.vat!==expected.vat) issues.push('VAT');
+    if ((d.discount??0)!==expected.invoiceDiscount) issues.push('Invoice discount');
+    return { passLitres:g.accepted,amount:money(g.accepted/1000*expected.rate),
+      expectedPostSaleDiscount:money(g.accepted/1000*expected.postSaleDiscount),match:issues.join(', ') || 'Matched',
+      approvals:issues.length?['Head – Accounts','CFO']:['Head – Accounts'],
+      ...(siteBill ? {supplier:g.supplier,dispatchRate:expected.rate,rateRef:expected.id,rateRevision:expected.revision} : {}) };
   },
   E9(d,c) {
     const grn=c.linked('grn','E7'),g=grn.result,ex=g.basis==='Ex-depot';

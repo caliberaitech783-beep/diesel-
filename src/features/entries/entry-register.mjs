@@ -1,5 +1,6 @@
 import { byId } from './catalog.mjs';
 import { validDate } from './entry-rules.mjs';
+import { utils, write } from 'xlsx';
 
 const text = value => typeof value === 'string' ? value.trim().slice(0, 100) : '';
 const date = value => validDate(value) ? value : '';
@@ -17,8 +18,8 @@ export function traceEntries(rows) {
   };
 }
 
-export function filterRegister(rows, type, filters) {
-  const trace = traceEntries(rows), q = filters.q.toLowerCase();
+export function filterRegister(rows, type, filters, sources=rows) {
+  const trace = traceEntries(sources), q = filters.q.toLowerCase();
   return rows.filter(row => {
     if ((type && row.type !== type) || (filters.status && row.status !== filters.status)
       || (filters.from && row.day < filters.from) || (filters.to && row.day > filters.to)) return false;
@@ -33,4 +34,26 @@ export function filterRegister(rows, type, filters) {
 export function entryCsv(rows) {
   const cell = value => '"' + String(value ?? '').replace(/^([\s]*[=+@\-]|[\t\r\n])/, "'$1").replaceAll('"', '""') + '"';
   return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
+}
+
+export function entryExportRows(rows,sources=rows) {
+  const trace = traceEntries(sources);
+  return [['Document','Entry','Site','Business date','Shift','Truck','Vehicle','Status','Details','Results'],
+    ...rows.map(row => {
+      const { truck, vehicle } = trace(row);
+      return [row.number,byId[row.type].name,row.site,row.day,row.shift?.name,truck,vehicle,row.status,
+        JSON.stringify(row.data),JSON.stringify(row.result)];
+    })];
+}
+
+export function entryCsvRows(rows) {
+  return [['Document','Entry','Site','Date','Status','Details','Results'],
+    ...rows.map(row=>[row.number,byId[row.type].name,row.site,row.day,row.status,JSON.stringify(row.data),JSON.stringify(row.result)])];
+}
+
+export function entryExcel(rows) {
+  const workbook = utils.book_new();
+  const sheet = utils.aoa_to_sheet(rows.map(row => row.map(value => String(value ?? '').slice(0,32767))));
+  utils.book_append_sheet(workbook,sheet,'Diesel Entries');
+  return write(workbook,{bookType:'xlsx',type:'buffer',compression:true});
 }

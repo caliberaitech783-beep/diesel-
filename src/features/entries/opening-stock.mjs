@@ -21,7 +21,7 @@ export function createOpeningStockStore(db, mastersFor) {
     return row ? JSON.parse(row.snapshot) : null;
   };
   function snapshot(site,input) {
-    const { items,storage } = mastersFor(site);
+    const { items,storage,calendar } = mastersFor(site);
     const item = items.find(record=>record.code===input.item);
     assert(item,'Choose an approved active item for this site.');
     assert(item.volumeBasis==='Observed litres','The site ledger needs an approved item measured in observed litres.');
@@ -41,7 +41,7 @@ export function createOpeningStockStore(db, mastersFor) {
       return { ...record,chart,opening:Number(value) };
     });
     const openingRate=input.openingRate===undefined||input.openingRate==='' ? undefined : rateValue(input.openingRate);
-    return { item, storage:readings, measuredAt, businessDay:businessDay(asOf), openingRate };
+    return { item, storage:readings, measuredAt, businessDay:calendar?.day(asOf) ?? businessDay(asOf), openingRate };
   }
   function transact(actor,update) {
     db.exec('BEGIN IMMEDIATE');
@@ -68,7 +68,8 @@ export function createOpeningStockStore(db, mastersFor) {
       assert(current?.status==='pending' && current.revision===Number(revision),'Reopen the current submission before approval.',409);
       assert(current.maker!==actor.id,'A different person must approve opening stock.',403);
       const fresh=snapshot(actor.site,{item:current.item.code,measuredAt:current.measuredAt,openingRate:current.openingRate,readings:current.storage.map(row=>({code:row.code,litres:row.opening}))});
-      assert(JSON.stringify(fresh.item)===JSON.stringify(current.item)&&JSON.stringify(fresh.storage)===JSON.stringify(current.storage),
+      assert(fresh.businessDay===current.businessDay && JSON.stringify(fresh.item)===JSON.stringify(current.item)
+        && JSON.stringify(fresh.storage)===JSON.stringify(current.storage),
         'An approved master changed. Ask the Site In-charge to review and resubmit.',409);
       return { ...current,status:'approved',revision:current.revision+1,checker:actor.id,approvedAt:new Date().toISOString() };
     });

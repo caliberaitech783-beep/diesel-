@@ -22,6 +22,7 @@ export const alertSettings = {
   'Meter jump': ['meterJump', 'h', 'Site In-charge', 'Project Manager'],
   'Approval overdue': ['approvalHours', 'h', null, 'Project Manager'],
   'Calibration due': ['calibrationDays', 'days', 'Site In-charge', 'Project Manager'],
+  'Days of stock': ['daysOfStockLimit', 'days', 'Site In-charge', 'Project Manager'],
 };
 
 function amount(value) {
@@ -37,9 +38,12 @@ function approvalRule(values) {
   const above = /^\s*(?:>|above\s+)\s*([\d,.]+)\s*(?:l|litres|inr|₹)?\s*$/i.exec(slab ?? '');
   const limit = key(slab) === 'all' ? -1 : amount(above?.[1]);
   const approvals = stagedRoles.filter(field => values[field]).map(field => role(values[field]));
-  if (!entry?.maker || role(values['Initiator role']) !== entry.maker || !Number.isFinite(limit)
+  const initiator = ['original maker','maker of the entry'].includes(key(values['Initiator role']))
+    ? 'Original maker' : role(values['Initiator role']);
+  if (!entry?.maker || initiator !== entry.maker || !Number.isFinite(limit)
     || (limit >= 0 && !['E1', 'E2'].includes(entry.id)) || (scope !== 'All' && entry.id !== 'E2')
-    || !approvals[0] || approvals.some(item => !item) || new Set(approvals).size !== approvals.length) return null;
+    || !approvals[0] || approvals.some(item => !item) || new Set(approvals).size !== approvals.length
+    || (scope==='Retail PO' && (approvals[0]!=='Head – Procurement' || !approvals.includes('Director / CMD')))) return null;
   return { type: entry.id, scope, limit, approvals, effective: values['Effective from'],
     telegram: values['Approval on Telegram with OTP allowed (Y/N)'] === 'Yes' };
 }
@@ -60,7 +64,7 @@ function alertRule(values) {
 
 export function validatePolicyMaster(slug, values) {
   if (slug === 'approval-limit-master' && !approvalRule(values)) {
-    return 'Use an entry code and its initiator role, distinct reviewer roles, and a slab of All or Above an amount for E1 or E2.';
+    return 'Use the entry’s initiator, distinct reviewer roles and an applicable slab. Retail POs require Head – Procurement followed by Director / CMD.';
   }
   if (slug === 'tolerance-and-alert-master' && !alertRule(values)) {
     return 'Choose a listed alert, a valid nonnegative limit and escalation time, and existing Diesel roles.';
@@ -84,7 +88,9 @@ export function entryPolicy(records, site, day) {
   return { limits, alerts, approvals(doc, result) {
     const scope = doc.data.type === 'Bulk' ? 'Bulk PO' : 'Retail PO';
     const size = doc.type === 'E1' ? result.litres : doc.type === 'E2' ? result.value : 0;
-    const matching = approval.filter(rule => rule.type === doc.type && (rule.scope === 'All' || (doc.type === 'E2' && rule.scope === scope)) && size > rule.limit);
+    const retail = doc.type==='E2' && scope==='Retail PO';
+    const matching = approval.filter(rule => rule.type === doc.type && (retail ? rule.scope==='Retail PO'
+      : rule.scope === 'All' || (doc.type === 'E2' && rule.scope === scope)) && size > rule.limit);
     const match = matching.find(rule => rule.scope !== 'All' && rule.specific === matching[0]?.specific) ?? matching[0];
     return match ? { ...result, approvals: match.approvals, telegramAllowed: match.telegram } : result;
   } };

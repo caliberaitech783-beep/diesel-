@@ -15,5 +15,9 @@ export function formSteps(meta) {
   const layout = layouts[meta.id];
   if (!layout) return null;
   const byKey = new Map(meta.fields.map(field => [field.key,field]));
-  return layout.map(([title,keys]) => ({ title, fields:keys.map(key => byKey.get(key)) }));
+  const placed = new Set(layout.flatMap(([,keys])=>keys));
+  return layout.map(([title,keys], index) => ({
+    title, fields:[...keys.map(key=>byKey.get(key)).filter(Boolean),
+      ...(index === layout.length-1 ? meta.fields.filter(field=>!placed.has(field.key)) : [])],
+  }));
 }

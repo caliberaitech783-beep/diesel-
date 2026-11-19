@@ -8,13 +8,17 @@ Diesel Rate calculates the all-inclusive price per litre and per kilolitre from 
 
 Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. **Download** and **Export** offer Excel, CSV, or PDF. **Import** fills one new record for review from an Excel or CSV row, a single-record Master Data PDF, or a fillable Diesel form PDF.
 
+CMLL, Account and Location masters support multiple **Dated attributes**, each with its own optional attachment. Active approved attributes appear in the expiry list starting 30 days before their end date. Import and export carry the attribute values and dates. Reattach supporting files when importing records.
+
 ## Run locally
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.
 
 Approve **Approval Limit Master** and **Tolerance and Alert Master** records at the site to use them in Entry. Approval records use an entry code and `All` or a slab such as `Above 200000` for E1 litres or `Above 10000000` for E2 rupees. Approved effective rules apply on the business date. **My alerts** routes notices in the app.
 
-**My work** shows the tasks for the selected site and role. Use a QR photo or a scanner on vehicle and storage forms. Gate entry can read an invoice photo on the Diesel server and suggests values for review. Open the form while online to queue saves during a phone signal loss. Hosted sync sends the queue when the same account, site and role reconnect and keeps authenticated pages out of the offline cache. Head Office date and equipment filters also apply to CSV exports.
+**My work** shows tasks for the selected site and role. Scan a QR tag or choose an approved code. Gate entry uses the Location Master receipt scenarios and can read an invoice photo for review. Open the form while online to queue saves during a signal loss. The queue lists waiting records and syncs when the same account, site and role reconnect. Entry compresses large photos when the device supports it. Register filters apply to both CSV and Excel. Live records and downloads use the Entry role matrix and the selected site.
+
+Approved Shift Master rows use one cut-off per site with nonoverlapping shift times. The Location Master cut-off applies before shifts are approved. Vehicle issues and daily counts can record the actual reading time in IST. Vehicle issues show the last bowser reading and compare use against approved Route Wise Diesel standards. A second repeat-fill override within seven days adds Project Manager review by default. Exception reason codes and supporting evidence follow the Reason Code Master. Bill match uses the effective Diesel Rate on the dispatch invoice date.
 
 After E17 posts, Head – Accounts or CFO can download the balanced journal from the record. Confirm the Accounting import format and ledger codes against an actual closed month before posting it to the books.
 

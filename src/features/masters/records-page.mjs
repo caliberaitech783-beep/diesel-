@@ -4,6 +4,8 @@ import { itemFileMenu } from './item-file-menu.mjs';
 import { recordDraftScope } from './records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from './master-site-menu.mjs';
+import { attributeMasters } from './master-attributes.mjs';
+import { attributeFields } from './attribute-page.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -88,6 +90,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
     <form class="master-form" id="record-form" data-api="${endpoint}" data-record-home="${home}" data-slug="${master.slug}" data-master-name="${escape(master.name)}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}"${prefix ? ` data-write-scope="${recordDraftScope(actor, master.slug)}"` : ''}${creating && editable ? ` data-import-scope="${recordDraftScope(actor, master.slug)}"` : ''}>
       ${submissionsOnly ? '' : `<p class="record-meta">Site · ${escape(scope)}</p>`}${groups}
+      ${!submissionsOnly && attributeMasters.has(master.slug) ? attributeFields(record,editable,endpoint) : ''}
       ${mayReview || (editingAllowed && record && record.status !== 'pending_deactivation') ? '<div class="master-field change-reason"><label for="change-reason">Reason for change or return</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
       ${actions.length ? `<div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>` : ''}
     </form>${history}` : `

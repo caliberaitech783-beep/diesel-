@@ -28,26 +28,6 @@ if (stepNav) {
   renderStep();
 }
 
-async function imageCanvas(file, maxSide) {
-  if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-    throw new Error('Choose a PNG, JPEG or WebP photo up to 5 MB.');
-  }
-  const image = await createImageBitmap(file);
-  try {
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
-    const ctx = canvas.getContext('2d', { alpha: false });
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return { canvas, ctx };
-  } finally {
-    image.close();
-  }
-}
-
 document.querySelector('#tag-photo')?.addEventListener('change', async event => {
   const file = event.target.files[0];
   if (!file) return;

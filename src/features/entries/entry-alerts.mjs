@@ -25,6 +25,8 @@ export function entryAlerts(rows, actor, policy, now = Date.now()) {
         add('Transit shortage', doc, result.shortage + ' L short');
       }
       if (type === 'E10A' && result.difference > limits.bowserLimit) add('Tank to bowser variance', doc, result.difference + '%');
+      if (type === 'E11' && result.repeatFill) add('Repeat fill',doc,doc.data.vehicle);
+      if (type === 'E11' && result.meterJump) add('Meter jump',doc,doc.data.vehicle);
       if (type === 'E15') {
         const measurements = result.measurements ?? [{code:'Tank',variance:result.tankVariance},{code:'Bowser',variance:result.bowserVariance}];
         const differences = measurements.filter(row=>row.variance);
@@ -46,10 +48,22 @@ export function entryAlerts(rows, actor, policy, now = Date.now()) {
       add('Transfer variance', doc, result.difference + '% received difference');
     }
   }
-  const calibration = policy.calibration ?? { name: review.instrument, due: review.calibrationDue };
-  if (Date.parse(calibration.due) - now <= limits.calibrationDays * 86400000) {
-    const owner = policy.alerts.get('Calibration due')?.owner ?? 'Site In-charge';
-    if (role === owner) alerts.push({ label: 'Calibration due', detail: calibration.name + ' · ' + calibration.due, owner });
+  const calibrations = policy.calibrations ?? [policy.calibration ?? { name: review.instrument, due: review.calibrationDue }];
+  const calibrationPolicy = policy.alerts.get('Calibration due');
+  const calibrationOwner = calibrationPolicy?.owner ?? 'Site In-charge';
+  for (const calibration of calibrations) {
+    const remaining = Date.parse(calibration.due)-now;
+    if (remaining > limits.calibrationDays*86400000 || !Number.isFinite(remaining)) continue;
+    const escalates = (limits.calibrationDays*24-(calibrationPolicy?.escalateAfter??24))*3600000;
+    const escalation = remaining<=escalates ? calibrationPolicy?.escalateTo ?? 'Project Manager' : null;
+    if (role === calibrationOwner || role === escalation) {
+      alerts.push({label:'Calibration due',detail:[calibration.code,calibration.name,calibration.due].filter(Boolean).join(' · '),
+        owner:calibrationOwner,escalation:calibrationOwner===escalation ? null : escalation});
+    }
+  }
+  const stockRule=policy.alerts.get('Days of stock');
+  if (stockRule && role===stockRule.owner && policy.daysOfStock!=null && policy.daysOfStock<stockRule.limit) {
+    alerts.push({label:'Days of stock',detail:policy.daysOfStock+' days available · limit '+stockRule.limit,owner:stockRule.owner});
   }
   return alerts;
 }

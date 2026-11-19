@@ -1,11 +1,18 @@
 import { masterDefinition, MasterRecordError } from '../masters/records-fields.mjs';
 import { masters } from '../masters/catalog.mjs';
 import { masterDataPage } from './page.mjs';
+import { attributeColumn, attributeExport, attributeMasters } from '../masters/master-attributes.mjs';
 
 const pageSize = 50;
 
-export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false, prefix = '' }) {
-  const bySlug = new Map(masters.map(({ slug }) => [slug, masterDefinition(slug)]));
+export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false, prefix = '', attributeWarnings }) {
+  const bySlug = new Map(masters.map(({ slug }) => {
+    const definition=masterDefinition(slug);
+    if ((local || prefix) && attributeMasters.has(slug)) {
+      definition.fields.push({key:attributeColumn,type:'attributes'});
+    }
+    return [slug,definition];
+  }));
   const enabled = new Set(enabledMasters);
   function route(handler) {
     return async (request, response, next) => {
@@ -31,7 +38,8 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
               status: record.status.replaceAll('_', ' '), site: record.site, revision: record.revision, updatedAt: record.updatedAt,
               fields: definition.fields.map(field => {
                 const value = record.values[field.key];
-                return [field.key, field.type === 'file' ? value?.name ?? '' : value ?? ''];
+                return [field.key, field.type === 'attributes' ? attributeExport(record.attributes)
+                  : field.type === 'file' ? value?.name ?? '' : value ?? ''];
               }),
             };
           });
@@ -50,6 +58,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
     const rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
     res.type('html').send(masterDataPage({
       actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix,
+      warnings:master ? attributeWarnings?.(actor,master.slug) : undefined,
     }));
   }));
 
