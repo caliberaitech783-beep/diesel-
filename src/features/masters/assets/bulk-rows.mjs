@@ -2,6 +2,8 @@
 // with title rows above the header and one record per row below it.
 const headerKey = text => String(text ?? '').normalize('NFKC').trim().replace(/\s*\*$/, '').replace(/\s+/g, ' ').toLowerCase();
 const content = value => String(value ?? '').trim();
+// A typed hyphen matches the dash in a post name such as Head – Procurement.
+const choiceKey = text => text.toLowerCase().replace(/\s*[‐‑–—-]\s*/g, '-').replace(/\s+/g, ' ');
 export const maxBulkRows = 500;
 
 export function findRecordSheet(sheetNames, masterName) {
@@ -28,7 +30,7 @@ function columnsFor(headers, fields) {
 function fieldValue(field, raw) {
   const text = content(raw);
   if (!text) return '';
-  if (field.options) return field.options.find(option => option.toLowerCase() === text.toLowerCase()) ?? text;
+  if (field.options) return field.options.find(option => choiceKey(option) === choiceKey(text)) ?? text;
   if (field.type === 'number') return /^[+-]?[\d,]*\.?\d+$/.test(text) ? text.replaceAll(',', '').replace(/^\+/, '') : text;
   if (field.type === 'date') {
     const indian = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(text);
