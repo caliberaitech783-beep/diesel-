@@ -16,7 +16,7 @@ const formats = {
     accept: '.xlsx',
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     async read(bytes, names) { return readItemExcel(bytes, names, await import(vendor + 'xlsx.mjs')); },
-    async write(values) { return writeItemExcel(values, await import(vendor + 'xlsx.mjs')); },
+    async write(values) { return writeItemExcel(values, await import(vendor + 'xlsx.mjs'), form.dataset.masterName); },
   },
   csv: {
     accept: '.csv',
@@ -28,7 +28,7 @@ const formats = {
     accept: '.pdf',
     type: 'application/pdf',
     async read(bytes, names) { return readItemPdf(bytes, names, await import(vendor + 'pdf-lib.mjs')); },
-    async write(values) { return writeItemPdf(values, ...await loadPdfAssets()); },
+    async write(values) { return writeItemPdf(values, ...await loadPdfAssets(), form.dataset.masterName); },
   },
 };
 
@@ -63,9 +63,9 @@ picker?.addEventListener('change', async () => {
     if (!file.name.toLowerCase().endsWith(format.accept)) throw new Error('Choose a ' + format.accept + ' file.');
     const values = await format.read(await file.arrayBuffer(), [...fields.keys()]);
     fillImportedFields(form, values);
-    status.textContent = 'Item fields imported. Review them and select Save for review.';
+    status.textContent = 'Fields imported. Review them and select Save for review.';
   } catch (error) {
-    const help = pendingFormat === 'pdf' ? ' Use a filled Item Master PDF exported from Diesel.' : '';
+    const help = pendingFormat === 'pdf' ? ' Use a filled Diesel form PDF for this master.' : '';
     status.textContent = 'Could not import this file. ' + (error.message || 'Check the file and try again.') + help;
   } finally {
     working = false;
@@ -84,7 +84,7 @@ for (const button of fileTools.querySelectorAll('[data-export]')) {
     status.textContent = 'Preparing download…';
     try {
       const contents = await format.write(values);
-      downloadFile(contents, format.type, 'item-master' + format.accept);
+      downloadFile(contents, format.type, form.dataset.slug + format.accept);
       status.textContent = '';
     } catch {
       status.textContent = 'Could not export this file. Please try again.';

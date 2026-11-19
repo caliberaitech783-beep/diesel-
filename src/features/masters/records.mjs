@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, validateScalar } from './records-fields.mjs';
 import { preparePulseProjects, pulseProject } from './pulse-projects.mjs';
 import { validateStorage } from './storage-rules.mjs';
+import { invoiceRate } from './assets/invoice-rate.mjs';
 
 const maxFileBytes = 5 * 1024 * 1024;
 const normalize = text => text.trim().normalize('NFKC').toLowerCase();
@@ -148,6 +149,11 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       if (field.required && !field.readOnly && !values[field.key]) throw new MasterRecordError(field.label + ' is required.');
     }
     if (master.slug === 'storage-location-master') validateStorage(values);
+    if (master.slug === 'diesel-rate-master') {
+      const rate = invoiceRate(values['Total invoice amount (₹, including all charges)'], values['Invoice quantity (L)']);
+      if (!rate) throw new MasterRecordError('Enter a positive invoice amount and quantity to calculate the diesel rate.');
+      values['Diesel rate (₹/KL), worked out'] = String(rate.perKilolitre);
+    }
     if (master.slug !== 'item-master') return values;
     const minimum = Number(values['Density minimum (kg/m³)']);
     const maximum = Number(values['Density maximum (kg/m³)']);
@@ -172,7 +178,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     return reason.trim();
   }
 
-  function save(slug, id, payload, actor) {
+  function save(slug, id, payload, actor, privateSubmission = false) {
     const editor = identity(actor);
     const master = definition(slug);
     if (!isObject(payload)) throw new MasterRecordError('Supply the master record.');
@@ -186,7 +192,11 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     if (typeof site !== 'string' || site.trim().length > 120) throw new MasterRecordError('Choose a valid site.');
     const siteKey = normalize(site);
     let input = payload.values;
-    if (slug === 'location-master') {
+    if (slug === 'shift-master' && !privateSubmission) {
+      if (input?.Site && input.Site !== site) throw new MasterRecordError('Choose a shift for the current site.');
+      input = { ...input, Site: site };
+    }
+    if (slug === 'location-master' && !privateSubmission) {
       const project = pulseProject(db, site);
       if (!project) throw new MasterRecordError('Sync the project directory from Pulse 1 first.');
       if (!current && db.prepare("SELECT 1 FROM master_records WHERE master='location-master' AND site_key=?").get(siteKey)) {
@@ -197,7 +207,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     const values = cleanValues(master, recordId, input);
     const { code, name } = recordIdentity(slug, values);
     if (slug === 'location-master' && current && current.code !== code) throw new MasterRecordError('The saved location code is used by storage records and cannot change.');
-    if (slug === 'storage-location-master') requireLocation(site, values.Location);
+    if (slug === 'storage-location-master' && !privateSubmission) requireLocation(site, values.Location);
     const codeKey = normalize(code);
     const conflict = db.prepare(`SELECT id FROM master_records WHERE master=? AND id!=? AND (
       (code_key=? AND (site_key='' OR ?='' OR site_key=?)) OR
@@ -279,6 +289,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
   }
 
   return { get, list, listSaved, history, snapshot, attachment, changeStatus,
+    createPrivateSubmission: (slug, values, actor) => atomically(db, () => save(slug, null, { values }, actor, true)),
     create: (slug, payload, actor) => atomically(db, () => save(slug, null, payload, actor)),
     update: (slug, id, payload, actor) => atomically(db, () => save(slug, id, payload, actor)),
   };

@@ -87,5 +87,7 @@ test('Location and storage follow site-scoped maker and checker approval through
   assert.deepEqual(all.records.map(record => record.slug), ['location-master', 'storage-location-master', 'storage-location-master']);
   assert.deepEqual((await (await request('/api/master-data/records?master=location-master', maker)).json()).records.map(record => record.code), ['TEST-J']);
   assert.deepEqual((await (await request('/api/master-data/records', sasti)).json()).records, []);
-  assert.equal((await request('/api/master-data/records?master=account-master', maker)).status, 400);
+  const accounts = await (await request('/api/master-data/records?master=account-master', maker)).json();
+  assert.deepEqual(accounts.records, []);
+  assert.ok(accounts.columns.includes('A/C Code'));
 });

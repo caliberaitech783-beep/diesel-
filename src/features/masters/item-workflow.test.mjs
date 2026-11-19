@@ -10,7 +10,7 @@ import { openDieselDatabase } from '../../data/database.mjs';
 import { createLocalWorkspace } from '../local-workspace/app.mjs';
 import { createApp } from '../../server.mjs';
 import { openItemSubmissions } from './item-submissions.mjs';
-import { masterDefinition } from './records-fields.mjs';
+import { masterDefinition, recordMasters } from './records-fields.mjs';
 import { createMasterStore, readActiveMasters } from './records.mjs';
 
 const master = 'item-master';
@@ -151,7 +151,40 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     const preview = await (await restarted('/master-data?master=account-master', maker)).text();
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
     assert.ok(columnNames(preview).length > 0);
-    assert.match(preview, /This master is available as a form preview/);
+    assert.match(preview, /No saved records for this master/);
+    for (const slug of recordMasters.filter(slug => slug !== 'item-master')) {
+      const definition = masterDefinition(slug);
+      const masterForm = await (await restarted('/?master=' + slug, maker)).text();
+      assert.match(masterForm, /Save for review/, slug);
+      assert.match(masterForm, /<summary>Import<\/summary>/, slug);
+      assert.match(masterForm, /<summary>Export<\/summary>/, slug);
+      const files = { name: 'test.pdf', base64: pdf.toString('base64') };
+      const sample = { number: '100', date: '2026-11-19', time: '06:00', email: 'test@example.com', file: files };
+      const values = Object.fromEntries(definition.fields.filter(field => field.required && !field.readOnly)
+        .map(field => [field.key, field.options?.[0] ?? sample[field.type] ?? 'Sample']));
+      const api = '/api/masters/' + slug + '/records';
+      const response = await restarted(api, maker, {
+        method: 'POST', headers: { origin: env.DIESEL_PUBLIC_ORIGIN, 'content-type': 'application/json' },
+        body: JSON.stringify({ values }),
+      });
+      const submitted = await response.json();
+      assert.equal(response.status, 201, slug + ' ' + submitted.error);
+      assert.equal(submitted.status, 'pending');
+      const detail = '/records?master=' + slug + '&id=' + submitted.id;
+      assert.equal((await restarted(detail, maker)).status, 200, slug);
+      assert.equal((await restarted(detail, other)).status, 404, slug);
+      const tableApi = '/api/master-data/records?master=' + slug;
+      const exported = await (await restarted(tableApi, maker)).json();
+      assert.equal(exported.records[0].id, submitted.id, slug);
+      if (slug === 'account-master') {
+        for (const name of ['Attributes / Attachment', 'Bank account details / Attachment']) {
+          const path = api + '/' + submitted.id + '/attachments/' + submitted.values[name].id;
+          assert.deepEqual(Buffer.from(await (await restarted(path, maker)).arrayBuffer()), pdf);
+          assert.equal((await restarted(path, other)).status, 404);
+        }
+      }
+      if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/KL), worked out'], '1000');
+    }
     const exportUrl = '/api/master-data/records?master=item-master';
     const exported = await (await restarted(exportUrl, maker)).json();
     assert.deepEqual(exported.columns, expectedColumns);

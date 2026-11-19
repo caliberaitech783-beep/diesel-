@@ -19,7 +19,10 @@ export function fillImportedFields(form, values) {
     if (trimmed && !copy.value) throw new Error('Enter a valid value for ' + name + ' in the file.');
     changes.push([control, copy.value]);
   }
-  for (const [control, value] of changes) control.value = value;
+  for (const [control, value] of changes) {
+    control.value = value;
+    control.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }
 
 export function openImportedRecord(url, scope, values) {

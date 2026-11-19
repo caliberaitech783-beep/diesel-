@@ -44,8 +44,8 @@ export function readItemExcel(bytes, names, { read, utils }) {
   return readItemTable(utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '', blankrows: false }), names);
 }
 
-export function writeItemExcel(values, xlsx) {
-  return writeExcelTable('Item Master', [...values.keys()], [[...values.values()]], xlsx);
+export function writeItemExcel(values, xlsx, masterName = 'Item Master') {
+  return writeExcelTable(masterName.slice(0, 31), [...values.keys()], [[...values.values()]], xlsx);
 }
 
 export async function readItemPdf(bytes, names, { PDFDocument, PDFTextField }) {
@@ -68,9 +68,9 @@ export function readItemPdfFields(document, names, PDFTextField) {
   return values;
 }
 
-export async function writeItemPdf(values, { PDFDocument, rgb }, fontkit, fontBytes) {
+export async function writeItemPdf(values, { PDFDocument, rgb }, fontkit, fontBytes, masterName = 'Item Master') {
   const document = await PDFDocument.create();
-  document.setTitle('Diesel Item Master');
+  document.setTitle('Diesel ' + masterName);
   document.registerFontkit(fontkit);
   const font = await document.embedFont(fontBytes);
   const form = document.getForm();
@@ -78,7 +78,7 @@ export async function writeItemPdf(values, { PDFDocument, rgb }, fontkit, fontBy
   const perPage = 15;
   for (let start = 0; start < fields.length; start += perPage) {
     const page = document.addPage([595.28, 841.89]);
-    page.drawText('Diesel Item Master', { x: 42, y: 796, size: 18, font });
+    page.drawText('Diesel ' + masterName, { x: 42, y: 796, size: 18, font });
     fields.slice(start, start + perPage).forEach(([name, value], index) => {
       const y = 735 - index * 46;
       page.drawText(name, { x: 42, y: y + 25, size: 10, font });
