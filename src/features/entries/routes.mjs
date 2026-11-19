@@ -1,3 +1,4 @@
+import { createTelegramNotices } from './telegram-notices.mjs';
 import { lowStorage } from './storage-levels.mjs';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +33,17 @@ export function registerEntries(app,masterDb,siteDb) {
 
 export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions } = {}) {
   const store=createEntryStore(db,{policyFor,siteFor,calendarFor});
+  const notices=approvalOptions?.delivery?.notify && createTelegramNotices(db,approvalOptions.delivery);
+  if (notices) {
+    const write=store.write;
+    store.write=(id,actor,body,channel)=>{
+      let before;
+      try { before=store.read(id,actor.site); } catch { /* A new entry has no earlier state. */ }
+      const doc=write(id,actor,body,channel);
+      try { notices.announce(before,doc,actor,entryRole(actor),body.reason); } catch { /* A notice never blocks the entry. */ }
+      return doc;
+    };
+  }
   const inbox=assigned||opening ? null : createLocalApproval(db,store);
   const allowedType = type => Object.hasOwn(byId,type)
     && (opening ? siteEntryTypes.includes(type) : !assigned || pilotEntry(type));
@@ -40,6 +52,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   const canRead = (doc, actor) => !enforceVisibility || mayViewEntry(doc,actor);
   const visibleRecords = actor => store.list(actor.site).filter(doc=>canRead(doc,actor));
   const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor,dayFor:store.dayFor});
+  if (notices) router.use((req,_res,next)=>{ notices.remember(req.dieselActor); next(); });
   if (remoteApproval) registerRemoteApproval(router, remoteApproval);
   if (opening) {
     registerOpeningStock(router,opening,mastersFor);
