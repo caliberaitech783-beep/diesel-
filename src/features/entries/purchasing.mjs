@@ -23,8 +23,8 @@ export const purchasing = {
     const rate=ratePerKL(), freight=d.basis==='Ex-depot'?review.freightPerKL:0, value=money(d.kl*rate);
     const approvals=['Head – Procurement'];
     if (d.type==='Retail') approvals.push('Director / CMD'); else if (value>review.poSlab) approvals.push('CFO');
-    const transitTolerance=d.tolerance??review.tolerance;
-    check(transitTolerance<=review.tolerance,'Transit tolerance can only be lowered.');
+    const transitTolerance=d.tolerance??c.limits.tolerance;
+    check(transitTolerance<=c.limits.tolerance,'Transit tolerance can only be lowered.');
     return { litres,rate,freight,landed:rate+freight,value,state:review.projectState[c.doc.site],shortageParty:d.basis==='Ex-depot'?d.transporter:d.supplier,transitTolerance,approvals };
   },
   E3(d,c) {

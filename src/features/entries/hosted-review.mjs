@@ -49,6 +49,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile), context)
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for this pilot.');
+      req.dieselActor.offlineScope = owner;
       req.reviewOwner = assigned ? 'assigned-pilot' : owner;
       next();
     } catch { res.status(503).send('Pulse sign-in is temporarily unavailable.'); }

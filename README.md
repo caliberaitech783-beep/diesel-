@@ -14,6 +14,12 @@ The shared role-based pilot covers Diesel Indent and Purchase Order. To enable i
 
 On the local preview, open `/entries` to test the same register. New local workspaces start empty. Choose **Buy → Diesel indent** to create the first entry. The entry forms and rules are under `src/features/entries/`.
 
+In the local workspace, approve **Approval Limit Master** and **Tolerance and Alert Master** records at the site to use them in Entry. Approval records use an entry code and `All` or a slab such as `Above 200000` for E1 litres or `Above 10000000` for E2 rupees. Approved effective rules are applied on the business date. **My alerts** routes notices in the app. The hosted review uses sample limits while Master Data submissions await shared approval.
+
+**My work** shows the tasks for the selected site and role. Use a QR photo or a scanner on vehicle and storage forms. Gate entry can read an invoice photo on the Diesel server and suggests values for review. Open the form while online to queue saves during a phone signal loss. Hosted sync sends the queue when the same account, site and role reconnect and keeps authenticated pages out of the offline cache. Head Office date and equipment filters also apply to CSV exports.
+
+After E17 is posted, Head – Accounts or CFO can download the balanced review journal from the record. The review uses sample ledger labels. Confirm the Accounting import format and ledger codes against an actual closed month before posting it to the books.
+
 Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://127.0.0.1:3000`. `npm run preview:masters` opens the same local workspace on port 4313. The local workspace uses sample maker and checker roles and stores records in `.local-diesel/items.sqlite`. For the Location and Storage Location workflows, load the Pulse project directory with `npm run sync:pulse-projects -- "<trusted Pulse 1 checkout>"`.
 
 To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret. Open Diesel to enter Pulse with Diesel selected. If prompted, complete the Pulse sign-in requirements before continuing to Diesel.

@@ -7,6 +7,7 @@ import { review, roleKey } from './review-masters.mjs';
 import { byId } from './catalog.mjs';
 import { businessDay, dayBefore } from './entry-rules.mjs';
 import { createLocalApproval } from './local-approval.mjs';
+import { closeJournalCsv } from './accounting-export.mjs';
 
 const photo=[{name:'test.png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='}];
 const day=businessDay();
@@ -41,12 +42,12 @@ function purchase(w,when=day) {
   w.act(payment,'Confirm UTR','Treasury',{utr:'TEST-UTR-001',paymentDate:when});
   return po;
 }
-function gate(w,po,scenario) {
+function gate(w,po,scenario,when=day) {
   return w.submit('E5',{po:po.id,scenario,transporter:review.transporter,truck:'TEST101',driver:'Test driver',mobile:'9000000000',
-    fitness:'2099-12-31',licence:'2099-12-31',invoice:'TEST01',invoiceDate:day,litres:1000,eway:'TEST',seals:'S01',intact:'Yes',sealPhotos:photo,billPhoto:photo});
+    fitness:'2099-12-31',licence:'2099-12-31',invoice:'TEST01',invoiceDate:when,litres:1000,eway:'TEST',seals:'S01',intact:'Yes',sealPhotos:photo,billPhoto:photo},undefined,when);
 }
-function inspect(w,g,extra={}) {
-  return w.approve(w.submit('E6',{gate:g.id,density:830,temperature:25,instrument:review.instrument,decision:'Accept',evidence:photo,...extra}));
+function inspect(w,g,extra={},when=day) {
+  return w.approve(w.submit('E6',{gate:g.id,density:830,temperature:25,instrument:review.instrument,decision:'Accept',evidence:photo,...extra},undefined,when));
 }
 test('bulk receipt flows from indent through payment, inspection, generated GRN, bill and freight recovery',t=>{
   const w=setup(t),po=purchase(w),g=gate(w,po,'UG tank');
@@ -101,15 +102,31 @@ test('entry changes are attributed, retry-safe, scope-limited and corrected with
   assert.equal(w.store.read(correction.result.replacement,'Jayant').result.litres,150);
   assert.ok(w.store.history(posted.id).length>=5);
 });
-test('daily counts gate month close; signed close calculates valuation and locks the month',t=>{
+test('the sample purchase, receipt and fuel issue reconcile through month close and a balanced journal export',t=>{
   const w=setup(t),end=dayBefore(day.slice(0,7)+'-01'),month=end.slice(0,7);
   assert.throws(()=>w.submit('E17',{month}),/every daily count/);
+  const first = month+'-01';
+  const po = purchase(w,first);
+  const arrival = gate(w,po,'UG tank',first);
+  inspect(w,arrival,{tank:review.tank.label,before:20,after:30},first);
+  const grn = w.store.list('Jayant').find(row=>row.type==='E7');
+  w.approve(w.submit('E8',{grn:grn.id,bill:'MB-01',billDate:first,litres:1000,rate:90000,vat:0},undefined,first));
+  w.approve(w.submit('E9',{grn:grn.id,bill:'MF-01',billDate:first},undefined,first));
+  w.submit('E11',{bowser:review.bowser.label,vehicle:'Fleet 01',driver:review.driver,reading:10,start:0,end:100,evidence:photo},undefined,first);
   for(let date=1;date<=Number(end.slice(-2));date++) {
     const when=month+'-'+String(date).padStart(2,'0');
-    w.approve(w.submit('E15',{dip:20,bowserCount:500},undefined,when));
+    const count = w.approve(w.submit('E15',{dip:30,bowserCount:400},undefined,when));
+    assert.equal(count.result.tankVariance,0);
+    assert.equal(count.result.bowserVariance,0);
   }
   const closed=w.approve(w.submit('E17',{month}));
-  assert.equal(closed.result.closingValue,225000);
+  assert.equal(closed.result.litres,3400);
+  assert.equal(closed.result.closingValue,307165.71);
+  assert.deepEqual(closed.result.journal,[
+    {account:'Fleet operations',debit:9034.29,credit:0},
+    {account:'Review diesel clearing',debit:0,credit:9034.29},
+  ]);
+  assert.match(closeJournalCsv(closed),/"Fleet operations","9034.29","0.00","3400"/);
   assert.throws(()=>w.submit('E1',{litres:50,requiredBy:end},undefined,end),/month is locked/);
 });
 

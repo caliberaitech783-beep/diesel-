@@ -8,7 +8,7 @@ export function createLocalApproval(db,store) {
   const current=id=>db.prepare('SELECT * FROM entry_review_otp WHERE actor=?').get(id);
   function eligible(id,actor) {
     const doc=store.read(id,actor.site);
-    check(mayApproveEntry(doc,actor),'This approval is no longer waiting for this reviewer.');
+    check(mayApproveEntry(doc,actor) && doc.result.telegramAllowed !== false,'This approval is no longer waiting for this reviewer or allows web approval only.');
     return doc;
   }
   function issue(id,actor,now=Date.now()) {

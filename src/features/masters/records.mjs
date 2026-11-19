@@ -3,6 +3,7 @@ import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, val
 import { preparePulseProjects, pulseProject } from './pulse-projects.mjs';
 import { validateStorage } from './storage-rules.mjs';
 import { invoiceRate } from './assets/invoice-rate.mjs';
+import { validatePolicyMaster } from '../entries/entry-policy.mjs';
 
 const maxFileBytes = 5 * 1024 * 1024;
 const normalize = text => text.trim().normalize('NFKC').toLowerCase();
@@ -240,6 +241,10 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       if (action === 'approve' && ['pending','pending_deactivation'].includes(current.status)) {
         if (normalize(editor.id) === normalize(current.editedBy)) throw new MasterRecordError('A different actor must approve this revision.', 403);
         status = current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
+        if (status === 'approved') {
+          const problem = validatePolicyMaster(slug, current.values);
+          if (problem) throw new MasterRecordError(problem);
+        }
       } else if (action === 'deactivate' && ['approved','pending'].includes(current.status)) {
         status = 'pending_deactivation';
       } else if (action === 'reactivate' && current.status === 'inactive') {

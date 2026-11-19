@@ -3,12 +3,13 @@ import { byId } from './catalog.mjs';
 import { businessDay,evaluate,validateFields,validDate,requireValue as check,round,money } from './entry-rules.mjs';
 import { entryRole, otherSite, review, roleKey } from './review-masters.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
+import { entryPolicy } from './entry-policy.mjs';
 
 const unpack = row => row && JSON.parse(row.document);
 const finalStates = ['Posted','Superseded'];
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const visible = (doc,site) => doc.site===site || (doc.type==='E12' && doc.result.destination===site && !['Draft','Returned'].includes(doc.status));
-export function createEntryStore(db) {
+export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undefined, undefined, day) } = {}) {
   db.exec(`CREATE TABLE IF NOT EXISTS entry_review_docs(id TEXT PRIMARY KEY,document TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS entry_review_requests(token TEXT PRIMARY KEY,doc TEXT,actor TEXT);
     CREATE TABLE IF NOT EXISTS entry_review_history(seq INTEGER PRIMARY KEY,doc TEXT,actor TEXT,action TEXT,stamp TEXT,snapshot TEXT);
@@ -65,7 +66,7 @@ export function createEntryStore(db) {
   function checkMaker(doc,actor) {
     const role=entryRole(actor);
     check(doc.site===actor.site && doc.maker===actor.id,'Only the original maker can edit this entry.');
-    check(byId[doc.type].maker && (doc.type==='E16'||byId[doc.type].maker===role),'Switch to the entry’s initiator role.');
+    check(byId[doc.type].maker && (doc.type==='E16'||byId[doc.type].maker===role||(doc.type==='E15'&&role==='Site Store')),'Switch to the entry’s initiator role.');
   }
   function files(doc,field,raw) {
     check(Array.isArray(raw) && raw.length<=16,'Choose up to 16 files per field.');
@@ -96,7 +97,7 @@ export function createEntryStore(db) {
     }
     return data;
   }
-  function calculate(doc) { return evaluate(doc,all(),moves()); }
+  function calculate(doc) { return evaluate(doc,all(),moves(),policyFor(doc.site, doc.day)); }
   function autoGrn(source) {
     const gate=get(source.data.gate),po=get(gate.data.po);
     const doc=fresh('E7',{site:source.site,id:'Pulse'});
@@ -188,9 +189,10 @@ export function createEntryStore(db) {
           check(Number.isFinite(received) && received>0 && received<=doc.data.sent,'Enter received litres up to dispatched litres.');
           const evidence=files(doc,'receiptEvidence',body.evidence??[]);check(evidence.length,'Attach a receipt reading.');
           const difference=round(100*(doc.data.sent-received)/doc.data.sent);
-          check(difference<=review.transferLimit || review.reasons.includes(body.reason),'Select a transfer difference reason.');
+          const limit = policyFor(actor.site, doc.day).limits.transferLimit;
+          check(difference<=limit || review.reasons.includes(body.reason),'Select a transfer difference reason.');
           Object.assign(doc.result,{received,difference,receiptEvidence:evidence,reason:body.reason??''});
-          doc.status=difference>review.transferLimit?'Receipt review':'Posted';
+          doc.status=difference>limit?'Receipt review':'Posted';
         } else doc.status='Posted';
         if (doc.status==='Posted') book(doc,[{site:actor.site,storage:doc.data.to,litres:doc.result.received}]);
       } else throw Error('Choose an available action.');

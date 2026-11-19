@@ -2,8 +2,9 @@ export const toleranceAndAlertMaster = [
   {
     name: 'Alert and escalation',
     fields: [
-      { label: 'Alert', required: true },
-      { label: 'Limit', required: true },
+      { label: 'Alert', required: true, suggestions: ['Transit shortage','Tank to bowser variance','Transfer variance','Daily variance',
+        'Tanker empty overdue','Repeat fill','Meter jump','Approval overdue','Calibration due'] },
+      { label: 'Limit', required: true, hint: 'Use percent for variances, hours for overdue and meter rules, or days for calibration.' },
       { label: 'First owner (role)', required: true },
       { label: 'Escalate to (role)', required: true },
       { label: 'Escalate after (hours)', required: true, type: 'number' },
