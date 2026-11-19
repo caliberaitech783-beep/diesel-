@@ -3,6 +3,7 @@ import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, val
 import { preparePulseProjects, masterLocationProject } from './pulse-projects.mjs';
 import { validateStorage } from './storage-rules.mjs';
 import { dieselRate } from './assets/diesel-rate-formula.mjs';
+import { referencedMasters, referenceProblem } from './master-references.mjs';
 import { validatePolicyMaster } from '../entries/entry-policy.mjs';
 import { validateEntryShift } from '../entries/entry-calendar.mjs';
 import { allowedReceiptScenarios } from '../entries/receipt-scenarios.mjs';
@@ -232,6 +233,10 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     const { code, name } = recordIdentity(slug, values);
     if (slug === 'location-master' && current && current.code !== code) throw new MasterRecordError('The saved location code is used by storage records and cannot change.');
     if (slug === 'storage-location-master' && !privateSubmission) requireLocation(site, values.Location);
+    if (!privateSubmission) {
+      const problem = referenceProblem(slug, readActiveMasters(db, site, referencedMasters(slug)), values, current?.values);
+      if (problem) throw new MasterRecordError(problem);
+    }
     const codeKey = normalize(code);
     const conflict = db.prepare(`SELECT id FROM master_records WHERE master=? AND id!=? AND (
       (code_key=? AND (site_key='' OR ?='' OR site_key=?)) OR

@@ -3,6 +3,7 @@ import { createMasterStore, readActiveMasters } from './records.mjs';
 import { masterLocationProject } from './pulse-projects.mjs';
 import { recordMasters, masterDefinition, MasterRecordError, recordDraftScope } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
+import { referenceChoices, referencedMasters } from './master-references.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 import { attributeExpiry, attributeMasters } from './master-attributes.mjs';
 
@@ -93,7 +94,8 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];
     const hasLocation = Boolean(existingLocation);
-    res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
+    const references = referenceChoices(slug, readActiveMasters(db, actor.site, referencedMasters(slug)));
+    res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, references, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
       creating: req.query.new === '1', historical, editingAllowed: !historical && actor.canEditMasters === true,
       approvingAllowed: !historical && actor.canApproveMasters === true, revisions: record ? store.history(slug, record.id) : [],
     }));

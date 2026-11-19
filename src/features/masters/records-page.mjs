@@ -35,7 +35,7 @@ function recordField(field, value, index, base, editable) {
   return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
-export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {
+export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {
   const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
   const home = prefix + '/records?master=' + master.slug;
@@ -66,6 +66,13 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
       const labels = new Map(locations.map(location => [location.code, location.name + ' · ' + location.code]));
       if (value && !labels.has(value)) labels.set(value, value);
       return recordField({ ...field, options: [...labels.keys()], optionLabels: labels }, value, index, endpoint, allowEdit);
+    }
+    const choices = !submissionsOnly && references?.get(field.key);
+    if (choices) {
+      const labels = new Map(choices);
+      if (value && !labels.has(value)) labels.set(value, value + ' · not an approved record');
+      const hint = labels.size ? field.hint : 'Approve the record this field refers to first.';
+      return recordField({ ...field, options: [...labels.keys()], optionLabels: labels, hint }, value, index, endpoint, allowEdit);
     }
     return recordField(field, value, index, endpoint, allowEdit);
   }

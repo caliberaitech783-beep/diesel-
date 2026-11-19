@@ -56,6 +56,8 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   master('storage-location-master',{...storage,Location:'M-01','Storage type':'Bowser','Storage Loc Code':'S-B','Storage Loc. Name':'Majri bowser'},{site:'Majri'});
   master('reason-code-master',{Code:'REV',Description:'Correction supported by evidence',
     'Used for (rejection, shortage, variance, correction, override)':'Correction','Evidence required':'Yes'});
+  master('account-master',{'A/C Code':'HIRE','A/C Name':'Hire operator','TDS / TCS Applicable':'No',
+    'Recovery rate basis (hire parties, contractors)':'Fixed rate 100000'});
   master('cost-centre-vehicle-master',{'Cost Centre Code':'CC-21','Fleet No.':'F-21','Registration No.':'TEST02',Ownership:'Hired',
     'Hire party or contractor':'HIRE','Fuel tank capacity (L)':'120','Meter reading at go-live':'200','QR or RFID tag No.':'TAG-21'});
   const day=businessDay(), last=dayBefore(day.slice(0,7)+'-01');
@@ -70,8 +72,6 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     master('account-master',{'A/C Code':code,'A/C Name':code,'Is Market Petrol Pump':'No','TDS / TCS Applicable':'No','Bank details verified by':'Accounts'});
   }
   master('account-master',{'A/C Code':'PUMP','A/C Name':'Retail pump','Is Market Petrol Pump':'Yes','TDS / TCS Applicable':'No'});
-  master('account-master',{'A/C Code':'HIRE','A/C Name':'Hire operator','TDS / TCS Applicable':'No',
-    'Recovery rate basis (hire parties, contractors)':'Fixed rate 100000'});
   master('supplier-depot-master',{'Supplier (A/C Code)':'SUP-10','Depot name':'DEP-1'});
   master('diesel-rate-master',{Supplier:'SUP-10',Depot:'DEP-1','Price basis (Ex-depot / Delivered)':'Ex-depot',
     'VAT (%) by state':'0','Basic rate (₹/KL)':'98750','Excise duty (₹/KL)':'0','Effective from':'2020-01-01'});
