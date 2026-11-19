@@ -9,7 +9,7 @@ import { openHostedMasterDatabase } from './features/masters/hosted-master-stora
 import { approvedLocationDirectory } from './features/masters/records.mjs';
 
 export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory,
-  siteMasterDb = undefined, sharedMasterDb } = {}) {
+  siteMasterDb = undefined, sharedMasterDb, pulseMasterClock } = {}) {
   const masterSource = env.DIESEL_SITE_MASTER_DB ? siteMasterDb : siteMasterDb ?? sharedMasterDb;
   const app = express();
   app.disable('x-powered-by');
@@ -35,7 +35,7 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));
   app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
   registerItemFileAssets(app);
-  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb:masterSource, sharedMasterDb });
+  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb:masterSource, sharedMasterDb, pulseMasterClock });
   return app;
 }
 
