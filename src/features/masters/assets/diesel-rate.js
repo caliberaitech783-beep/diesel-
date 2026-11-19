@@ -1,17 +1,20 @@
-import { invoiceRate } from './invoice-rate.mjs';
+import { dieselRate } from './diesel-rate-formula.mjs';
 
-const amount = document.querySelector('[data-field-key="invoice-total"]');
-const litres = document.querySelector('[data-field-key="invoice-litres"]');
-const rate = document.querySelector('[data-field-key="invoice-rate"]');
+const control = key => document.querySelector('[data-field-key="' + key + '"]');
+const inputs = { basic: control('basic-rate'), excise: control('excise-duty'), vatPercent: control('vat-percent'),
+  discount: control('rate-discount'), discountType: control('rate-discount-type') };
+const rate = control('worked-out-rate');
 const note = document.getElementById(rate.getAttribute('aria-describedby'));
 const instruction = note.textContent;
 const format = new Intl.NumberFormat('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-function showInvoiceRate() {
-  const result = invoiceRate(amount.value, litres.value);
+function showDieselRate() {
+  const result = dieselRate(Object.fromEntries(Object.entries(inputs).map(([name, input]) => [name, input.value])));
   rate.value = result ? String(result.perKilolitre) : '';
   note.textContent = result ? `₹${format.format(result.perLitre)}/L · ₹${format.format(result.perKilolitre)}/KL` : instruction;
 }
-amount.addEventListener('input', showInvoiceRate);
-litres.addEventListener('input', showInvoiceRate);
-window.addEventListener('pageshow', showInvoiceRate);
-showInvoiceRate();
+for (const input of Object.values(inputs)) {
+  input.addEventListener('input', showDieselRate);
+  input.addEventListener('change', showDieselRate);
+}
+window.addEventListener('pageshow', showDieselRate);
+showDieselRate();

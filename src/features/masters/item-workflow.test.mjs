@@ -183,7 +183,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
           assert.equal((await restarted(path, other)).status, 404);
         }
       }
-      if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/KL), worked out'], '1000');
+      if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/KL), worked out'], '400');
     }
     const exportUrl = '/api/master-data/records?master=item-master';
     const exported = await (await restarted(exportUrl, maker)).json();

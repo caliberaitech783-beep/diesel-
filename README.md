@@ -4,7 +4,7 @@ Diesel on Azure uses verified Pulse assignments for shared Master Data. A **Mast
 
 The **Import** and **Export** dropdowns transfer the fields for one record. Excel (`.xlsx`) and CSV use that master's field names as column headers and one data row. For PDF import, use a fillable PDF exported from that master. Review the fields and add supporting files before saving.
 
-Diesel Rate calculates the all-inclusive price per litre and per kilolitre from the invoice total and litres. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
+Diesel Rate works out the rate per kilolitre as basic rate plus excise duty, less an invoice discount, plus VAT. A post-sale discount stays out of the rate until its credit note. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
 Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. **Download** and **Export** offer Excel, CSV, or PDF. **Import** fills one new record for review from an Excel or CSV row, a single-record Master Data PDF, or a fillable Diesel form PDF.
 
