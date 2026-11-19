@@ -1,0 +1,79 @@
+import { review, litresAtDip } from './review-masters.mjs';
+import { requireValue as check, round, money } from './entry-rules.mjs';
+import { gateContext } from './receiving.mjs';
+
+function meter(d) {
+  check(d.end>d.start,'Meter end must be higher than the start.');
+  return round(d.end-d.start);
+}
+function openTanker(d,c) {
+  const {gate}=gateContext(d,c);
+  const inspection=c.posted('E6').find(r=>r.data.gate===gate.id && r.result.openingTT>0);
+  check(inspection,'Select a tanker cleared for direct-to-bowser unloading.');
+  check(!c.reserved('E10C').some(r=>r.data.gate===gate.id),'This tanker already has an empty confirmation.');
+  const loads=c.posted('E10B').filter(r=>r.data.gate===gate.id);
+  return { gate,loads,loaded:c.sum(loads,'litres') };
+}
+export const stockEntries = {
+  E10A(d,c) {
+    const litres=meter(d), out=round(litresAtDip(d.before)-litresAtDip(d.after));
+    check(out>0,'Tank dip must fall during a transfer.');
+    const difference=round(Math.abs(out-litres)/litres*100), exception=difference>review.transferLimit;
+    check(!exception||d.reason,'Select a reason for the transfer difference.');
+    return { out,litres,difference,approvals:exception?['Site In-charge']:[],moves:[{storage:d.tank,litres:-out},{storage:d.bowser,litres}] };
+  },
+  E10B(d,c) {
+    const {gate,loaded}=openTanker(d,c), litres=meter(d);
+    const before=round(gate.data.litres-loaded);
+    check(litres<=before,'Load exceeds tanker balance.');
+    return { litres,before,after:round(before-litres),approvals:[],moves:[{storage:d.bowser,litres}] };
+  },
+  E10C(d,c) {
+    const {gate,loads,loaded}=openTanker(d,c);
+    check(loads.length && d.evidence.length>=gate.result.compartments,'Record the bowser loads and add one empty photo per compartment.');
+    return { accepted:loaded,invoiceLitres:gate.data.litres,shortage:round(gate.data.litres-loaded),loads:loads.length,
+      bowsers:new Set(loads.map(r=>r.data.bowser)).size,generateGRN:true,approvals:['Site In-charge'] };
+  },
+  E11(d,c) {
+    const litres=meter(d), vehicle=review.vehicles[d.vehicle];
+    const issues=c.posted('E11'), lastMeter=issues.find(r=>r.data.bowser===d.bowser);
+    if (lastMeter) check(d.start===lastMeter.data.end,'Start from the last issue meter end for this bowser.');
+    const last=issues.find(r=>r.data.vehicle===d.vehicle);
+    check(litres<=vehicle.capacity,'Issued litres exceed the vehicle tank capacity.');
+    check(!last || d.reading>=last.data.reading,'Vehicle meter cannot go backwards.');
+    const delta=last?d.reading-last.data.reading:0;
+    const hours=last?(Date.parse(c.doc.created)-Date.parse(last.created))/3600000:null;
+    const efficiency=delta>0?round(litres/delta):null;
+    const exception=last && (hours<review.repeatHours || delta>review.meterJump*Math.max(1,Math.ceil(hours/24)) || efficiency>vehicle.standard);
+    check(!exception || d.reason,'Select a reason for a repeat fill or meter override.');
+    return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals:exception?['Site In-charge']:[],moves:[{storage:d.bowser,litres:-litres}] };
+  },
+  E12(d,c) {
+    check(d.sent>0,'Enter dispatched litres.');
+    return { sent:d.sent,destination:c.other,approvals:['Site In-charge'],moves:[{storage:d.from,litres:-d.sent}] };
+  },
+  E14(d,c) {
+    const vehicle=review.vehicles[d.vehicle];
+    check(d.litres>0 && d.rate>0 && d.litres<=vehicle.capacity,'Check the slip rate, litres and vehicle capacity.');
+    check(d.slipDate<=c.doc.day,'Slip date is in the future.');
+    check(!c.all.some(r=>r.type==='E14' && r.id!==c.doc.id && !['Draft','Returned','Superseded'].includes(r.status) && r.data.pump===d.pump && r.data.slip.toLowerCase()===d.slip.toLowerCase()),'This pump slip is already recorded.');
+    check(c.posted('E14').filter(r=>r.data.vehicle===d.vehicle).every(r=>d.reading>=r.data.reading),'Kilometre reading cannot go backwards.');
+    const amount=money(d.litres*d.rate);
+    check(amount===d.total,'Slip amount must equal litres × rate.');
+    return { litres:d.litres,amount,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals:['Site In-charge'] };
+  },
+  E15(d,c) {
+    check(!c.reserved('E15').some(r=>r.day===c.doc.day),'A count already exists for this business day.');
+    const tankBook=c.balance(review.tank.label),bowserBook=c.balance(review.bowser.label);
+    const measured=litresAtDip(d.dip);
+    check(d.bowserCount<=review.bowser.capacity,'Bowser measurement exceeds capacity.');
+    const tankVariance=round(tankBook-measured),bowserVariance=round(bowserBook-d.bowserCount);
+    const issue=c.sum(c.posted('E11').filter(r=>r.day===c.doc.day),'litres');
+    const largest=Math.max(Math.abs(tankVariance),Math.abs(bowserVariance));
+    const variancePercent=issue?round(largest/issue*100):null;
+    const exception=issue?variancePercent>review.countLimit:largest>0;
+    check(!exception || (d.reason && d.evidence?.length),'Give a variance reason and attach evidence.');
+    return { tankBook,bowserBook,tankMeasured:measured,bowserMeasured:d.bowserCount,tankVariance,bowserVariance,
+      variancePercent,approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
+  },
+};

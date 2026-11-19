@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { mkdtemp,rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { createApp } from '../../server.mjs';
+
+test('hosted Entry checks Pulse for every site, file, export and role action and separates review accounts', async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'diesel-hosted-review-'));
+  const origin='https://diesel.test';
+  const app=createApp({entryReviewDirectory:dir,env:{WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,
+    DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),DIESEL_ALLOWED_PULSE_LOGINS:'alice,bob'},
+    fetcher:async(_url,options)=>Response.json({profile:{login:{a:'alice',b:'bob',c:'excluded'}[JSON.parse(options.body).grant[0]]}})});
+  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));await rm(dir,{recursive:true});});
+  const base='http://127.0.0.1:'+server.address().port;
+  const request=(path,who,opts={})=>fetch(base+path,{redirect:'manual',...opts,headers:{
+    ...(who?{cookie:'__Host-diesel_session='+who.repeat(43)}:{}),...opts.headers}});
+  for (const path of ['/entries','/entries/file/missing','/entries/export.csv']) {
+    assert.equal((await request(path)).status,303);
+    assert.equal((await request(path,'c',{headers:{Accept:'application/json'}})).status,401);
+  }
+  const get=await request('/entries','a');assert.equal(get.status,200);
+  const html=await get.text();assert.match(html,/Personal review · sample data/);
+  const path=html.match(/href="(\/entries\/record\/[a-f0-9-]+)"/)[1];
+  assert.match(await (await request(path,'a')).text(),/Purchase order/);
+  assert.equal((await request(path,'b')).status,404);
+  assert.equal((await request('/entries/offline-worker.js','a')).status,404);
+  const role={method:'POST',headers:{Origin:origin},body:new URLSearchParams({role:'entry-2',site:'Jayant',returnTo:path})};
+  assert.equal((await request('/workspace/role','a',{...role,headers:{Origin:'https://other.test'}})).status,403);
+  const switched=await request('/workspace/role','a',role);assert.equal(switched.status,303);
+  const roleCookie=switched.headers.get('set-cookie').split(';')[0];
+  const headers={Origin:origin,'Content-Type':'application/json',cookie:'__Host-diesel_session='+'a'.repeat(43)+'; '+roleCookie};
+  const approved=await request(path,'a',{method:'POST',headers,body:JSON.stringify({action:'Approve',rev:1,actor:'Jayant-entry-2'})});
+  assert.equal((await approved.json()).status,'Posted');
+});

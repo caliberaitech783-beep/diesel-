@@ -5,7 +5,7 @@ import { openItemSubmissions } from './features/masters/item-submissions.mjs';
 import { registerItemFileAssets } from './features/masters/item-file-assets.mjs';
 import { registerSignIn } from './features/sign-in/routes.mjs';
 
-export function createApp({ env = process.env, fetcher = fetch, itemSubmissions } = {}) {
+export function createApp({ env = process.env, fetcher = fetch, itemSubmissions, entryReviewDirectory } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use((_request, response, next) => {
@@ -24,7 +24,7 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions 
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));
   app.use('/theme/assets', express.static(fileURLToPath(new URL('./features/theme/assets/', import.meta.url))));
   registerItemFileAssets(app);
-  registerSignIn(app, { env, fetcher, itemSubmissions });
+  registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory });
   return app;
 }
 
@@ -38,5 +38,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.error('Could not open Diesel Item Master storage:', error.code);
     }
   }
-  createApp({ itemSubmissions }).listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
+  const entryReviewDirectory = itemSubmissions ? '/home/data/diesel-entry-review' : undefined;
+  createApp({ itemSubmissions, entryReviewDirectory }).listen(port, '0.0.0.0', () => console.log(`Diesel listening on port ${port}`));
 }
