@@ -4,6 +4,8 @@ Diesel on Azure uses verified Pulse assignments for shared Master Data. A **Mast
 
 The **Import** and **Export** dropdowns transfer the fields for one record. Excel (`.xlsx`) and CSV use that master's field names as column headers and one data row. For PDF import, use a fillable PDF exported from that master. Review the fields and add supporting files before saving.
 
+An Excel or CSV file with several records opens an import list on **Master Data**. Diesel reads the worksheet named after the master, or the first one, finds the header row below any title rows, and ignores columns that are not on the form. **Save for review** checks each row like the form and shows the reason beside any row it cannot save. **Open in form** carries that row into the form to correct it or add a mandatory attachment. Import up to 500 records at a time.
+
 Diesel Rate works out the rate per kilolitre as basic rate plus excise duty, less an invoice discount, plus VAT. A post-sale discount stays out of the rate until its credit note. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
 Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. **Download** and **Export** offer Excel, CSV, or PDF. **Import** fills one new record for review from an Excel or CSV row, a single-record Master Data PDF, or a fillable Diesel form PDF.

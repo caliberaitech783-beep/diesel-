@@ -5,7 +5,7 @@ export function fillImportedFields(form, values) {
   const fields = new Map([...form.elements]
     .filter(control => control.name && control.matches('input:not([type="file"], [type="hidden"]), select, textarea, [data-attribute-import]'))
     .map(control => [control.name, control]));
-  const changes = [];
+  const changes = [], invalid = [];
   for (const [name, value] of values) {
     const control = fields.get(name);
     if (!control || control.disabled || control.readOnly) continue;
@@ -25,13 +25,15 @@ export function fillImportedFields(form, values) {
     } else {
       copy.value = control.type === 'number' ? trimmed.replace(/^\+/, '') : value;
     }
-    if (trimmed && !copy.value) throw new Error('Enter a valid value for ' + name + ' in the file.');
+    if (trimmed && !copy.value) { invalid.push(name); continue; }
     changes.push([control, copy.value]);
   }
   for (const [control, value] of changes) {
     control.value = value;
     control.dispatchEvent(new Event('input', { bubbles: true }));
   }
+  // The usable fields stay filled so only the named ones need typing.
+  if (invalid.length) throw new Error('The file value for ' + invalid.join(', ') + ' was not valid. Enter it here, then select Save for review.');
 }
 
 export function openImportedRecord(url, scope, values) {
