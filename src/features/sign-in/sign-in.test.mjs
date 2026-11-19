@@ -23,7 +23,7 @@ test('Diesel opens as a guest without issuing a session or contacting Pulse', as
     assert.doesNotMatch(guestPage, /class="master-form"/);
     assert.doesNotMatch(guestPage, /Form preview|Use sample details/);
     const rate = await fetch(base + '/?master=diesel-rate-master');
-    assert.match(await rate.text(), /data-field-key="invoice-rate"/);
+    assert.match(await rate.text(), /data-field-key="worked-out-rate"/);
     for (const endpoint of ['/workspace', '/entries', '/records', '/api/masters/item-master/records']) {
       assert.equal((await fetch(base + endpoint)).status, 404);
     }

@@ -65,7 +65,7 @@ const templateCounts = [
   ['location-master', 18, 7],
   ['gst-master', 10, 9],
   ['supplier-depot-master', 5, 4],
-  ['diesel-rate-master', 15, 12],
+  ['diesel-rate-master', 13, 10],
   ['transport-freight-master', 8, 7],
   ['measuring-instrument-master', 7, 7],
   ['volume-correction-table', 3, 3],

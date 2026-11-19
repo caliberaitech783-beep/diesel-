@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, validateScalar } from './records-fields.mjs';
 import { preparePulseProjects, masterLocationProject } from './pulse-projects.mjs';
 import { validateStorage } from './storage-rules.mjs';
-import { invoiceRate } from './assets/invoice-rate.mjs';
+import { dieselRate } from './assets/diesel-rate-formula.mjs';
 import { validatePolicyMaster } from '../entries/entry-policy.mjs';
 import { validateEntryShift } from '../entries/entry-calendar.mjs';
 import { allowedReceiptScenarios } from '../entries/receipt-scenarios.mjs';
@@ -171,8 +171,9 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     }
     if (master.slug === 'storage-location-master') validateStorage(values);
     if (master.slug === 'diesel-rate-master') {
-      const rate = invoiceRate(values['Total invoice amount (₹, including all charges)'], values['Invoice quantity (L)']);
-      if (!rate) throw new MasterRecordError('Enter a positive invoice amount and quantity to calculate the diesel rate.');
+      const rate = dieselRate({ basic: values['Basic rate (₹/KL)'], excise: values['Excise duty (₹/KL)'], vatPercent: values['VAT (%) by state'],
+        discount: values['Discount (₹/KL)'], discountType: values['Discount type (invoice discount / post-sale discount)'] });
+      if (!rate) throw new MasterRecordError('Enter a positive basic rate, excise duty, VAT from 0 to 100 and a discount type for any discount to work out the diesel rate.');
       values['Diesel rate (₹/KL), worked out'] = String(rate.perKilolitre);
     }
     if (master.slug !== 'item-master') return values;

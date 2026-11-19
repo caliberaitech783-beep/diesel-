@@ -74,7 +74,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     'Recovery rate basis (hire parties, contractors)':'Fixed rate 100000'});
   master('supplier-depot-master',{'Supplier (A/C Code)':'SUP-10','Depot name':'DEP-1'});
   master('diesel-rate-master',{Supplier:'SUP-10',Depot:'DEP-1','Price basis (Ex-depot / Delivered)':'Ex-depot',
-    'VAT (%) by state':'0','Total invoice amount (₹, including all charges)':'98750','Invoice quantity (L)':'1000','Effective from':'2020-01-01'});
+    'VAT (%) by state':'0','Basic rate (₹/KL)':'98750','Excise duty (₹/KL)':'0','Effective from':'2020-01-01'});
   master('transport-freight-master',{Transporter:'LORRY-1','From depot':'DEP-1','To site':'J-01',
     'Freight (₹/KL)':'1500','Shortage deduction rate (₹/KL)':'98750','Effective from':'2020-01-01'});
   master('measuring-instrument-master',{'Instrument ID':'DIP-1','Fitted on (tank, bowser)':'T-1',
