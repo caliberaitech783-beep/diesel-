@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp,rm } from 'node:fs/promises';
+import { mkdtemp,readdir,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -12,7 +12,7 @@ import { syncPulseProjects } from '../masters/pulse-projects.mjs';
 test('hosted Entry checks Pulse for every site, file, export and role action and separates review accounts', async t=>{
   const dir=await mkdtemp(join(tmpdir(),'diesel-hosted-review-'));
   const origin='https://diesel.test';
-  const app=createApp({entryReviewDirectory:dir,env:{WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,
+  const app=createApp({entryReviewDirectory:dir,env:{DIESEL_ACCESS_MODE:'pulse',DIESEL_PUBLIC_ORIGIN:origin,
     DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),DIESEL_ALLOWED_PULSE_LOGINS:'alice,bob'},
     fetcher:async(_url,options)=>Response.json({profile:{login:{a:'alice',b:'bob',c:'excluded'}[JSON.parse(options.body).grant[0]]}})});
   const server=app.listen(0,'127.0.0.1');await once(server,'listening');
@@ -50,6 +50,41 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   assert.equal((await approved.json()).status,'Posted');
 });
 
+test('Azure waits for live Entry setup and never opens a sample workspace',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'diesel-entry-setup-'));
+  const origin='https://diesel.test';
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  for (const mode of [undefined, 'personal-review', 'assigned-pilot', 'site-stock']) {
+    const env={WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),
+      DIESEL_ENTRY_ACCESS_MODE:mode,DIESEL_ALLOWED_PULSE_LOGINS:'operator'};
+    const app=createApp({env,entryReviewDirectory:mode==='site-stock'?undefined:dir,
+      fetcher:async(_url,options)=>Response.json({profile:{login:JSON.parse(options.body).grant[0]==='o'?'operator':'excluded'}})});
+    const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+    try {
+      const request=(path,who,options={})=>fetch('http://127.0.0.1:'+server.address().port+path,{redirect:'manual',...options,
+        headers:{...(who?{cookie:'__Host-diesel_session='+who.repeat(43)}:{}),...options.headers}});
+      assert.equal((await (await request('/healthz')).json()).openingStock,'setup');
+      assert.equal((await request('/entries')).status,303);
+      assert.equal((await request('/entries','u',{headers:{Accept:'application/json'}})).status,401);
+      for (const path of ['/entries','/entries/opening-stock']) {
+        const response=await request(path,'o');
+        assert.equal(response.status,200);
+        const html=await response.text();
+        assert.match(html,/Entry is awaiting site setup/);
+        assert.doesNotMatch(html,/sample data|Jayant|Sasti|Review role|Open the review register/);
+      }
+      const exportResponse=await request('/entries/export.csv','o',{headers:{Accept:'text/csv'}});
+      assert.equal(exportResponse.status,503);
+      const staleWrite=await request('/entries/record/old-draft','o',{method:'POST',
+        headers:{Origin:origin,'Content-Type':'application/json',Accept:'application/json'},body:'{}'});
+      assert.equal(staleWrite.status,503);
+      assert.match((await staleWrite.json()).error,/awaiting site setup/);
+      assert.equal((await request('/workspace/role','o',{method:'POST',headers:{Origin:origin}})).status,404);
+      assert.deepEqual(await readdir(dir),[]);
+    } finally { await new Promise(resolve=>server.close(resolve)); }
+  }
+});
+
 test('hosted site stock requires trusted site assignments and approved masters',async t=>{
   const dir=await mkdtemp(join(tmpdir(),'diesel-site-stock-'));
   const origin='https://diesel.test', masterDb=openDieselDatabase(':memory:');
@@ -60,7 +95,7 @@ test('hosted site stock requires trusted site assignments and approved masters',
     'Receipt scenario allowed':'UG tank'}},{id:'maker'});
   masters.changeStatus(location.master,location.id,location.revision,'approve',{id:'checker'});
   const env={WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),
-    DIESEL_ENTRY_ACCESS_MODE:'site-stock',DIESEL_ALLOWED_PULSE_LOGINS:'legacy'};
+    DIESEL_ENTRY_ACCESS_MODE:'personal-review',DIESEL_ALLOWED_PULSE_LOGINS:'legacy'};
   const profiles={ s:{login:'site-maker',dieselEntryAccess:[{site:'Jayant OC',role:'Site In-charge'}]},
     b:{login:'bowser',dieselEntryAccess:[{site:'Jayant',role:'Bowser operator'}]}, l:{login:'legacy'},
     u:{login:'unapproved',dieselEntryAccess:[{site:'Sasti',role:'Project Manager'}]} };
@@ -76,6 +111,7 @@ test('hosted site stock requires trusted site assignments and approved masters',
   assert.equal((await request('/entries/opening-stock','l')).status,403);
   assert.equal((await request('/entries/opening-stock','u')).status,403);
   assert.match(await(await request('/entries/opening-stock','s')).text(),/Approve an Item Master record/);
+  assert.doesNotMatch(await(await request('/entries','s')).text(),/sample data|Sample Jayant indent/);
   assert.equal((await request('/entries/new/E11','b')).headers.get('location'),'/entries/opening-stock');
   assert.equal((await request('/entries/type/E2','s')).status,200);
   assert.equal((await request('/workspace/role','b',new URLSearchParams({site:'Sasti',role:'entry-0'}))).status,403);

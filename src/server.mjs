@@ -21,7 +21,10 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
   app.get('/healthz', (_request, response) => {
     response.json({ status: 'ok', commit: manifest.releaseCommit ?? null,
       ...(itemSubmissions ? { itemMaster: 'ready', masters: 'ready' } : {}),
-      ...(entryReviewDirectory ? { openingStock: env.DIESEL_ENTRY_ACCESS_MODE==='site-stock' && siteMasterDb ? 'ready' : 'setup' } : {}) });
+      ...(env.WEBSITE_SITE_NAME || entryReviewDirectory ? {
+        openingStock: (env.WEBSITE_SITE_NAME || env.DIESEL_ENTRY_ACCESS_MODE==='site-stock')
+          && entryReviewDirectory && siteMasterDb ? 'ready' : 'setup',
+      } : {}) });
   });
   app.use('/masters/assets', express.static(fileURLToPath(new URL('./features/masters/assets/', import.meta.url))));
   app.use('/master-data/assets', express.static(fileURLToPath(new URL('./features/master-data/assets/', import.meta.url))));
@@ -43,11 +46,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   const entryReviewDirectory = itemSubmissions ? '/home/data/diesel-entry-review' : undefined;
   let siteMasterDb;
-  if (entryReviewDirectory && process.env.DIESEL_ENTRY_ACCESS_MODE==='site-stock') {
+  if (entryReviewDirectory && process.env.DIESEL_SITE_MASTER_DB) {
     let source;
     try {
       const path = process.env.DIESEL_SITE_MASTER_DB;
-      if (!path) throw new Error('Set DIESEL_SITE_MASTER_DB.');
       source = new DatabaseSync(path,{readOnly:true});
       source.prepare('SELECT m.approved_revision, m.approved_site_key, m.status, h.snapshot FROM master_records m JOIN master_history h ON h.record_id=m.id LIMIT 1').get();
       siteMasterDb = source;

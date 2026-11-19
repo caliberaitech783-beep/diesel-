@@ -22,7 +22,7 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
     o: { login: 'OtherSiteManager', dieselEntryAccess: [sasti('Project Manager')] },
     l: { login: 'legacy' },
   };
-  const env = { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin,
+  const env = { DIESEL_ACCESS_MODE: 'pulse', DIESEL_PUBLIC_ORIGIN: origin,
     DIESEL_ALLOWED_PULSE_LOGINS: 'legacy', DIESEL_ENTRY_ACCESS_MODE: 'assigned-pilot',
     DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) };
   const app = createApp({ env, entryReviewDirectory: directory, itemSubmissions: {},

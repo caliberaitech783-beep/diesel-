@@ -8,6 +8,7 @@ import { recordMasters } from '../masters/records-fields.mjs';
 import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
 import { telegramApprovalPath } from '../entries/remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
+import { registerEntrySetup } from '../entries/entry-setup.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -19,7 +20,8 @@ function readCookie(request, name) {
 }
 
 export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb }) {
-  const accessMode = env.WEBSITE_SITE_NAME ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
+  const production = Boolean(env.WEBSITE_SITE_NAME);
+  const accessMode = production ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
   if (accessMode === 'guest') {
     app.get('/login', (_request, response) => response.type('html').send(loginPage({ guest: true })));
@@ -32,11 +34,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   const allowedLogins = new Set((env.DIESEL_ALLOWED_PULSE_LOGINS ?? '')
     .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
   const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
-  const entryMode = env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review';
+  const entryMode = production ? 'site-stock' : (env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review');
   if (!['personal-review', 'assigned-pilot','site-stock'].includes(entryMode)) {
     throw new Error('DIESEL_ENTRY_ACCESS_MODE must be personal-review, assigned-pilot or site-stock.');
   }
-  const siteStock = entryMode === 'site-stock' && Boolean(siteMasterDb);
+  const hostedEntries = production || Boolean(entryReviewDirectory);
+  const siteStock = entryMode === 'site-stock' && Boolean(entryReviewDirectory && siteMasterDb);
   const assigned = entryMode === 'assigned-pilot' || siteStock;
   const entryAllowed = profile => Boolean(entryReviewDirectory && assigned
     && entryAssignments(profile,siteStock,siteStock ? approvedLocationDirectory(siteMasterDb) : []).length);
@@ -92,7 +95,14 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     });
   }
 
-  if (entryReviewDirectory) {
+  if (hostedEntries && entryMode === 'site-stock' && !siteStock) {
+    registerEntrySetup(app,{publicOrigin:publicUrl.origin,startSignIn,
+      async getProfile(request) {
+        const result = await verifySession(request);
+        return allowed(result?.profile) ? result.profile : null;
+      },
+    });
+  } else if (entryReviewDirectory) {
     const delivery = siteStock && configured && createApprovalDelivery(env, publicUrl.origin, fetcher);
     registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,
       siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
@@ -147,11 +157,11 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
-    if (entryReviewDirectory && (destination==='/entries/opening-stock' || destination==='opening-stock')) {
+    if (hostedEntries && (destination==='/entries/opening-stock' || destination==='opening-stock')) {
       return response.redirect(303,'/entries/opening-stock');
     }
     if (entryAllowed(verified?.profile) && telegramApprovalPath(destination)) return response.redirect(303, destination);
-    const openEntries = entryReviewDirectory && (destination === '/entries' || destination === 'entries' || !allowed(verified?.profile));
+    const openEntries = hostedEntries && (destination === '/entries' || destination === 'entries' || !allowed(verified?.profile));
     response.redirect(303, openEntries ? '/entries' : '/');
   }));
 
