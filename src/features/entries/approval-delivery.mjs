@@ -11,7 +11,6 @@ export function createApprovalDelivery(env, publicOrigin, fetcher = fetch) {
   const bot = env.DIESEL_TELEGRAM_BOT_TOKEN?.trim();
   const smsKey = env.DIESEL_FAST2SMS_API_KEY?.trim();
   if (!bot || !/^\d+:[\w-]+$/.test(bot) || !smsKey || !publicOrigin.startsWith('https:')) return null;
-  const entryUrl = doc => publicOrigin + '/entries/record/' + doc.id;
 
   async function send(url, body, accepted, headers = {}) {
     try {
@@ -25,7 +24,6 @@ export function createApprovalDelivery(env, publicOrigin, fetcher = fetch) {
   }
 
   return {
-    entryUrl,
     telegram({ chatId }, doc, ticket) {
       const button = (text, action) => ({ text, url: publicOrigin + '/entries/telegram/' + ticket + '/' + action });
       return send('https://api.telegram.org/bot' + bot + '/sendMessage', {
@@ -33,13 +31,6 @@ export function createApprovalDelivery(env, publicOrigin, fetcher = fetch) {
         link_preview_options: { is_disabled: true },
         protect_content: true,
         reply_markup: { inline_keyboard: [[button('Approve', 'approve'), button('Return', 'return')]] },
-      }, result => result?.ok === true);
-    },
-    // A notice carries figures and a link only. Acting on the entry still needs a Pulse sign-in.
-    notify({ chatId }, text, url) {
-      return send('https://api.telegram.org/bot' + bot + '/sendMessage', {
-        chat_id: chatId, text, link_preview_options: { is_disabled: true }, protect_content: true,
-        reply_markup: { inline_keyboard: [[{ text: 'Open in Diesel', url }]] },
       }, result => result?.ok === true);
     },
     sms({ mobile }, code) {
