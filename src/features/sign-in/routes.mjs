@@ -11,6 +11,9 @@ import { approvedLocationDirectory } from '../masters/records.mjs';
 import { registerEntrySetup } from '../entries/entry-setup.mjs';
 import { registerHostedMasters, masterWorkspacePath } from '../masters/hosted-masters.mjs';
 import { masterAssignments } from '../masters/master-access.mjs';
+import { registerPulseMasters } from '../pulse-masters/pulse-master-routes.mjs';
+import { pulseProject } from '../masters/pulse-projects.mjs';
+import { DatabaseSync } from 'node:sqlite';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -21,7 +24,7 @@ function readCookie(request, name) {
   try { return decodeURIComponent(value); } catch { return ''; }
 }
 
-export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb, sharedMasterDb }) {
+export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReviewDirectory, siteMasterDb, sharedMasterDb, pulseMasterClock }) {
   const production = Boolean(env.WEBSITE_SITE_NAME);
   const accessMode = production ? 'pulse' : (env.DIESEL_ACCESS_MODE ?? 'guest');
   app.get('/sign-in.css', (_request, response) => response.sendFile(styles));
@@ -93,6 +96,23 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     hasSubmissions:profile=>Boolean(itemSubmissions && allowed(profile)),
     async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
   });
+
+  if (itemSubmissions || hostedMasters) {
+    // Pulse's own masters, read-only. A listed login sees every site; a site role sees its site.
+    registerPulseMasters(app, {
+      db: sharedMasterDb ?? new DatabaseSync(':memory:'), publicOrigin: publicUrl.origin, startSignIn,
+      fetchMasters: grant => pulse.masters(grant), now: pulseMasterClock,
+      async getAccess(request) {
+        const profile = (await verifySession(request))?.profile;
+        if (!canOpenMasters(profile)) return null;
+        const actor = hostedMasters?.actor(profile, request);
+        const listed = Boolean(itemSubmissions && allowed(profile));
+        const sites = listed || !actor ? [] : [actor.site, actor.project?.name, pulseProject(sharedMasterDb, actor.site)?.name];
+        return { grant: readCookie(request, sessionCookie), actor: { name: profile.name || profile.login }, sites,
+          masterDataPath: actor ? masterWorkspacePath + '/master-data' : '/master-data' };
+      },
+    });
+  }
 
   if (itemSubmissions) {
     registerItemSubmissions(app, {
