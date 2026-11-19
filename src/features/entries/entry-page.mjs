@@ -93,7 +93,8 @@ function fieldControl(f,d,rows,actor) {
     const meterEnd=f.key==='bowser' ? fuelIssues.find(row=>row.data.bowser===v)?.data.end : undefined;
     const context = vehicle ? ` data-capacity="${esc(vehicle.capacity)}" data-vehicle-type="${esc(vehicle.vehicleType)}"
       data-owner="${esc(vehicle.owner)}" data-cost-centre="${esc(vehicle.costCentre)}" data-last-reading="${esc(reading)}"` : '';
-    return `<option value="${esc(v)}"${tag?` data-tag="${esc(tag)}"`:''}${context}${meterEnd===undefined?'':` data-last-end="${esc(meterEnd)}"`}${v===value || (!value&&opts.length===1&&!f.optional)?' selected':''}>${esc(f.optionLabels?.get(v)??n)}</option>`;
+    const homeTank=f.homeTanks?.get(v);
+    return `<option value="${esc(v)}"${tag?` data-tag="${esc(tag)}"`:''}${homeTank?` data-home-tank="${esc(homeTank)}"`:''}${context}${meterEnd===undefined?'':` data-last-end="${esc(meterEnd)}"`}${v===value || (!value&&opts.length===1&&!f.optional)?' selected':''}>${esc(f.optionLabels?.get(v)??n)}</option>`;
   }).join('')}</select>${f.vehicleDetails ? '<output data-vehicle-info aria-live="polite"></output>' : ''}</label>`;
   if (f.type==='file') return `<label>${label}<input type="file" name="${f.key}" accept="image/png,image/jpeg,application/pdf" multiple data-saved="${esc(JSON.stringify(Array.isArray(value)?value:[]))}">${Array.isArray(value)?value.map(file=>esc(file.name)).join(', '):''}</label>
     ${f.key==='billPhoto' ? '<button type="button" id="read-invoice">Read invoice photo</button>' : ''}`;

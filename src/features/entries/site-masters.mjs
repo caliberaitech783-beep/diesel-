@@ -6,6 +6,7 @@ import { entryCalendar } from './entry-calendar.mjs';
 import { routeStandards } from './vehicle-route-standards.mjs';
 import { allowedReceiptScenarios } from './receipt-scenarios.mjs';
 import { entryReasons } from './entry-reasons.mjs';
+import { operatorAccess } from './operator-authorisation.mjs';
 
 export const siteEntryTypes = entries.map(entry=>entry.id);
 const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master','location-master',
@@ -18,6 +19,7 @@ export function readSiteMasters(db,site) {
     ...ref(record), type:record.values['Storage type'], safe:Number(record.values['Safe fill level (L)']),
     chart:record.values['Calibration chart (dip-to-litres table, UG tanks)'],
     meter:record.values['Dispenser or flow meter ID'],
+    minimum:Number(record.values['Minimum level (L)']), homeTank:record.values['Home tank'],
   }));
   const vehicles = data['cost-centre-vehicle-master'].flatMap(record => {
     const v = record.values, ownership = { own:'Own', hired:'Hired', contractor:'Contractor', plant:'Plant' };
@@ -39,7 +41,7 @@ export function readSiteMasters(db,site) {
   const reasons=data['reason-code-master'].map(record=>({...ref(record),
     category:record.values['Used for (rejection, shortage, variance, correction, override)'],
     evidenceRequired:String(record.values['Evidence required']).trim().toLowerCase()==='yes'}));
-  return { items, storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(ref), reasons,
+  return { items, storage, vehicles:uniqueVehicles, drivers:data['driver-master'].map(record=>({...ref(record),...operatorAccess(record.values)})), reasons,
     locations, calendar:entryCalendar(data['shift-master'],location),
     receiptScenarios:allowedReceiptScenarios(location?.values['Receipt scenario allowed']),
     routeStandards:routeStandards(data['route-wise-diesel-master'],site,locations), ...commercialMastersFor(data) };
@@ -88,6 +90,7 @@ export function siteDefinition(type, config) {
         oldOptions:new Map(targets.filter(target=>counts.get(target.code)===1).map(target=>[target.code,target.key])) };
     }
     if (type==='E5' && field.key==='driver') return field;
+    if (type==='E10A' && field.key==='bowser') return {...choices(field,lists.bowser), homeTanks:new Map(Object.entries(config.homeTanks??{}))};
     if (type==='E5' && field.key==='scenario') return {...field,options:config.receiptScenarios };
     if (type==='E2' && field.key==='depot') return choices({...field,optional:true},lists.depot);
     if (type==='E11' && field.key==='vehicle') {

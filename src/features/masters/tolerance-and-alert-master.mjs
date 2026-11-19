@@ -3,7 +3,7 @@ export const toleranceAndAlertMaster = [
     name: 'Alert and escalation',
     fields: [
       { label: 'Alert', required: true, suggestions: ['Transit shortage','Tank to bowser variance','Transfer variance','Daily variance',
-        'Tanker empty overdue','Repeat fill','Meter jump','Approval overdue','Calibration due','Days of stock'] },
+        'Tanker empty overdue','Repeat fill','Meter jump','Approval overdue','Calibration due','Days of stock','Storage below minimum level'] },
       { label: 'Limit', required: true, hint: 'Use percent for variances, hours for overdue and meter rules, or days for calibration and stock cover.' },
       { label: 'First owner (role)', required: true },
       { label: 'Escalate to (role)', required: true },

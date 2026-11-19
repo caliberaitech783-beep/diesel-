@@ -18,10 +18,11 @@ export function siteEntryWorkspace(siteDb, masterDb) {
   return { opening, mastersFor, calendarFor, policyFor:approvedPolicyReader(masterDb), siteFor(site) {
     const record = opening.get(site);
     if (record?.status !== 'approved') return null;
-    const { items: _items, storage: _storage, ...masters } = mastersFor(site);
+    const { items: _items, storage: approvedStorage, ...masters } = mastersFor(site);
+    const homeTanks = Object.fromEntries(approvedStorage.filter(location=>location.homeTank).map(location=>[location.code,location.homeTank]));
     const authorized = new Set(approvedLocationDirectory(masterDb).map(({site})=>site));
     const destinations = opening.approved().filter(next => next.site !== site && authorized.has(next.site))
       .map(({ site, item, storage, businessDay }) => ({ site, item, storage, businessDay }));
-    return { ...record, ...masters, destinations };
+    return { ...record, ...masters, destinations, homeTanks };
   } };
 }
