@@ -4,8 +4,6 @@ const pending = 'Diesel Entry is awaiting site setup.';
 
 // Why Entry is still closed, in the words a master maker can act on.
 export const setupReasons = {
-  location: ['No Location Master record is approved yet.',
-    'Open Masters, add the Location Master record for the site and have the Master Checker approve it. Then approve the Item and Storage Location masters.'],
   source: ['Entry cannot read the approved master data.',
     'Ask IT to check the Diesel app’s master data storage and its DIESEL_SITE_MASTER_DB setting, then restart the app.'],
 };

@@ -13,7 +13,6 @@ import { siteEntryTypes } from './site-masters.mjs';
 import { approvalContact } from './approval-delivery.mjs';
 import { telegramApprovalPath } from './remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
-import { sendEntrySetup } from './entry-setup.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -60,16 +59,17 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
       const [site,role] = (context ?? '').split('.');
       const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
-      req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context)
+      // Until the first Location Master record is approved, each person gets a private trial workspace on sample data.
+      // It never touches the live ledger and gives way to live Entry as soon as a location is approved.
+      const trial = siteStock && !locations.length;
+      req.dieselActor = assigned && !trial ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context)
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
-      if (!req.dieselActor) {
-        if (siteStock && !locations.length && profile.dieselMastersAllowed) return sendEntrySetup(req,res,'location');
-        return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
-      }
+      if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
-      if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
-      if (siteStock && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
-      req.reviewOwner = siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
+      if (trial) req.dieselActor.trial = true;
+      else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
+      if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
+      req.reviewOwner = trial ? 'trial-'+owner : siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
       next();
     } catch { res.status(503).send('Pulse sign-in is temporarily unavailable.'); }
   };
@@ -77,7 +77,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
     const { assignment, returnTo } = req.body ?? {};
     const selected = req.dieselActor.assignments?.find(grant => grant.key === assignment);
     const { site, role } = selected ? { site: selected.site, role: selected.profile } : (req.body ?? {});
-    if (!canChooseRole(req.dieselActor, site, role)) return res.sendStatus(assigned ? 403 : 400);
+    if (!canChooseRole(req.dieselActor, site, role)) return res.sendStatus(assigned && !req.dieselActor.trial ? 403 : 400);
     res.cookie(cookie,site+'.'+role,{httpOnly:true,secure,sameSite:'strict',path:'/'});
     res.redirect(303, typeof returnTo==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(returnTo) ? returnTo:'/entries');
   });
@@ -88,9 +88,10 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       const db = new DatabaseSync(join(directory,req.reviewOwner+'.sqlite'));
       try {
         db.exec('PRAGMA busy_timeout=5000');
-        if (!assigned) seedWalkthrough(db);
-        const stock = siteStock ? siteEntryWorkspace(db,siteMasterDb) : {};
-        router = createEntriesRouter(db,{hosted:true,assigned,...stock,approvalOptions});
+        const trial = Boolean(req.dieselActor.trial);
+        if (!assigned || trial) seedWalkthrough(db);
+        const stock = siteStock && !trial ? siteEntryWorkspace(db,siteMasterDb) : {};
+        router = createEntriesRouter(db,trial ? {hosted:true} : {hosted:true,assigned,...stock,approvalOptions});
         routers.set(req.reviewOwner,router);
         req.socket.server.once('close',()=>{routers.delete(req.reviewOwner);db.close();});
       } catch (error) { db.close();throw error; }
