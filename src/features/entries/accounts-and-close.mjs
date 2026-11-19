@@ -1,6 +1,6 @@
 import { review, ratePerKL } from './review-masters.mjs';
 import { money, round, requireValue as check,dayBefore } from './entry-rules.mjs';
-import { approvedDeduction } from './purchasing.mjs';
+import { accountDeduction } from './purchasing.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
 
 const financialYear = day => Number(day.slice(0,4))-Number(day.slice(5,7)<'04');
@@ -52,8 +52,9 @@ export const accountsAndClose = {
       if (ex) check(gstRule && gstRule.percent>=0 && gstRule.percent<=100,'Choose an approved effective freight GST rule.');
       const transporter=c.siteConfig.accounts.find(account=>account.code===g.shortageParty);
       check(!ex||transporter,'Approve the transporter Account Master.');
-      const gst=money(freight*(gstRule?.percent??0)/100), tds=approvedDeduction(freight,ex?transporter:null,d.tds);
-      return {party:g.shortageParty,debit,freight,gst,tds,gstCode:gstRule?.code,reverseCharge:gstRule?.reverse??false,
+      const gst=money(freight*(gstRule?.percent??0)/100);
+      const deduction=accountDeduction(c,ex?transporter:null,'freight',freight,freight,d.tds), tds=deduction.tds;
+      return {party:g.shortageParty,debit,freight,gst,...deduction,gstCode:gstRule?.code,reverseCharge:gstRule?.reverse??false,
         net:money(freight+(gstRule?.reverse?0:gst)-tds-debit),approvals:['Head – Accounts']};
     }
     const gst=money(freight*review.freightGstPercent/100),tds=money(freight*review.freightTdsPercent/100);

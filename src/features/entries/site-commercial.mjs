@@ -1,17 +1,22 @@
+import { tdsRules } from './tds-deduction.mjs';
 export const commercialMasters = ['account-master','supplier-depot-master','diesel-rate-master',
-  'transport-freight-master','measuring-instrument-master','gst-master','document-numbering-master'];
+  'transport-freight-master','measuring-instrument-master','gst-master','document-numbering-master','tax-master-tds'];
 
 const effective = values => ({ from:values['Effective from'], to:values['Effective to'] });
 const amount = value => value===undefined || value==='' ? undefined : Number(value);
 
 export function commercialMastersFor(data) {
-  const accounts = data['account-master'].map(({code,name,values:v})=>({
+  const accounts = data['account-master'].map(({code,name,values:v,attributes})=>({
     code,name, pump:v['Is Market Petrol Pump']==='Yes', tds:v['TDS / TCS Applicable']==='Yes',
+    tdsNature:v['TDS Nature'], tdsPayee:v['TDS Payee Category'],
+    tdsFromFirstDay:v['Eligible For TDS Deduction Under 194Q From First Day']==='Yes',
+    pan:(attributes??[]).some(row=>row.name==='PAN'&&row.value),
     bankVerified:Boolean(v['Bank details verified by']&&v['Account No']&&v['IFSC Code']&&v['Y/N']!=='No'),
     recovery:v['Recovery rate basis (hire parties, contractors)'],
   }));
   return {
     accounts,
+    tdsRules:tdsRules(data['tax-master-tds']??[]),
     depots:data['supplier-depot-master'].map(({values:v})=>({
       code:v['Depot name'],name:v['Depot location (city, state)'],supplier:v['Supplier (A/C Code)'],
     })),
