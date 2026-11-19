@@ -64,6 +64,7 @@ test('Azure waits for live Entry setup and never opens a sample workspace',async
       const request=(path,who,options={})=>fetch('http://127.0.0.1:'+server.address().port+path,{redirect:'manual',...options,
         headers:{...(who?{cookie:'__Host-diesel_session='+who.repeat(43)}:{}),...options.headers}});
       assert.equal((await (await request('/healthz')).json()).openingStock,'setup');
+      assert.equal((await (await request('/healthz')).json()).entrySetup,'approved master data cannot be read');
       assert.equal((await request('/entries')).status,303);
       assert.equal((await request('/entries','u',{headers:{Accept:'application/json'}})).status,401);
       for (const path of ['/entries','/entries/opening-stock']) {
@@ -71,6 +72,7 @@ test('Azure waits for live Entry setup and never opens a sample workspace',async
         assert.equal(response.status,200);
         const html=await response.text();
         assert.match(html,/Entry is awaiting site setup/);
+        assert.match(html,/Entry cannot read the approved master data\./);
         assert.doesNotMatch(html,/sample data|Jayant|Sasti|Review role|Open the review register/);
       }
       const exportResponse=await request('/entries/export.csv','o',{headers:{Accept:'text/csv'}});
@@ -107,6 +109,7 @@ test('hosted site stock requires trusted site assignments and approved masters',
   const request=(path,who,body)=>fetch(address+path,{redirect:'manual',method:body?'POST':'GET',
     headers:{Origin:origin,...(who?{cookie:'__Host-diesel_session='+who.repeat(43)}:{})},body});
   assert.equal((await (await request('/healthz')).json()).openingStock,'ready');
+  assert.equal((await (await request('/healthz')).json()).entrySetup,'ready');
   assert.equal((await request('/entries/opening-stock')).status,303);
   assert.equal((await request('/entries/opening-stock','l')).status,403);
   assert.equal((await request('/entries/opening-stock','u')).status,403);

@@ -116,7 +116,8 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   assert.equal((await req('/records?master=item-master&id='+earlier.id,'m')).status,200);
   assert.equal((await req('/records?master=item-master&id='+earlier.id,'c')).status,303);
   assert.deepEqual((await (await req('/healthz')).json()).openingStock,'setup');
-  assert.match(await (await req('/entries/opening-stock','m')).text(),/Entry is awaiting site setup/);
+  assert.equal((await (await req('/healthz')).json()).entrySetup,'no approved Location Master record in shared Master Data');
+  assert.match(await (await req('/entries/opening-stock','m')).text(),/Entry is awaiting site setup.*No Location Master record is approved yet\./s);
 
   const location = await submit('location-master',valueOverrides['location-master']);
   assert.equal(location.name,'Pulse Silver Hill');

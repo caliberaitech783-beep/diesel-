@@ -63,7 +63,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context)
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
       if (!req.dieselActor) {
-        if (siteStock && !locations.length && profile.dieselMastersAllowed) return sendEntrySetup(req,res);
+        if (siteStock && !locations.length && profile.dieselMastersAllowed) return sendEntrySetup(req,res,'location');
         return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       }
       req.dieselActor.offlineScope = owner;
