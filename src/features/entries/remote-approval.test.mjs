@@ -54,7 +54,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
     b:{ login:'bowser', dieselEntryAccess:[{site,role:'Bowser operator'}] },
     u:{ login:'unknown', dieselEntryAccess:[{site:'Unknown Site',role:'Project Manager'}], dieselApprovalContact:contact },
   };
-  const delivered = [];
+  const delivered = [], noticed = [];
   const app = createApp({ env:{ WEBSITE_SITE_NAME:'diesel', DIESEL_PUBLIC_ORIGIN:origin, DIESEL_ENTRY_ACCESS_MODE:'site-stock',
     DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),DIESEL_TELEGRAM_BOT_TOKEN:'123:fake-token', DIESEL_FAST2SMS_API_KEY:'fake-sms' },
   entryReviewDirectory:directory, siteMasterDb:masterDb, fetcher:async(url, options)=>{
@@ -64,6 +64,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
     if (url.pathname.endsWith('/validate')) return Response.json({profile:profiles[data.grant[0]]});
     if (url.hostname === 'api.telegram.org') {
       assert.equal(url.pathname, '/bot123:fake-token/sendMessage');
+      if (data.reply_markup.inline_keyboard[0].length === 1) { noticed.push(data); return Response.json({ok:true}); }
       delivered.push({ channel:'telegram', data });
       return Response.json({ok:true});
     }
@@ -176,6 +177,16 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   assert.doesNotMatch(await (await request(last,'r',null,reviewerSite)).text(),/Review via Telegram/);
   assert.equal((await request(last+'/telegram','r',{actor:context('r'),rev:1},reviewerSite)).status,422);
   assert.equal(delivered.length,4);
+  const said = noticed.map(notice => [notice.chat_id, notice.text.split('\n').slice(1).join(' | ')]);
+  assert.deepEqual(said.slice(0,5),[
+    ['1234567','120 L · required by '+day+' | Raised by Site In-charge. Your level 1 of 1.'],
+    ['1234567','Fully approved by Project Manager.'],
+    ['1234567','120 L · required by '+day+' | Raised by Site In-charge. Your level 1 of 1.'],
+    ['2345678','120 L · required by '+day+' | Raised by Site In-charge. Your level 1 of 1.'],
+    ['1234567','Returned by Project Manager: “Review the site quantity”'],
+  ]);
+  assert.match(noticed[0].text,/^Diesel indent IND\/MN-1\/[\d-]+\/0001 · Majri North\n/);
+  assert.deepEqual(noticed[0].reply_markup.inline_keyboard,[[{text:'Open in Diesel',url:origin+record}]]);
 });
 
 test('remote approval codes expire after five minutes and lock the link after three incorrect guesses', async t => {
