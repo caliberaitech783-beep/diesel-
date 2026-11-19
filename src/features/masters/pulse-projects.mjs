@@ -11,6 +11,17 @@ export function syncPulseProjects(db, regions) {
     if (matches.length !== 1 || !matches[0].name?.trim()) throw new Error('Check the Pulse 1 project mapping for ' + site);
     return { site, name, client: matches[0].name.trim() };
   });
+  const pilot = new Set(Object.values(pilotNames).map(name => name.toLowerCase()));
+  const additional = new Map();
+  for (const region of regions) for (const name of region.sites) {
+    const site = name.trim().normalize('NFKC'), key = site.toLowerCase();
+    if (!site || site.length > 120 || pilot.has(key) || Object.keys(pilotNames).some(label => label.toLowerCase() === key)) continue;
+    // Names shared by several clients need an explicit source mapping.
+    additional.set(key, additional.has(key) ? null : {
+      site, name: site, client: region.name?.trim(),
+    });
+  }
+  projects.push(...[...additional.values()].filter(project => project?.client));
   preparePulseProjects(db);
   db.exec('BEGIN IMMEDIATE');
   try {

@@ -18,6 +18,8 @@ import { approvedPolicyReader, siteEntryWorkspace } from './site-entry-workspace
 import { registerOpeningStock } from './opening-stock-routes.mjs';
 import { openingStockSetupPage } from './opening-stock-page.mjs';
 import { isInvoiceImage, readInvoiceImage } from './invoice-ocr.mjs';
+import { createRemoteApproval } from './remote-approval.mjs';
+import { registerRemoteApproval } from './remote-approval-routes.mjs';
 
 const qrDecoder = createRequire(import.meta.url).resolve('jsqr');
 let readingInvoice = false;
@@ -27,12 +29,14 @@ export function registerEntries(app,masterDb,siteDb) {
   app.use('/entries',createEntriesRouter(siteDb??masterDb,options));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor } = {}) {
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,approvalOptions } = {}) {
   const store=createEntryStore(db,{policyFor,siteFor});
   const inbox=assigned||opening ? null : createLocalApproval(db,store);
   const allowedType = type => Object.hasOwn(byId,type)
     && (opening ? siteEntryTypes.includes(type) : !assigned || pilotEntry(type));
   const router=express.Router();
+  const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor});
+  if (remoteApproval) registerRemoteApproval(router, remoteApproval);
   if (opening) {
     registerOpeningStock(router,opening,mastersFor);
   } else if (hosted) {
@@ -84,7 +88,12 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   });
   router.get('/record/:id',(req,res)=>{
     const a=req.dieselActor;
-    try { const doc=store.read(req.params.id,a.site);res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),doc.type==='E1'&&['Draft','Returned'].includes(doc.status)?store.stockPicture(a.site,doc.day):null,store.definition(doc.type,a.site))); }
+    try {
+      const doc = store.read(req.params.id,a.site);
+      const picture = doc.type==='E1'&&['Draft','Returned'].includes(doc.status) ? store.stockPicture(a.site,doc.day) : null;
+      res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),picture,store.definition(doc.type,a.site),
+        remoteApproval?.enabled(doc,a)));
+    }
     catch { res.sendStatus(404); }
   });
   router.get('/file/:id',(req,res)=>{

@@ -11,11 +11,13 @@ const siteNames = new Map(sites.flatMap(site => [[normalize(site), site], [norma
 export const pilotEntry = type => type === 'E1' || type === 'E2';
 
 // Each grant binds one role to one site. Only the verified Pulse response supplies grants.
-export function entryAssignments(profile, siteStock = false) {
+export function entryAssignments(profile, siteStock = false, approvedSites = []) {
   if (typeof profile?.login !== 'string' || !profile.login.trim() || !Array.isArray(profile.dieselEntryAccess)) return [];
   const assignments = new Map();
+  const siteKey = value => typeof value === 'string' ? value.trim().normalize('NFKC').toLowerCase() : '';
+  const locations = new Map(approvedSites.map(site => [siteKey(site), site]));
   for (const grant of profile.dieselEntryAccess) {
-    const site = siteNames.get(normalize(grant?.site));
+    const site = locations.get(siteKey(grant?.site)) ?? siteNames.get(normalize(grant?.site));
     const role = roleNames.get(normalize(grant?.role)) ?? (siteStock
       ? (normalize(grant?.role)==='head of accounts' ? 'Head – Accounts' : roles.find(name=>normalize(name)===normalize(grant?.role))) : undefined);
     if (!site || !role) continue;

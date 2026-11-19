@@ -8,6 +8,7 @@ import { validatePolicyMaster } from '../entries/entry-policy.mjs';
 const maxFileBytes = 5 * 1024 * 1024;
 const normalize = text => text.trim().normalize('NFKC').toLowerCase();
 const isObject = object => object && typeof object === 'object' && !Array.isArray(object);
+const isActive = item => !['inactive', 'disabled', 'retired', 'closed', 'expired', 'suspended'].includes(normalize(String(item.values.Status ?? '')));
 
 function atomically(db, operation) {
   const nested = db.isTransaction;
@@ -44,9 +45,16 @@ export function readActiveMasters(db, site, enabledMasters = ['item-master']) {
     WHERE m.status!='inactive' AND (m.approved_site_key='' OR m.approved_site_key=?) ORDER BY m.master, m.code`).all(normalize(String(site ?? '')));
   for (const row of approved) {
     const item = JSON.parse(row.snapshot);
-    if (available[item.master] && !['inactive', 'disabled', 'retired', 'closed', 'expired', 'suspended'].includes(normalize(String(item.values.Status ?? '')))) available[item.master].push(item);
+    if (available[item.master] && isActive(item)) available[item.master].push(item);
   }
   return available;
+}
+
+export function approvedLocationSites(db) {
+  const rows = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
+    ON h.record_id=m.id AND h.revision=m.approved_revision
+    WHERE m.master='location-master' AND m.status!='inactive' AND m.approved_site_key!='' ORDER BY m.approved_site_key`).all();
+  return [...new Set(rows.map(row => JSON.parse(row.snapshot)).filter(isActive).map(item => item.site))];
 }
 
 export function createMasterStore(db, enabledMasters = ['item-master']) {

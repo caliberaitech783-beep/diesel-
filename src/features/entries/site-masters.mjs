@@ -1,6 +1,7 @@
 import { readActiveMasters } from '../masters/records.mjs';
 import { byId, entries } from './catalog.mjs';
 import { commercialMasters, commercialMastersFor } from './site-commercial.mjs';
+import { transferOptions } from './transfer-destination.mjs';
 
 export const siteEntryTypes = entries.map(entry=>entry.id);
 const slugs = ['item-master','storage-location-master','cost-centre-vehicle-master','driver-master','reason-code-master','location-master',...commercialMasters];
@@ -45,7 +46,7 @@ export function siteDefinition(type, config) {
   const lists = { tank:storage('UG tank'), bowser:storage('Bowser'), vehicle:config.vehicles, driver:config.drivers, reason:config.reasons,
     supplier:config.accounts, depot:unique(config.depots), transporter:config.accounts.filter(account=>!account.pump),
     instrument:config.instruments, pump:config.accounts.filter(account=>account.pump),
-    from:config.storage, to:config.destination?.storage??[],
+    from:config.storage,
     party:config.accounts.filter(account=>account.recovery), clearingAccount:config.accounts,
     consumptionAccount:config.accounts, gst:unique(config.gst) };
   if (type==='E15') {
@@ -62,6 +63,14 @@ export function siteDefinition(type, config) {
       {key:'consumptionAccount',label:'Approved diesel consumption account',type:'select'}],
   };
   return { ...standard, receiptReasons:config.reasons.map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
+    if (type==='E12' && field.key==='to') {
+      const targets = transferOptions(config);
+      const counts = new Map();
+      for (const { code } of targets) counts.set(code, (counts.get(code) ?? 0) + 1);
+      return { ...field, label:'Receiving site and storage', options:targets.map(target=>target.key),
+        optionLabels:new Map(targets.map(target=>[target.key,target.label])),
+        oldOptions:new Map(targets.filter(target=>counts.get(target.code)===1).map(target=>[target.code,target.key])) };
+    }
     if (type==='E5' && field.key==='driver') return field;
     if (type==='E5' && field.key==='transporter') return {...field, type:'text', options:undefined };
     if (type==='E2' && field.key==='depot') return choices({...field,optional:true},lists.depot);

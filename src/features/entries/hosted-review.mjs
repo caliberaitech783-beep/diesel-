@@ -10,6 +10,9 @@ import { roles, roleKey, sites, review } from './review-masters.mjs';
 import { assignedEntryActor, canChooseRole, entryAssignments } from './entry-access.mjs';
 import { siteEntryWorkspace } from './site-entry-workspace.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
+import { approvalContact } from './approval-delivery.mjs';
+import { telegramApprovalPath } from './remote-approval.mjs';
+import { approvedLocationSites } from '../masters/records.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -33,7 +36,7 @@ function seedWalkthrough(db) {
   } catch (error) { db.exec('ROLLBACK');throw error; }
 }
 
-export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb }) {
+export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions }) {
   const routers = new Map();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
@@ -43,17 +46,24 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
     try {
       const profile = await getProfile(req);
       if (!profile) {
-        if (req.method === 'GET' && req.accepts('html')) return startSignIn(res,req.path==='/opening-stock');
+        if (req.method === 'GET' && req.accepts('html')) {
+          const path = '/entries' + req.path;
+          return startSignIn(res, (approvalOptions && telegramApprovalPath(path)) || req.path==='/opening-stock'
+            ? path : '/entries');
+        }
         return res.sendStatus(401);
       }
       const owner = createHash('sha256').update(profile.login.trim().toLowerCase()).digest('hex');
-      const context = (req.get('cookie') ?? '').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookie+'='))?.slice(cookie.length+1);
+      const stored = (req.get('cookie') ?? '').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookie+'='))?.slice(cookie.length+1);
+      let context;
+      try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
       const [site,role] = (context ?? '').split('.');
-      req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock), context)
+      req.dieselActor = assigned ? assignedEntryActor(profile, entryAssignments(profile,siteStock,siteStock ? approvedLocationSites(siteMasterDb) : []), context)
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge'));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for this pilot.');
       req.dieselActor.offlineScope = owner;
       if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
+      if (siteStock && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
       req.reviewOwner = siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
       next();
     } catch { res.status(503).send('Pulse sign-in is temporarily unavailable.'); }
@@ -75,7 +85,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         db.exec('PRAGMA busy_timeout=5000');
         if (!assigned) seedWalkthrough(db);
         const stock = siteStock ? siteEntryWorkspace(db,siteMasterDb) : {};
-        router = createEntriesRouter(db,{hosted:true,assigned,...stock});
+        router = createEntriesRouter(db,{hosted:true,assigned,...stock,approvalOptions});
         routers.set(req.reviewOwner,router);
         req.socket.server.once('close',()=>{routers.delete(req.reviewOwner);db.close();});
       } catch (error) { db.close();throw error; }

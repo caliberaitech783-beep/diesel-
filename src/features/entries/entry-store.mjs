@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { byId } from './catalog.mjs';
 import { businessDay,evaluate,validateFields,validDate,requireValue as check,round,money } from './entry-rules.mjs';
-import { entryRole, otherSite, review, roleKey } from './review-masters.mjs';
+import { entryRole, review, roleKey } from './review-masters.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 import { siteDocumentSeries } from './site-document-number.mjs';
+import { transferTarget } from './transfer-destination.mjs';
 
 const unpack = row => row && JSON.parse(row.document);
 const finalStates = ['Posted','Superseded'];
@@ -229,9 +230,14 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           if (siteFor) doc.result.receiptDay=receiptDay;
           doc.status=difference>limit?'Receipt review':'Posted';
         } else doc.status='Posted';
-        if (doc.status==='Posted') book({...doc,day:receiptDay},[{site:actor.site,storage:doc.data.to,litres:doc.result.received}]);
+        if (doc.status==='Posted') {
+          const target = siteFor && transferTarget(siteConfig(doc.type,doc.site),doc.data.to,doc.result.destination);
+          check(!siteFor || target?.site===actor.site,'The receiving storage is unavailable.');
+          book({...doc,day:receiptDay},[{site:actor.site,storage:target?.code??doc.data.to,litres:doc.result.received}]);
+        }
       } else throw Error('Choose an available action.');
       if(channel==='Local Telegram') log+=' · Local Telegram / OTP';
+      if(channel==='Telegram / SMS OTP') log+=' · '+channel;
       doc.lastAction={role,channel,device:String(body.device??'Local workspace').slice(0,220)};
       if (body.position && Number.isFinite(body.position.latitude) && Math.abs(body.position.latitude)<=90
         && Number.isFinite(body.position.longitude) && Math.abs(body.position.longitude)<=180) {

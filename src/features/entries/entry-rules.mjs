@@ -34,10 +34,11 @@ export function validateFields(type,input) {
       requireValue(field.key === 'temperature' || Number(value) >= 0,field.label + ' cannot be negative.');
       data[field.key] = Number(value);
     } else {
-      if (field.options) requireValue(field.options.includes(value),'Choose a listed ' + field.label + '.');
+      const selected = field.oldOptions?.get(value) ?? value;
+      if (field.options) requireValue(field.options.includes(selected),'Choose a listed ' + field.label + '.');
       if (field.type === 'date') requireValue(validDate(value),'Choose a valid date for ' + field.label + '.');
       if (field.type === 'month') requireValue(/^\d{4}-(0[1-9]|1[0-2])$/.test(value),'Choose a valid month.');
-      data[field.key] = value;
+      data[field.key] = selected;
     }
   }
   return data;

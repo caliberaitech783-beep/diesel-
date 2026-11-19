@@ -7,6 +7,7 @@ import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { filterRegister, registerFilters, traceEntries } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
+import { transferLabel } from './transfer-destination.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -75,7 +76,7 @@ export function registerPage(actor,rows,type,query={}) {
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {
-  const value=d.data[f.key]??'',opts=f.type==='link'?sourceChoices(f,d,rows,actor)
+  const raw=d.data[f.key]??'',value=f.oldOptions?.get(raw)??raw,opts=f.type==='link'?sourceChoices(f,d,rows,actor)
     .map(r=>[r.id,r.number+' · '+byId[r.type].name]):f.options?.map(v=>[v,v]);
   const label=esc(f.label);
   if (opts) return `<label>${label}<select name="${f.key}">${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>{
@@ -100,7 +101,7 @@ function editableFields(meta, doc, rows, actor) {
     <div class="fields">${index===0 ? dateControl : ''}${render(fields)}</div></fieldset>`).join('')
     + '<div class="actions" id="phone-step-navigation" hidden><button type="button" data-step-back>Back</button><span aria-live="polite" data-step-count></span><button type="button" data-step-next>Next</button></div>';
 }
-export function detailPage(actor,d,rows,history,picture,meta=byId[d.type]) {
+export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remoteApproval=false) {
   const role=entryRole(actor);
   const editable=['Draft','Returned'].includes(d.status)&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=d.result.approvals?.[d.stage];
@@ -120,15 +121,20 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type]) {
   }
   const submitButton=name=>`<button class="primary" type="submit" value="${name}">${name}</button>`;
   const displayValue=v=> typeof v==='string' && rows.some(r=>r.id===v)?`<a href="/entries/record/${v}">${esc(rows.find(r=>r.id===v).number)}</a>`:display(v);
-  const inputRows=meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>`<dt>${esc(f.label)}</dt><dd>${displayValue(d.data[f.key])}</dd>`).join('');
-  const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN'].includes(k)).map(([k,v])=>
+  const inputRows=meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>{
+    const value = d.data[f.key];
+    const label = actor.siteEntryTypes&&d.type==='E12'&&f.key==='to'
+      ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination) : value;
+    return `<dt>${esc(f.label)}</dt><dd>${displayValue(label)}</dd>`;
+  }).join('');
+  const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN','telegramAllowed'].includes(k)).map(([k,v])=>
     `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(v)}</dd>`).join('');
   return page(meta.name,actor,d.type,back,`<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
     <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}</span></div>
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture?`<section><h2>Site stock</h2><dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl></section>`:''}
     ${editable?`<section><h2>Entry details</h2>${editableFields(meta,d,rows,actor)}
-    ${d.type==='E12'?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
+    ${d.type==='E12'&&!actor.siteEntryTypes?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions"><button type="button" id="record-position">Capture GPS</button></div>':''}
     ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:inputRows?`<section><h2>Entry details</h2><dl>${inputRows}</dl></section>`:''}
     ${resultRows?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
@@ -139,6 +145,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type]) {
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
     <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
+    ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time></li>`).join('')}</ol></section>`:''}`);
+    ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time></li>`).join('')}</ol></section>`:''}`, undefined, remoteApproval);
 }

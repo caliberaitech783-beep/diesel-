@@ -93,5 +93,10 @@ export function createOpeningStockStore(db, mastersFor) {
         openingRateApprovedBy:actor.id,openingRateApprovedAt:new Date().toISOString() };
     });
   }
-  return { get,submit,approve,submitRate,approveRate };
+  function approved() {
+    return db.prepare(`SELECT site,snapshot FROM diesel_opening_stock
+      WHERE json_extract(snapshot,'$.status')='approved' ORDER BY site`).all()
+      .map(row => ({ ...JSON.parse(row.snapshot), site: row.site }));
+  }
+  return { get,approved,submit,approve,submitRate,approveRate };
 }
