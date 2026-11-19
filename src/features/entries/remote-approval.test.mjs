@@ -93,7 +93,9 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
     assert.equal(result.status,303);
     return result.headers.get('set-cookie').split(';')[0];
   };
-  assert.equal((await request('/entries','u')).status,403);
+  const unassigned = await request('/entries','u');
+  assert.equal(unassigned.status,200);
+  assert.match(await unassigned.text(),/Trial workspace · sample data · not live records/);
   const reviewerSite = await assign('r','Project Manager');
   assert.match(reviewerSite,/Majri%20North/);
   const opening = '/entries/opening-stock';

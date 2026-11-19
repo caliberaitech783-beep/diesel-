@@ -111,8 +111,13 @@ test('hosted site stock requires trusted site assignments and approved masters',
   assert.equal((await (await request('/healthz')).json()).openingStock,'ready');
   assert.equal((await (await request('/healthz')).json()).entrySetup,'ready');
   assert.equal((await request('/entries/opening-stock')).status,303);
-  assert.equal((await request('/entries/opening-stock','l')).status,403);
-  assert.equal((await request('/entries/opening-stock','u')).status,403);
+  for (const who of ['l','u']) {
+    const sandbox = await (await request('/entries/opening-stock',who)).text();
+    assert.match(sandbox,/Trial workspace · sample data · not live records/);
+    assert.match(sandbox,/class="trial-notice".*no Diesel Entry role at an approved site/s);
+    assert.doesNotMatch(sandbox,/Approve an Item Master record|name="litres"/);
+    assert.notEqual((await request('/entries/opening-stock',who,new URLSearchParams({item:'anything'}))).status,303);
+  }
   assert.match(await(await request('/entries/opening-stock','s')).text(),/Approve an Item Master record/);
   assert.doesNotMatch(await(await request('/entries','s')).text(),/sample data|Sample Jayant indent/);
   assert.equal((await request('/entries/new/E11','b')).headers.get('location'),'/entries/opening-stock');

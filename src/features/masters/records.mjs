@@ -231,7 +231,10 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     const attributes = cleanAttributes(slug,payload.attributes,current?.attributes,
       (key,raw)=>fileValue(recordId,{key,label:'dated attribute'},raw));
     const { code, name } = recordIdentity(slug, values);
-    if (slug === 'location-master' && current && current.code !== code) throw new MasterRecordError('The saved location code is used by storage records and cannot change.');
+    if (slug === 'location-master' && current && current.code !== code
+      && db.prepare("SELECT 1 FROM master_records WHERE master='storage-location-master' AND site_key=? LIMIT 1").get(siteKey)) {
+      throw new MasterRecordError('The saved location code is used by storage records and cannot change.');
+    }
     if (slug === 'storage-location-master' && !privateSubmission) requireLocation(site, values.Location);
     if (!privateSubmission) {
       const problem = referenceProblem(slug, readActiveMasters(db, site, referencedMasters(slug)), values, current?.values);
