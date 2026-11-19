@@ -20,6 +20,12 @@ export function createPulseClient({ origin, secret, fetcher }) {
       url.searchParams.set('code_challenge', challengeFor(verifier));
       return url.toString();
     },
+    // The Site, Region, Equipment, Employee and Driver masters, for a person signed in to Pulse now.
+    async masters(grant) {
+      const result = await this.request('masters', { grant });
+      if (!result?.masters) throw new Error('Pulse masters unavailable.');
+      return result;
+    },
     async request(operation, payload) {
       const response = await fetcher(new URL(`/api/diesel-sso/${operation}`, origin), {
         method: 'POST',

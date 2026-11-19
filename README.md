@@ -12,6 +12,8 @@ Expand **Master Data** in the sidebar and open a master to see its saved records
 
 CMLL, Account and Location masters support multiple **Dated attributes**, each with its own optional attachment. Active approved attributes appear in the expiry list starting 30 days before their end date. Import and export carry the attribute values and dates. Reattach supporting files when importing records.
 
+**Site**, **Region**, **Equipment**, **Employee** and **Driver Master** lead the Master Data list and come from Pulse. They are read-only here: change them in Pulse. Diesel keeps the last fetched copy, fetches again when the copy is over 15 minutes old, and **Refresh from Pulse** fetches at once. A login listed in `DIESEL_ALLOWED_PULSE_LOGINS` sees every site; a site Master Data role sees that site's equipment, employees and drivers. Pulse serves them from `/api/diesel-sso/masters` to Diesel's server for a signed-in person, and sends no logins, dates of birth, UAN or Aadhaar. The feature is under `src/features/pulse-masters/`.
+
 ## Run locally
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.
