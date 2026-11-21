@@ -57,12 +57,12 @@ test('approved master records change entry approval steps and limits for their s
   assert.equal(old.result.approvals.length,2);
   master.changeStatus(rule.master,rule.id,rule.revision,'approve',checker);
   master.changeStatus(tolerance.master,tolerance.id,tolerance.revision,'approve',checker);
-  const newRule = await submit('E1',{litres:1001,requiredBy:day},'Site In-charge');
+  const newRule = await submit('E1',{litres:1001,requiredBy:day,reason:'Operational demand'},'Site In-charge');
   assert.deepEqual(newRule.result.approvals,['Project Manager','Head – Procurement','Director / CMD']);
   assert.equal(newRule.result.telegramAllowed,false);
   const other = await submit('E1',{litres:1001,requiredBy:day},'Site In-charge','Sasti');
   assert.equal(other.result.approvals.length,2);
-  let indent = await submit('E1',{litres:1000,requiredBy:day},'Site In-charge');
+  let indent = await submit('E1',{litres:1000,requiredBy:day,reason:'Operational demand'},'Site In-charge');
   for (const role of indent.result.approvals) indent = entries.write(indent.id,{ id:'Jayant-'+roleKey(role),site:'Jayant',profile:roleKey(role) },
     { action:'Approve',rev:indent.rev });
   const order = await submit('E2',{ indent:indent.id, type:'Bulk', supplier:review.supplier, depot:review.depot,

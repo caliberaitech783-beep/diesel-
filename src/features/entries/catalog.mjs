@@ -22,7 +22,7 @@ export const entries = [
   ['E2','Purchase order','Buy','Procurement Executive',[link('indent','Approved indent','E1'),pick('type','PO type',['Bulk','Retail']),pick('supplier','Supplier',[review.supplier,review.pump]),pick('depot','Depot',[review.depot]),pick('basis','Delivery basis',['Delivered','Ex-depot']),number('kl','Quantity (KL)'),pick('transporter','Transporter',[review.transporter],true),number('tolerance','Lower transit tolerance (%)',true),pick('terms','Payment terms',['Advance','Credit'])]],
   ['E3','Payment advice and UTR','Buy','Accounts Executive',[po,number('amount','Amount to pay (₹)')]],
   ['E5','Gate entry','Receive','Site Store',[po,pick('scenario','Receipt scenario',['UG tank','Direct to bowsers']),pick('transporter','Transporter',[review.transporter]),text('truck','Truck registration'),text('driver','Driver name'),text('mobile','Driver mobile'),date('fitness','Fitness valid until'),date('licence','Explosive licence valid until'),text('invoice','Supplier invoice number'),date('invoiceDate','Invoice date'),number('litres','Invoice quantity (L)'),text('eway','E-way bill number'),text('seals','Compartment seal numbers (comma-separated)'),pick('intact','Seals intact',['Yes','No']),photo('sealPhotos','Compartment seal photos'),photo('billPhoto','Bill photo')]],
-  ['E6','Inspection','Receive','Site Store',[gate,number('density','Observed density (kg/m³)'),number('temperature','Temperature (°C)'),pick('instrument','Measuring instrument',[review.instrument]),{...tank,optional:true},{...before,optional:true},{...after,optional:true},pick('decision','Decision',['Accept','Accept with shortage','Reject']),reason,photo('evidence','Inspection note and dip photos')]],
+  ['E6','Inspection','Receive','Site Store',[gate,number('density','Observed density (kg/m³)'),number('temperature','Temperature (°C)'),pick('instrument','Measuring instrument',[review.instrument]),{...tank,optional:true},{...before,optional:true},{...after,optional:true},pick('decision','Decision',['Accept','Accept with shortage','Accept part, reject part','Reject']),number('rejected','Rejected litres sent back with the tanker',true),reason,photo('evidence','Inspection note and dip photos')]],
   ['E7','Goods receipt note','Receive',null,[]],
   ['E8','Supplier bill match','Money','Accounts Executive',[grn,text('bill','Supplier bill number'),date('billDate','Bill date'),number('litres','Bill quantity (L)'),number('rate','Bill rate (₹/KL)'),number('vat','VAT (%)'),number('discount','Invoice discount (₹/KL)',true)]],
   ['E9','Debit note and freight bill','Money','Accounts Executive',[grn,text('bill','Freight bill number',true),{...date('billDate','Freight bill date'),optional:true}]],
@@ -38,3 +38,18 @@ export const entries = [
   ['E17','Month-end close','Control','Head – Accounts',[{key:'month',label:'Month to close',type:'month'},remarks]],
 ].map(([id,name,group,maker,fields])=>({id,name,group,maker,fields}));
 export const byId = Object.fromEntries(entries.map(entry=>[entry.id,entry]));
+
+// A correction may change any typed value or the reason code on an entry its maker posted.
+// Paid payment advices, generated GRNs, month closes and corrections themselves are not corrected this way.
+export const correctionTypes = entries.filter(entry=>entry.maker && !['E3','E16','E17'].includes(entry.id)).map(entry=>entry.id);
+export const correctableFields = type => (byId[type]?.fields ?? [])
+  .filter(field=>['number','text','date'].includes(field.type) || field.key==='reason');
+// Values that change litres or rupees also need Head – Accounts.
+export const moneyField = key => !['reading','temperature','density','requiredBy','billDate','slipDate','fromDate','toDate','remarks','reason','bill','slip','invoice','seals','eway'].includes(key);
+{
+  const labels = new Map();
+  for (const type of correctionTypes) for (const field of correctableFields(type)) if (!labels.has(field.key)) labels.set(field.key, field.label);
+  const field = byId.E16.fields.find(item=>item.key==='field');
+  field.options = [...labels.keys()];
+  field.optionLabels = labels;
+}

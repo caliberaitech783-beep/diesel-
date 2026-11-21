@@ -77,7 +77,8 @@ export const stockEntries = {
     const exception=(last && (repeatFill || meterJump || aboveStandard)) || standardDetails.aboveStandard;
     check(!exception || d.reason,'Select a reason for a repeat fill or meter override.');
     const approvals=exception?['Site In-charge']:[];
-    if (c.doc.vehicleChecksVersion && repeatFill && issues.some(issue=>issue.data.vehicle===d.vehicle&&issue.result.repeatFill
+    const overridden=issue=>issue.result.repeatFill||issue.result.meterJump||issue.result.aboveStandard;
+    if (c.doc.vehicleChecksVersion && exception && issues.some(issue=>issue.data.vehicle===d.vehicle&&overridden(issue)
       && issue.day>=dayBefore(c.doc.day,6))) approvals.push('Project Manager');
     return { litres,efficiency,owner:vehicle.owner,chargedTo:vehicle.costCentre,approvals,moves:[{storage:d.bowser,litres:-litres}],
       ...(c.doc.vehicleChecksVersion ? {...standardDetails,repeatFill,meterJump,aboveStandard} : {}) };

@@ -2,6 +2,7 @@ import { review, ratePerKL } from './review-masters.mjs';
 import { money, round, requireValue as check,dayBefore } from './entry-rules.mjs';
 import { accountDeduction } from './purchasing.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
+import { byId, correctableFields, correctionTypes, moneyField } from './catalog.mjs';
 
 const financialYear = day => Number(day.slice(0,4))-Number(day.slice(5,7)<'04');
 
@@ -84,12 +85,18 @@ export const accountsAndClose = {
   E16(d,c) {
     const target=c.records.find(r=>r.id===d.target && r.status==='Posted' && r.maker===c.doc.maker);
     check(target,'Only the original maker can request a correction to a posted entry.');
-    const allowed={E1:['remarks','litres'],E14:['reading','rate','litres'],E11:['reading'],E8:['discount']};
-    check(allowed[target.type]?.includes(d.field),'Choose a correctable field on the original entry.');
+    check(correctionTypes.includes(target.type) && correctableFields(target.type).some(field=>field.key===d.field),
+      'Choose a field that the original '+byId[target.type].name.toLowerCase()+' has.');
     check(!c.all.some(r=>r.site===target.site && r.type==='E17' && r.status==='Posted' && r.data.month===target.day.slice(0,7)),'The original month is locked.');
     check(!c.reserved('E16').some(r=>r.data.target===target.id),'A correction for this version already exists.');
     check(String(target.data[d.field]??'')!==d.value,'Enter a different value.');
-    return { original:target.number,recorded:target.data[d.field]??'',corrected:d.value,approvals:['Site In-charge',...(['rate','litres','discount'].includes(d.field)?['Head – Accounts']:[])] };
+    // Site entries go to the Site In-charge. Head Office entries keep their own approvers,
+    // so a purchase order or bill is never corrected with less approval than it had.
+    const headOffice=['Procurement Executive','Accounts Executive'].includes(byId[target.type].maker);
+    const approvals=headOffice && target.result.approvals?.length ? [...target.result.approvals] : ['Site In-charge'];
+    if (moneyField(d.field) && !approvals.includes('Head – Accounts')) approvals.push('Head – Accounts');
+    return { original:target.number,field:byId[target.type].fields.find(field=>field.key===d.field).label,
+      recorded:target.data[d.field]??'',corrected:d.value,approvals };
   },
   E17(d,c) {
     const previous=dayBefore(c.doc.day.slice(0,7)+'-01').slice(0,7);
