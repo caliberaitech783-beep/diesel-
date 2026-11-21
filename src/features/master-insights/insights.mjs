@@ -102,13 +102,20 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
 // Equipment counted by site and equipment category, with each site's drivers, shifts and storage alongside.
 // Sites come from the Site Master first; a location equipment uses that the Site Master lacks still gets a row.
 export function equipmentBySite({ sites = [], equipment = [], drivers = [], shifts = [], storage = [] }, maximumCategories = 12) {
-  const label = row => text(row.category) || 'Uncategorised';
+  // LMVs and DG sets are counted under their own headings, whatever category the ERP files them in.
+  const dgWord = /(^|[^a-z])(dg|d\.g\.?|genset|gen set|generator)([^a-z]|$)/i;
+  const label = row => [row.group, row.category].some(value => lower(value) === 'lmv') ? 'LMV'
+    : [row.group, row.category, row.itemName, row.equipmentName].some(value => dgWord.test(text(value))) ? 'DG set'
+    : text(row.category) || 'Uncategorised';
   const totals = new Map();
   const noSite = row => { const key = siteKey(row.currentLocation); return !key || ['NA', 'NIL', 'NONE', 'NULL'].includes(key); };
   const placed = equipment.filter(row => !noSite(row));
   for (const row of placed) totals.set(label(row), (totals.get(label(row)) ?? 0) + 1);
   const ranked = [...totals].sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0])).map(([name]) => name);
-  const categories = ranked.length > maximumCategories ? [...ranked.slice(0, maximumCategories - 1), 'Other'] : ranked;
+  // LMV and DG set keep their own column even when they are small.
+  const kept = ranked.length > maximumCategories
+    ? [...new Set([...ranked.slice(0, maximumCategories - 1), ...ranked.filter(name => ['LMV', 'DG set'].includes(name))])] : ranked;
+  const categories = kept.length < ranked.length ? [...ranked.filter(name => kept.includes(name)), 'Other'] : ranked;
   const column = row => categories.includes(label(row)) ? label(row) : 'Other';
   const rows = new Map(sites.map(site => [siteKey(site.name), { site: site.name, listed: true, counts: {}, total: 0 }]));
   // A blank or placeholder location ("-", "NA") is not a site: it gets no row and is reported as unplaced.
