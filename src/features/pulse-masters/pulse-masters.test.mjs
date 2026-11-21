@@ -123,7 +123,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.equal(data.records.length, 1);
   assert.equal(new Map(data.records[0].fields).get('Employee name'), 'Ravi Kumar');
   assert.doesNotMatch(JSON.stringify(data), /Anita Rao|passwordHash/);
-  assert.equal((await req('/pulse-masters/records?master=employee', 'x', { headers: { Accept: 'application/json' } })).status, 401);
+  assert.equal((await req('/pulse-masters/records?master=employee', undefined, { headers: { Accept: 'application/json' } })).status, 401);
 
   const csv = await req('/pulse-masters/download?master=driver', 'a');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
