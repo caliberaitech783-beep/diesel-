@@ -156,7 +156,8 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     const preview = await (await restarted('/master-data?master=account-master', maker)).text();
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
     assert.ok(columnNames(preview).length > 0);
-    assert.match(preview, /No saved records for this master/);
+    assert.match(preview, /INVENTORY DIESEL/, 'Account Master lists the company ERP records');
+    assert.match(await (await restarted('/master-data?master=gst-master', maker)).text(), /No saved records for this master/);
     for (const slug of recordMasters.filter(slug => slug !== 'item-master')) {
       const definition = masterDefinition(slug);
       const masterForm = await (await restarted('/?master=' + slug, maker)).text();
