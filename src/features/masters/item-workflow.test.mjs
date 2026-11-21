@@ -75,7 +75,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.equal((await (await request('/healthz')).json()).itemMaster, 'ready');
     const page = await request('/?master=item-master', maker);
     const form = await page.text();
-    assert.match(form, /<div class="form-footer"><button type="submit" data-save-for-review>Save for review<\/button>/);
+    assert.match(form, /<button type="submit" data-save-for-review>Save for review<\/button>/);
     assert.doesNotMatch(form, /Back to records/);
     const mastersPath = form.match(/href="([^"]+)" aria-label="Back to masters"[^>]*>\s*<svg\b/)?.[1];
     assert.equal(mastersPath, '/');
@@ -230,7 +230,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   const itemPage = await fetch(origin + itemLink.replaceAll('&amp;', '&'));
   assert.equal(itemPage.status, 200);
   const form = await itemPage.text();
-  assert.match(form, /<div class="form-footer"><button type="submit" data-save-for-review>Save for review<\/button>/);
+  assert.match(form, /<button type="submit" data-save-for-review>Save for review<\/button>/);
   const directLink = await fetch(origin + '/?master=item-master');
   assert.equal(directLink.url, itemPage.url);
 

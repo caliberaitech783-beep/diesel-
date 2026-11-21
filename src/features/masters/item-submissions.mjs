@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { masterDefinition, MasterRecordError, recordMasters } from './records-fields.mjs';
 import { createMasterStore } from './records.mjs';
+import { itemSubmissionSite } from './item-site-options.mjs';
 
 const legacyMaster = 'item-master';
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -81,7 +82,7 @@ export async function openItemSubmissions(directory) {
     return records.sort((a, b) => a.code.localeCompare(b.code)).slice(offset, limit === undefined ? undefined : offset + limit);
   }
 
-  async function create(actor, slug, values) {
+  async function create(actor, slug, values, selectedSite) {
     const owner = ownerDirectory(actor, slug);
     const fields = masterDefinition(slug).fields;
     const db = new DatabaseSync(':memory:', { enableForeignKeyConstraints: true });
@@ -89,7 +90,7 @@ export async function openItemSubmissions(directory) {
     const files = new Map();
     try {
       const store = createMasterStore(db, [slug]);
-      const saved = store.createPrivateSubmission(slug, values, actor);
+      const saved = store.createPrivateSubmission(slug, values, actor, slug === legacyMaster ? itemSubmissionSite(selectedSite) : undefined);
       for (const field of fields) {
         if (field.type !== 'file' || !saved.values[field.key]) continue;
         const { id, bytes } = store.attachment(slug, saved.id, saved.values[field.key].id);
@@ -186,7 +187,7 @@ export async function openItemSubmissions(directory) {
         const db = new DatabaseSync(':memory:', {enableForeignKeyConstraints:true});
         try {
           const store = createMasterStore(db,[slug]);
-          record = store.createPrivateSubmission(slug,values,actor);
+          record = store.createPrivateSubmission(slug,values,actor,slug === legacyMaster ? itemSubmissionSite(payload.site,current.site) : undefined);
           await uniqueCode(actor,slug,record.code,id);
           for (const field of masterDefinition(slug).fields) {
             if (field.type !== 'file' || !record.values[field.key]) continue;
@@ -218,7 +219,7 @@ export async function openItemSubmissions(directory) {
   }
 
   return { get, list, attachment,
-    create: (actor,slug,values) => locked(actor,slug,() => create(actor,slug,values)),
+    create: (actor,slug,values,site) => locked(actor,slug,() => create(actor,slug,values,site)),
     update: (actor,slug,id,payload) => change(actor,slug,id,payload),
     delete: (actor,slug,id,payload) => change(actor,slug,id,payload,true),
     changeCompany: (actor,slug,source,payload,deleting) => change(actor,slug,source.id,payload,deleting,source),

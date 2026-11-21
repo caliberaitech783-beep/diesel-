@@ -1,0 +1,86 @@
+/* HR-inspired master editor, shared by all master record forms. */
+.master-editor { width: min(100%, 1420px); margin-inline: auto; }
+.master-editor > .masters-back { display: none; }
+.editor-breadcrumb { display: flex; gap: 12px; align-items: center; margin: 14px 0 26px; color: var(--muted); font-size: 13px; }
+.editor-breadcrumb a { text-decoration: none; }
+.editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.editor-eyebrow { margin: 0 0 10px; color: var(--brand-accent); font-size: 11px; font-weight: 750; letter-spacing: 1.6px; }
+.layout .editor-heading h1 { font-size: clamp(25px, 2.4vw, 32px); letter-spacing: -.8px; margin: 0 0 10px; }
+.editor-description { color: var(--muted); font-size: 14px; margin: 0; line-height: 1.5; }
+.approval-badge { padding: 7px 12px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 650; white-space: nowrap; color: var(--link); background: var(--folder-bg); }
+.status-pending, .status-pending_deactivation { color: #915600; background: #fff3d9; border-color: #eddaa8; }
+.status-approved { color: #19654b; background: #e9f6ef; border-color: #b5dcc6; }
+.status-inactive { color: #9d3546; background: #fff0f1; border-color: #e9c2c9; }
+.editor-context { display: flex; align-items: center; flex-wrap: wrap; gap: 22px 40px; border: 1px solid var(--border); background: var(--surface); border-radius: 11px; padding: 17px 22px; margin-bottom: 28px; }
+.editor-context > span { display: grid; gap: 6px; min-width: 120px; }
+.editor-context small { font-size: 11px; color: var(--muted); }
+.editor-context strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; align-items: start; }
+.editor-layout:has(.form-outline) { grid-template-columns: 220px minmax(0, 1fr); }
+.editor-body { min-width: 0; }
+.form-outline { position: sticky; top: 24px; max-height: calc(100dvh - 48px); overflow-y: auto; }
+.outline-heading { margin: 6px 12px 14px; font-size: 10px; font-weight: 750; letter-spacing: 1.5px; color: var(--muted); }
+.form-outline nav { padding: 0; overflow: visible; }
+.form-outline nav a { gap: 10px; justify-content: flex-start; padding: 12px; font-size: 13px; line-height: 1.4; border-radius: 7px; border-left: 2px solid transparent; }
+.form-outline nav a span { color: var(--muted); font-size: 11px; width: 19px; flex: none; }
+.form-outline nav a[aria-current="location"] { background: var(--folder-bg); border-left-color: var(--brand-accent); color: var(--folder-ink); font-weight: 600; }
+.outline-note { margin: 22px 12px 0; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.65; color: var(--muted); }
+.outline-note strong { color: var(--ink); font-weight: 600; }
+.section-number { color: var(--brand-accent); font-size: 11px; margin-right: 12px; }
+.section-completion { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--muted); }
+.master-editor .field-group-heading { display: flex; align-items: center; font-size: 16px; }
+.master-editor .field-group { box-shadow: 0 2px 6px #17263b03; }
+.editor-footer { position: sticky; bottom: 0; z-index: 3; padding: 15px 18px; margin-top: 22px; border: 1px solid var(--border); border-radius: 11px 11px 0 0; background: var(--surface); box-shadow: 0 -6px 22px #17263b0a; }
+.editor-footer .save-state { display: flex; align-items: center; gap: 7px; margin-right: auto; font-size: 11px; color: var(--muted); }
+.save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-accent); }
+.editor-footer .secondary-button { background: var(--surface); color: var(--link); border: 1px solid var(--control-border); }
+.cancel-edit { font-size: 13px; padding: 8px; text-decoration: none; }
+.editor-footer output:not(:empty) { flex-basis: 100%; }
+.editor-footer output:empty { display: none; }
+.review-content { padding: 0 22px 22px; border-top: 1px solid var(--border); }
+.review-content > p { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.comparison-table { overflow-x: auto; }
+.comparison-table table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.comparison-table th, .comparison-table td { width: 33.33%; text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; white-space: pre-wrap; }
+.comparison-table thead { background: var(--folder-bg); color: var(--folder-ink); }
+.comparison-table tbody th { font-weight: 550; }
+.comparison-table tbody td:last-child { background: var(--folder-bg); }
+.lifecycle-action { display: flex; align-items: center; gap: 15px; padding: 5px 4px; font-size: 12px; color: var(--muted); }
+.lifecycle-action button { border: 0; background: transparent; color: var(--danger); padding: 12px; font: inherit; cursor: pointer; text-decoration: underline; }
+.record-history { padding: 22px; margin: 24px 0 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); scroll-margin-top: 24px; }
+.record-history h2 { margin: 0; font-size: 16px; }
+.revisions { padding-left: 20px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+.field-error { display: block; margin-top: 6px; font-size: 12px; color: var(--danger); line-height: 1.5; }
+.field-error[hidden], .draft-notice[hidden], .error-summary[hidden], .comparison-table[hidden] { display: none; }
+.error-summary { padding: 18px 22px; border: 1px solid var(--danger); border-radius: 10px; margin-bottom: 20px; background: var(--surface); color: var(--danger); scroll-margin-top: 24px; }
+.error-summary h2 { font-size: 16px; margin: 0 0 10px; }
+.error-summary ul { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8; }
+.draft-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; background: var(--folder-bg); }
+.draft-notice p { flex: 1 1 220px; font-size: 13px; line-height: 1.6; margin: 0; }
+.draft-notice button { padding: 7px 10px; background: var(--surface); color: var(--link); border: 1px solid var(--control-border); border-radius: 6px; cursor: pointer; }
+.file-preview { display: block; max-width: 100%; max-height: 220px; margin-top: 12px; border-radius: 6px; object-fit: contain; }
+.file-preview-link { display: inline-block; font-size: 12px; margin: 10px 0; }
+.preview-attachment { display: inline-block; margin: 10px 12px; padding: 7px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--surface); color: var(--link); cursor: pointer; }
+.form-prerequisite { padding: 16px 20px; margin: 0 0 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--folder-bg); font-size: 13px; line-height: 1.6; }
+.master-field:has([data-field-key="invoice-rate"]) { padding: 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--folder-bg); }
+.master-field [data-field-key="invoice-rate"] { font-size: 22px; font-weight: 650; height: 52px; }
+@media (max-width: 1050px) {
+  .editor-layout:has(.form-outline) { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .form-outline { position: static; max-height: none; overflow: visible; }
+  .outline-heading, .outline-note { display: none; }
+  .form-outline nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; }
+  .form-outline nav a { flex: none; white-space: nowrap; background: var(--surface); border: 1px solid var(--border); padding: 10px; margin: 0; }
+}
+@media (max-width: 600px) {
+  .editor-breadcrumb { margin: 12px 0 20px; gap: 8px; flex-wrap: wrap; }
+  .editor-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .editor-context { gap: 18px; padding: 16px; margin-bottom: 18px; }
+  .editor-context > span { min-width: 0; flex: 1 1 calc(50% - 18px); }
+  .editor-footer { gap: 8px; padding: 12px; }
+  .editor-footer .save-state { flex-basis: 100%; }
+  .editor-footer button { padding: 11px 12px; font-size: 12px; min-height: 44px; }
+  .cancel-edit { margin-right: auto; }
+  .review-content { padding-inline: 18px; }
+  .section-completion { font-size: 10px; }
+}
+

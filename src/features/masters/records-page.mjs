@@ -8,22 +8,23 @@ import { attributeMasters } from './master-attributes.mjs';
 import { attributeFields } from './attribute-page.mjs';
 import { recordDialogAssets, recordDialogHost, deleteConfirmation } from './record-dialog.mjs';
 import { masterDataSearch } from '../master-data/search.mjs';
+import { itemFormContent } from './item-form-page.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
 
-function recordField(field, value, index, base, editable) {
+function recordField(field, value, index, base, editable, enhanced = false, previous) {
   const id = 'field-' + index;
   const attributes = `id="${id}" name="${escape(field.key)}" ${!editable || field.readOnly ? 'disabled' : ''} ${field.required && !field.readOnly && !(field.type === 'file' && value?.id) ? 'required' : ''}`
     + (field.controlKey ? ` data-field-key="${escape(field.controlKey)}"` : '')
-    + (field.hint ? ` aria-describedby="${id}-hint"` : '');
+    + (enhanced ? ` aria-describedby="${id}-error${field.hint ? ' ' + id + '-hint' : ''}"` : field.hint ? ` aria-describedby="${id}-hint"` : '');
   let control;
   if (field.options) {
     control = `<select ${attributes}><option value="">Select…</option>${field.options.map(option =>
       `<option value="${escape(option)}"${value === option ? ' selected' : ''}>${escape(field.optionLabels?.get(option) ?? option)}</option>`).join('')}</select>`;
   } else if (field.type === 'file') {
-    const saved = value?.id ? `<a href="${base}/attachments/${encodeURIComponent(value.id)}">${escape(value.name)}</a>` : '';
+    const saved = value?.id ? `<a href="${base}/attachments/${encodeURIComponent(value.id)}">${enhanced ? 'Download ' : ''}${escape(value.name)}</a>` : '';
     control = `<input ${attributes} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif" data-file-id="${escape(value?.id)}">${saved}<small class="field-hint">PDF or image, up to 5 MiB.</small>`;
     if (value?.id && editable && !field.required) control += `<label><input type="checkbox" data-remove-for="${id}"> Remove attachment</label>`;
   } else if (field.type === 'textarea') {
@@ -34,10 +35,15 @@ function recordField(field, value, index, base, editable) {
     if (list) control += `<datalist id="${id}-options">${field.suggestions.map(option => `<option value="${escape(option)}"></option>`).join('')}</datalist>`;
   }
   const hint = field.hint ? `<small class="field-hint" id="${id}-hint">${escape(field.hint)}</small>` : '';
+  if (enhanced) {
+    const before = previous && typeof previous === 'object' ? previous.name : previous;
+    const wide = field.type === 'textarea' || /Specification|Address/.test(field.label);
+    return `<div class="master-field${wide ? ' field-wide' : ''}" data-label="${escape(field.label)}" data-compare-value="${escape(before)}"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}<small id="${id}-error" class="field-error" hidden></small></div>`;
+  }
   return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
-export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
+export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, comparison, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
   const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
   const home = prefix + '/records?master=' + master.slug;
@@ -46,6 +52,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
   const history = record && revisions.length ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
     `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}${dialog ? '&amp;dialog=1' : ''}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
   const editing = Boolean(record || creating);
+  const itemEditing = editing && master.slug === 'item-master';
   const showSidebar = !editing && !masterSelected;
   const editable = editingAllowed && !['inactive', 'pending_deactivation', 'pending_deletion', 'deleted'].includes(record?.status);
   const actorId = typeof actor === 'string' ? actor : actor.id;
@@ -67,16 +74,16 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     if (!submissionsOnly && isStorage && field.key === 'Location') {
       const labels = new Map(locations.map(location => [location.code, location.name + ' · ' + location.code]));
       if (value && !labels.has(value)) labels.set(value, value);
-      return recordField({ ...field, options: [...labels.keys()], optionLabels: labels }, value, index, endpoint, allowEdit);
+      return recordField({ ...field, options: [...labels.keys()], optionLabels: labels }, value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
     }
     const choices = !submissionsOnly && references?.get(field.key);
     if (choices) {
       const labels = new Map(choices);
       if (value && !labels.has(value)) labels.set(value, value + ' · not an approved record');
       const hint = labels.size ? field.hint : 'Approve the record this field refers to first.';
-      return recordField({ ...field, options: [...labels.keys()], optionLabels: labels, hint }, value, index, endpoint, allowEdit);
+      return recordField({ ...field, options: [...labels.keys()], optionLabels: labels, hint }, value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
     }
-    return recordField(field, value, index, endpoint, allowEdit);
+    return recordField(field, value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
   }
   const groups = editing ? master.sections.map(section => {
     const fields = master.fields.filter(field => field.section === section.name);
@@ -93,7 +100,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
   if (editingAllowed && record && !['pending_deletion','deleted'].includes(record.status)) actions.push('<button type="button" class="record-delete" data-delete-record>Delete record</button>');
   if (dialog) actions.push('<button type="button" data-dialog-cancel>Cancel</button>');
   const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
-  const content = editing ? `
+  let content = editing ? `
     ${dialog ? '' : submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     <div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
     ${record?.companyRecord ? '<p class="record-meta">Company ERP record · Changes are saved in Diesel.</p>' : ''}
@@ -120,10 +127,12 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
       `<tr><td><a data-record-dialog href="${escape(row.recordPath ?? home + '&id=' + row.id)}">${escape(row.code)}</a></td><td>${escape(row.name)}</td>${submissionsOnly ? '' : `<td>${escape(row.site || 'Company-wide')}</td>`}<td>${escape(row.status.replace('_',' '))}</td><td>${row.revision}</td><td><a class="record-edit-link" data-record-dialog href="${escape(row.recordPath ?? home + '&id=' + row.id)}">${editingAllowed && row.canEdit !== false && !['inactive','pending_deactivation','pending_deletion','deleted'].includes(row.status) ? 'Edit' : 'View'}</a></td></tr>`).join('')}</tbody></table>` : '<p>No records match this view.</p>'}</div>
     <div class="pager">${[...(offset > 0 ? [[Math.max(0, offset - limit), 'Previous']] : []), ...(rows.length === limit ? [[offset + limit, 'Next']] : [])]
       .map(([next, title]) => `<a href="${home}&amp;q=${encodeURIComponent(search)}&amp;status=${status}&amp;offset=${next}">${title}</a>`).join(' ')}</div></div>`;
+  if (itemEditing) content = itemFormContent({ master, actor, record, comparison, revisions, home, endpoint, mastersHome,
+    editable, editingAllowed, mayReview, creating, historical, submissionsOnly, prefix, dialog, actions, renderField, history });
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(master.name)} records · Diesel</title>
     <link rel="icon" href="/masters/assets/pulse.png">
     ${themeHead}${recordDialogAssets}
-    <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/masters/assets/master-form.css"><link rel="stylesheet" href="/masters/assets/records.css">
+    <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/masters/assets/${itemEditing ? 'item-form' : 'master-form'}.css"><link rel="stylesheet" href="/masters/assets/records.css">${itemEditing ? '<link rel="stylesheet" href="/masters/assets/item-records.css">' : ''}
     ${editing ? '' : '<link rel="stylesheet" href="/master-data/assets/master-data.css"><script type="module" src="/master-data/assets/live-records.js"></script>'}
     <script type="module" src="/masters/assets/records.js"></script>
     ${editing ? '<link rel="stylesheet" href="/masters/assets/item-file-menu.css"><script type="module" src="/masters/assets/item-file-menu.js"></script>' : ''}

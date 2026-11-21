@@ -70,10 +70,11 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
     if (historical && !record) throw new MasterRecordError('Record revision not found.',404);
     const limit = 50;
     const rows = record || creating ? [] : (await listWithCompany(actor,slug,search)).slice(offset,offset+limit);
-    res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'");
+    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'`);
     res.type('html').send(recordsPage({
       master, rows, actor, record, creating, search, status: '', offset, limit,
-      dialog: req.query.dialog === '1', historical, revisions: [...(current?.changes ?? [])].reverse(),
+      comparison: slug === 'item-master' ? (current?.changes ?? []).findLast(event => event.revision < record?.revision)?.snapshot ?? (record?.revision === 1 ? null : record) : undefined,
+      dialog: req.query.dialog === '1', historical, revisions: [...(current?.changes ?? [])].filter(event => !historical || event.revision <= record.revision).reverse(),
       editingAllowed: !historical && record?.status !== 'deleted' && current?.canEdit !== false, masterSelected: true, submissionsOnly: true,
     }));
   }));
@@ -105,7 +106,7 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
       if (error?.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON.' });
       if (error) return res.status(400).json({ error: 'The record could not be read.' });
       try {
-        res.status(201).json(await store.create(actor, slug, req.body?.values));
+        res.status(201).json(await store.create(actor, slug, req.body?.values, slug === 'item-master' ? req.body?.site : undefined));
       } catch (failure) {
         res.status(failure instanceof MasterRecordError ? failure.status : 503)
           .json({ error: failure instanceof MasterRecordError ? failure.message : 'The record could not be saved. Please try again.' });
