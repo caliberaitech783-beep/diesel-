@@ -59,7 +59,7 @@ Run `npm test` to check Item Master saves, local review, the form previews, and 
 Production runs on `caliber-diesel-783` in `caliber-diesel-rg`. It shares the Central India P2v3 plan with Pulse Fleet and the HR API. Hostinger handles the DNS for `pulse-lll.cmll.in`. Azure supplies the HTTPS certificate.
 
 1. Merge the tested change into `main`.
-2. In [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml), select **Test and deploy Diesel**, choose **Run workflow** on `main`, and wait for the `deploy` job. From an authenticated GitHub CLI session, run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
+2. The merge starts **Test and deploy Diesel** in [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml), which tests, builds and deploys that commit in about two minutes; wait for the `deploy` job. To redeploy without a new commit, choose **Run workflow** on `main`, or run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
 3. Check that the workflow verified the expected commit and `sharedMasters: ready` at the [production health endpoint](https://pulse-lll.cmll.in/healthz). With an assigned Master Maker and a separate Master Checker, verify save and approval at the same site.
 
 If the GitHub deployment workflow is unavailable, select **Sync** in the Diesel app’s Azure Deployment Center. Confirm the expected commit in the deployment log and check that the live site responds.
