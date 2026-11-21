@@ -70,3 +70,56 @@ document.querySelector('#read-invoice')?.addEventListener('click', async event =
     button.disabled = false;
   }
 });
+
+// Live camera scan: reads a QR or barcode tag from the rear camera and selects the matching record.
+const scanButton = document.querySelector('#scan-camera');
+const scanVideo = document.querySelector('#scan-video');
+if (scanButton && navigator.mediaDevices?.getUserMedia) {
+  scanButton.hidden = false;
+  let stream = null, timer = 0;
+  const canvas = document.createElement('canvas');
+  const detector = 'BarcodeDetector' in window
+    ? new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'data_matrix'] }) : null;
+  function stopScan(message) {
+    clearInterval(timer);
+    stream?.getTracks().forEach(track => track.stop());
+    stream = null;
+    scanVideo.hidden = true;
+    scanButton.textContent = 'Scan with camera';
+    if (message) captureStatus.textContent = message;
+  }
+  async function readFrame() {
+    if (scanVideo.readyState < 2) return null;
+    if (detector) return (await detector.detect(scanVideo))[0]?.rawValue ?? null;
+    if (!window.jsQR) return null;
+    canvas.width = scanVideo.videoWidth;
+    canvas.height = scanVideo.videoHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(scanVideo, 0, 0);
+    return window.jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)?.data ?? null;
+  }
+  scanButton.addEventListener('click', async () => {
+    if (stream) return stopScan('Camera scan stopped.');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      scanVideo.srcObject = stream;
+      scanVideo.hidden = false;
+      await scanVideo.play();
+      scanButton.textContent = 'Stop camera';
+      captureStatus.textContent = 'Point the camera at the tag.';
+      const started = Date.now();
+      timer = setInterval(async () => {
+        try {
+          const value = await readFrame();
+          if (value) {
+            stopScan();
+            document.querySelector('#tag-input').value = value;
+            document.querySelector('#use-tag').click();
+          } else if (Date.now() - started > 60000) stopScan('No tag found. Try again closer to the tag.');
+        } catch { stopScan('Could not read the camera. Use a QR photo instead.'); }
+      }, 300);
+    } catch {
+      stopScan('Camera unavailable. Allow camera access or take a QR photo instead.');
+    }
+  });
+}

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { approvalCard, entryChecks } from './approval-inbox.mjs';
 import { approvalsPage, detailPage, roleHomePage } from './entry-page.mjs';
@@ -57,4 +58,26 @@ test('entry forms mark required fields for the field colours', () => {
   assert.match(html, /name="density" type="number" data-required="true"/);
   assert.doesNotMatch(html, /name="rejected" type="number" data-required/);
   assert.match(html, /field-states\.js/);
+});
+
+test('field entries stamp GPS automatically and offer a camera scan for tags', () => {
+  const operator = { id: 'op', site: 'Jayant', profile: roleKey('Point operator'), businessDay: day };
+  const draft = { id: waiting.id, type: 'E10A', site: 'Jayant', maker: 'op', day, rev: 0, status: 'Draft', number: '', data: {}, result: {}, stage: 0 };
+  const html = detailPage(operator, draft, [], [], null, byId.E10A);
+  assert.match(html, /<output id="gps-status"[^>]*>GPS is stamped automatically/);
+  assert.match(html, /<button type="button" id="scan-camera" hidden>Scan with camera<\/button><video id="scan-video" playsinline muted hidden>/);
+  assert.match(html, /phone-capture\.js/);
+});
+
+test('entry page scripts share one global scope without clashing names', () => {
+  // Classic scripts on one page share top-level const/let names, so a repeat stops the later script loading.
+  const scripts = ['entry-form.js', 'entry-language.js', 'field-states.js', 'approval-inbox.js', 'remote-approval.js', 'phone-capture.js'];
+  const seen = new Map();
+  for (const name of scripts) {
+    const source = readFileSync(new URL('./assets/' + name, import.meta.url), 'utf8');
+    for (const [, id] of source.matchAll(/^(?:const|let|class|function|async function)\s+([A-Za-z_$][\w$]*)/gm)) {
+      assert.ok(!seen.has(id), id + ' is declared in both ' + seen.get(id) + ' and ' + name);
+      seen.set(id, name);
+    }
+  }
 });
