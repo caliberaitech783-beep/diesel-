@@ -139,6 +139,11 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   assert.match(sidebar, /data-counts="\/api\/master-insights\/counts"/);
   assert.match(sidebar, /<a href="\/master-insights">Overview and checks<\/a>/);
+  for (const name of ['Driver Master', 'Shift Master']) {
+    assert.match(sidebar, new RegExp('>' + name + ' · Pulse</a>'));
+    assert.doesNotMatch(sidebar, new RegExp('master-data\\?master=[a-z-]+">' + name + '</a>'), name + ' is listed once in Master Data');
+  }
+  assert.match(sidebar, /master-data\?master=location-master">Location Master<\/a>/);
 
   const byMake = await page('/pulse-masters?master=equipment&q=volvo&by=make&sort=door&dir=desc');
   assert.ok(byMake.indexOf('T-303') > 0 && byMake.indexOf('T-303') < byMake.indexOf('T-101'), 'Z → A by door');
