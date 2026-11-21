@@ -104,14 +104,18 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
 export function equipmentBySite({ sites = [], equipment = [], drivers = [], shifts = [], storage = [] }, maximumCategories = 12) {
   const label = row => text(row.category) || 'Uncategorised';
   const totals = new Map();
-  for (const row of equipment) totals.set(label(row), (totals.get(label(row)) ?? 0) + 1);
+  const noSite = row => { const key = siteKey(row.currentLocation); return !key || ['NA', 'NIL', 'NONE', 'NULL'].includes(key); };
+  const placed = equipment.filter(row => !noSite(row));
+  for (const row of placed) totals.set(label(row), (totals.get(label(row)) ?? 0) + 1);
   const ranked = [...totals].sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0])).map(([name]) => name);
   const categories = ranked.length > maximumCategories ? [...ranked.slice(0, maximumCategories - 1), 'Other'] : ranked;
   const column = row => categories.includes(label(row)) ? label(row) : 'Other';
   const rows = new Map(sites.map(site => [siteKey(site.name), { site: site.name, listed: true, counts: {}, total: 0 }]));
-  for (const row of equipment) {
-    const name = text(row.currentLocation) || 'No location';
-    const key = siteKey(name) || 'NOLOCATION';
+  // A blank or placeholder location ("-", "NA") is not a site: it gets no row and is reported as unplaced.
+  const unplaced = equipment.length - placed.length;
+  for (const row of placed) {
+    const name = text(row.currentLocation);
+    const key = siteKey(name);
     if (!rows.has(key)) rows.set(key, { site: name, listed: false, counts: {}, total: 0 });
     const entry = rows.get(key);
     entry.counts[column(row)] = (entry.counts[column(row)] ?? 0) + 1;
@@ -122,6 +126,6 @@ export function equipmentBySite({ sites = [], equipment = [], drivers = [], shif
   const list = [...rows.entries()].map(([key, row]) => ({ ...row, drivers: others[key]?.drivers ?? 0, shifts: others[key]?.shifts ?? 0, storage: others[key]?.storage ?? 0 }))
     .sort((first, second) => second.total - first.total || first.site.localeCompare(second.site));
   const sum = read => list.reduce((total, row) => total + read(row), 0);
-  return { categories, rows: list, total: { counts: Object.fromEntries(categories.map(name => [name, sum(row => row.counts[name] ?? 0)])),
-    total: equipment.length, drivers: sum(row => row.drivers), shifts: sum(row => row.shifts), storage: sum(row => row.storage) } };
+  return { categories, rows: list, unplaced, total: { counts: Object.fromEntries(categories.map(name => [name, sum(row => row.counts[name] ?? 0)])),
+    total: sum(row => row.total), drivers: sum(row => row.drivers), shifts: sum(row => row.shifts), storage: sum(row => row.storage) } };
 }
