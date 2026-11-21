@@ -115,3 +115,12 @@ test('a post-sale discount stays outstanding on the bill until its credit notes 
   assert.throws(()=>w.act(bill,'Record credit note','Accounts Executive',{creditNote:'CN-3',creditAmount:1,creditDate:day}),/No post-sale discount is outstanding/);
   assert.equal(entryAlerts(w.store.list('Jayant'),actor('Accounts Executive'),entryPolicy(),old).filter(alert=>alert.label==='Credit note pending').length,0);
 });
+
+test('GPS stamps keep the reading accuracy with the action', t => {
+  const {store}=setup(t);
+  const save=position=>store.write(randomUUID(),actor('Site In-charge'),{type:'E1',rev:0,day,action:'Save draft',
+    data:{litres:1000,requiredBy:day},position});
+  const id=save({latitude:23.1,longitude:82.5,accuracy:12.6}).id;
+  assert.deepEqual(store.history(id).at(-1).meta.position,{latitude:23.1,longitude:82.5,accuracy:13});
+  assert.deepEqual(store.history(save({latitude:23.1,longitude:82.5,accuracy:-4}).id).at(-1).meta.position,{latitude:23.1,longitude:82.5});
+});

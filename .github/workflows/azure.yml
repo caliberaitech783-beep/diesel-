@@ -22,18 +22,19 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           npm ci --omit=dev --prefix dist
           (cd dist && zip -qr ../diesel.zip .)
-      - if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: diesel
           path: diesel.zip
 
+  # Every merge to main deploys. Run workflow on main deploys the same way, for a redeploy.
   deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     concurrency: diesel-production
