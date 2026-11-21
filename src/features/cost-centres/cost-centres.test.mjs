@@ -57,7 +57,7 @@ test('saved Diesel cost centres replace source duplicates before search, sorting
   const repeatedRegistration = costCentreRecords({records:[...equipment,{...equipment[0],door:'V-102'}],syncedAt});
   assert.equal(mergeCostCentres([],repeatedRegistration).length,4,'distinct fleet assets stay visible despite a duplicate registration in Pulse');
   assert.ok(mergeCostCentres(saved,repeatedRegistration).some(row=>row.code==='V-102'));
-  assert.equal(mergeCostCentres([{...saved[0],status:'deleted'}],sources).length,2);
+  assert.equal(mergeCostCentres([{...saved[0],status:'deleted'}],sources).length,3,'deleting local settings does not hide the source asset');
   assert.throws(()=>mergeCostCentres([],sources,{offset:-1}));
 });
 

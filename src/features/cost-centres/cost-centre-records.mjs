@@ -47,7 +47,7 @@ export function mergeCostCentres(saved, sources, { search = '', status = '', off
     || !['', 'reference', 'approved', 'pending', 'returned', 'pending_deactivation', 'pending_deletion', 'inactive'].includes(status)) {
     throw new MasterRecordError('Choose a valid cost centre search or page.', 400);
   }
-  const existing = new Set(saved.filter(record => record.master === costCentreSlug).flatMap(identities));
+  const existing = new Set(saved.filter(record => record.master === costCentreSlug && record.status !== 'deleted').flatMap(identities));
   const registrations = new Map();
   for (const source of sources) for (const key of identities(source).filter(key => key.startsWith('registration:'))) {
     registrations.set(key, (registrations.get(key) ?? 0) + 1);
