@@ -140,7 +140,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     const columnNames = page => [...page.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(([, name]) => name);
     assert.deepEqual(columnNames(masterData), [...expectedColumns,'Actions']);
     assert.match(masterData, /<th scope="row"><a data-record-dialog href="[^"]+">TEST-001<\/a><\/th>/);
-    assert.match(masterData, /<td>00123456<\/td>/);
+    assert.match(masterData, /<td[^>]*>00123456<\/td>/);
     const filtered = await (await restarted(tableUrl + '&q=missing', maker)).text();
     assert.match(filtered, /No saved records for this master/);
     assert.doesNotMatch(filtered, /<th scope="row"><a[^>]*>TEST-001/);

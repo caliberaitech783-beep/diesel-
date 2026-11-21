@@ -4,6 +4,7 @@ import { pulseMasterPage } from './pulse-master-page.mjs';
 import { forSite, matching, readPulseMasters } from './pulse-master-rules.mjs';
 import { createPulseMasterStore } from './pulse-master-store.mjs';
 import { pulseMasterExport } from './pulse-master-export.mjs';
+import { filterAndSort } from '../master-insights/insights.mjs';
 
 const pageSize = 50;
 const staleAfter = 30_000;
@@ -69,9 +70,14 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
     if (!Number.isSafeInteger(offset) || offset < 0) return response.status(400).send('Choose a valid page.');
     const refreshed = await ensureFresh(master, access);
     const { records, syncedAt } = visible(master, access);
-    const found = matching(master, records, search);
+    const keys = master.columns.map(([key]) => key);
+    const by = keys.includes(request.query.by) ? request.query.by : '';
+    const sort = keys.includes(request.query.sort) ? request.query.sort : '';
+    const dir = request.query.dir === 'desc' ? 'desc' : 'asc';
+    const found = by || sort ? filterAndSort(records, keys, (record, key) => record[key], { search, by, sort, descending: dir === 'desc' })
+      : matching(master, records, search);
     response.type('html').send(pulseMasterPage({
-      actor: access.actor, master, rows: found.slice(offset, offset + pageSize), total: found.length, offset, pageSize, search,
+      actor: access.actor, master, rows: found.slice(offset, offset + pageSize), total: found.length, offset, pageSize, search, by, sort, dir,
       syncedAt, site: master.siteColumn ? access.sites?.[0] : undefined, masterDataPath: access.masterDataPath,
       notice: !refreshed ? unavailable : master.slug === 'driver' && withoutErpDrivers ? driversPartial : '',
     }));
@@ -90,4 +96,10 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
     response.attachment(master.name + ' (Pulse).csv').type('text/csv')
       .send('﻿' + stringify([master.columns.map(([, label]) => label), ...rows]));
   }));
+  // Other Master Data views read the same copy and keep it fresh the same way.
+  return { async read(slug, access) {
+    const master = pulseMaster(slug);
+    const fresh = await ensureFresh(master, access);
+    return { ...visible(master, access), fresh };
+  } };
 }

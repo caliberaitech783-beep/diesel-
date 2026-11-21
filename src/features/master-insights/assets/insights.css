@@ -1,0 +1,9 @@
+.insight-views { display: flex; flex-wrap: wrap; gap: 6px; margin-inline-start: auto; }
+.insight-views a { padding: 6px 10px; border: 1px solid var(--control-border); border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 14px; }
+.insight-views a[aria-current=page] { background: var(--folder-bg); color: var(--folder-ink); }
+.master-data-workspace h2 { margin: 18px 0 8px; font-size: 17px; }
+.insight-check { margin-block: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.insight-check summary { cursor: pointer; font-weight: 600; }
+.insight-check ul { margin: 6px 0 0; padding-inline-start: 20px; font-size: 14px; }
+.insight-check li { margin-block: 3px; overflow-wrap: anywhere; }
+.insight-clear { margin-inline-start: 6px; color: var(--muted); font-weight: 400; font-size: 13px; }

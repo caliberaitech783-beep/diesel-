@@ -18,6 +18,8 @@ CMLL, Account and Location masters support multiple **Dated attributes**, each w
 
 **Storage Location Master** and **Account Master** also list the company's records from the iBoss ERP (71 storage locations and 165 accounts, supplied on 21 November 2026). Every signed-in person sees the original approved records after the saved submissions. Edit or delete them through the record dialog to save a Diesel revision; complete missing required fields before saving. They live in `src/features/company-records/` and are not checked against the form's required fields, because the ERP sheets do not carry all of them; replace the two data files to update the lists.
 
+**Overview and checks** (first link under Master Data, `src/features/master-insights/`) gives three read-only views: record counts for every master with the Pulse fetch time and how many records still miss required fields; a site checklist showing the equipment, drivers, active shifts and storage locations each Pulse site has; and data checks for duplicates and records at sites the Site Master does not list. The sidebar shows the same counts beside each master. In any master list, the search bar can search one column and sort by any column, records with empty required fields carry an "Incomplete" mark, and on a phone each record is shown as a card.
+
 ## Run locally
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.

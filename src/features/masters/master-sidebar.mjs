@@ -3,7 +3,8 @@ import { pulseMasters as pulseMasterList, pulseMastersPath } from '../pulse-mast
 
 export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data', pulseMasters } = {}) {
   // Pulse owns these masters; they lead the Master Data list and open read-only.
-  const pulseLinks = pulseMasters ? pulseMasterList.map(({ name, slug, columns }) =>
+  const overviewLink = pulseMasters ? '<li data-fields="overview counts site checklist data checks duplicates"><a href="/master-insights">Overview and checks</a></li>\n' : '';
+  const pulseLinks = pulseMasters ? overviewLink + pulseMasterList.map(({ name, slug, columns }) =>
     `<li data-fields="pulse ${columns.map(([, label]) => label).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ')}"><a href="${pulseMastersPath}?master=${slug}">${name} · Pulse</a></li>`).join('\n') : '';
   const masterLinks = link => masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
@@ -25,7 +26,7 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
         ${masterData ? `<details class="master-group" name="diesel-sidebar"><summary><span class="folder-icon" aria-hidden="true"></span>Entry</summary><ul aria-label="Entry subtabs"><li data-fields="indent purchase fuel"><a href="/entries">Entry workspace</a></li>${localIndentDrafts ? '<li data-fields="item"><a href="/entries/indents">Diesel Indent drafts</a></li>' : ''}</ul></details>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>
-          <ul id="master-data-list" aria-label="Master Data subtabs">${pulseLinks}${masterLinks(slug => masterDataPath + '?master=' + slug)}</ul>
+          <ul id="master-data-list" aria-label="Master Data subtabs"${pulseMasters ? ' data-counts="/api/master-insights/counts"' : ''}>${pulseLinks}${masterLinks(slug => masterDataPath + '?master=' + slug)}</ul>
         </details>` : ''}
         <details class="master-group" name="diesel-sidebar"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>

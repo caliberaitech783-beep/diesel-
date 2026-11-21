@@ -2,6 +2,7 @@ import { masterDefinition, MasterRecordError } from '../masters/records-fields.m
 import { masters } from '../masters/catalog.mjs';
 import { masterDataPage } from './page.mjs';
 import { attributeColumn, attributeExport, attributeMasters } from '../masters/master-attributes.mjs';
+import { filterAndSort, missingFields } from '../master-insights/insights.mjs';
 
 const pageSize = 50;
 
@@ -32,13 +33,14 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
         const slugs = master ? (canSave ? [slug] : []) : enabledMasters;
         async function records(options) {
           if (!slugs.length) return [];
-          const saved = await listRecords(actor, slugs, { ...options, search });
+          const saved = await listRecords(actor, slugs, { search, ...options });
           return saved.map(record => {
             const definition = bySlug.get(record.master);
             return {
               id: record.id, slug: record.master, master: definition.name, code: record.code, name: record.name,
               status: record.status.replaceAll('_', ' '), site: record.site, revision: record.revision, updatedAt: record.updatedAt,
               canEdit: record.canEdit,
+              missing: missingFields(definition, record.values).length,
               fields: definition.fields.map(field => {
                 const value = record.values[field.key];
                 return [field.key, field.type === 'attributes' ? attributeExport(record.attributes)
@@ -58,8 +60,19 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
   app.get('/master-data', route(async (req, res, { actor, master, canSave, records, search }) => {
     const offset = Number(req.query.offset ?? 0);
     if (!Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Choose a valid page.', 400);
-    const rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
+    const keys = master ? master.fields.filter(field => !['file', 'attributes'].includes(field.type)).map(field => field.key) : [];
+    const by = keys.includes(req.query.by) ? req.query.by : '';
+    const sort = keys.includes(req.query.sort) ? req.query.sort : '';
+    const dir = req.query.dir === 'desc' ? 'desc' : 'asc';
+    let rows;
+    if (master && (by || sort)) {
+      // A column search or sort works over the whole master, then shows one page of it.
+      const all = await records({ offset: 0, ...(by ? { search: '' } : {}) });
+      rows = filterAndSort(all, keys, (row, key) => row.fields.find(([name]) => name === key)?.[1], { search: by ? search : '', by, sort, descending: dir === 'desc' })
+        .slice(offset, offset + pageSize + 1);
+    } else rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
     res.type('html').send(masterDataPage({
+      by, sort, dir,
       actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix, search,
       warnings:master ? attributeWarnings?.(actor,master.slug) : undefined,
     }));

@@ -23,8 +23,8 @@ function savedTable(master, rows, canSave, prefix, canEdit) {
       }
       const value = escape(values.get(key));
       return key === master.codeField
-        ? `<th scope="row"><a data-record-dialog href="${escape(href)}">${value}</a></th>`
-        : `<td>${value}</td>`;
+        ? `<th scope="row"><a data-record-dialog href="${escape(href)}">${value}</a>${row.missing ? ` <small class="record-incomplete" title="Required fields still empty">Incomplete · ${row.missing}</small>` : ''}</th>`
+        : `<td data-label="${escape(key)}">${value}</td>`;
     });
     return `<tr>${cells.join('')}<td><a class="record-edit-link" data-record-dialog href="${escape(href)}" aria-label="${action} ${escape(row.code)}">${action}</a>${row.status === 'pending deletion' ? '<small class="record-pending-delete">Deletion in review</small>' : ''}</td></tr>`;
   }).join('');
@@ -37,11 +37,13 @@ function savedTable(master, rows, canSave, prefix, canEdit) {
   </div>`;
 }
 
-export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '' }) {
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '', by = '', sort = '', dir = 'asc' }) {
   const heading = master?.name ?? 'Master Data';
   const home = prefix + '/master-data';
   const selection = master ? '?master=' + master.slug : '';
-  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}), offset: position });
+  const view = { ...(search ? { q: search } : {}), ...(by ? { by } : {}) };
+  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, ...view, ...(sort ? { sort, dir } : {}), offset: position });
+  const columns = master?.fields.filter(field => !['file', 'attributes'].includes(field.type)).map(field => [field.key, field.key]);
   const exportPath = master && prefix + '/api/master-data/records?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}) });
   const canImport = canSave && ((!local && !prefix) || actor.canEditMasters === true);
   const account = local ? `<a href="/workspace">${escape(actor.name ?? actor.id)}</a>`
@@ -72,7 +74,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
       <header class="workspace-heading${master ? ' master-data-heading' : ''}">
         ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
         <h1 id="workspace-title">${escape(heading)}</h1>
-        ${master ? masterDataSearch({ master, action: home, search }) : ''}
+        ${master ? masterDataSearch({ master, action: home, search, columns, by, sort, dir }) : ''}
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
           ${masterDataFileMenu('Download')}
           ${canImport ? masterDataFileMenu('Import', true) : ''}
@@ -105,7 +107,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         return `<li><a href="${escape(url)}">${escape(warning.code)}</a> · ${escape(warning.name)}
           ${warning.reference ? ' · '+escape(warning.reference) : ''} · ${escape(warning.due)} · ${escape(warning.status)}</li>`;
       }).join('')}</ul></details>` : ''}
-      ${master ? savedTable(master, rows, canSave, prefix, canImport) : '<p>Choose a master from the sidebar to view its saved records.</p>'}
+      ${master ? savedTable(master, rows, canSave, prefix, canImport) : `<p>Choose a master from the sidebar to view its saved records.${local || prefix ? '' : ' <a href="/master-insights">Overview and checks</a> shows record counts, the site checklist and data checks.'}</p>`}
       ${master && (offset || hasMore) ? `<nav class="master-data-pager" aria-label="Master Data pages">
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}
         ${hasMore ? `<a href="${escape(pageLink(offset + pageSize))}">Next</a>` : ''}

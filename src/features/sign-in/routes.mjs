@@ -12,6 +12,7 @@ import { registerEntrySetup } from '../entries/entry-setup.mjs';
 import { registerHostedMasters, masterWorkspacePath } from '../masters/hosted-masters.mjs';
 import { masterAssignments } from '../masters/master-access.mjs';
 import { registerPulseMasters } from '../pulse-masters/pulse-master-routes.mjs';
+import { registerMasterInsights } from '../master-insights/insights-routes.mjs';
 import { pulseProject } from '../masters/pulse-projects.mjs';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -102,12 +103,13 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
   });
 
+  let pulseMasterCopies, pulseMasterAccess;
   if (itemSubmissions || hostedMasters) {
     // Pulse's own masters, read-only. A listed login sees every site; a site role sees its site.
-    registerPulseMasters(app, {
+    pulseMasterCopies = registerPulseMasters(app, {
       db: sharedMasterDb ?? new DatabaseSync(':memory:'), publicOrigin: publicUrl.origin, startSignIn,
       fetchMasters: grant => pulse.masters(grant), now: pulseMasterClock,
-      async getAccess(request) {
+      getAccess: pulseMasterAccess = async request => {
         const profile = (await verifySession(request))?.profile;
         if (!canOpenMasters(profile)) return null;
         const actor = hostedMasters?.actor(profile, request);
@@ -120,11 +122,18 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (itemSubmissions) {
-    registerItemSubmissions(app, {
+    const submissions = registerItemSubmissions(app, {
       store: itemSubmissions, publicOrigin: publicUrl.origin,
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;
+      },
+    });
+    // Counts, the site checklist and data checks over the Pulse masters and a person's visible records.
+    registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords,
+      async getAccess(request) {
+        const access = await pulseMasterAccess(request);
+        return access && access.masterDataPath === '/master-data' ? access : null;
       },
     });
   }

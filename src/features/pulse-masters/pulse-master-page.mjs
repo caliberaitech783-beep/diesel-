@@ -9,10 +9,11 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
 
-export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, search, syncedAt, notice, site, masterDataPath }) {
-  const link = values => pulseMastersPath + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}), ...values });
-  const body = rows.map(row => `<tr>${master.columns.map(([key], index) =>
-    index ? `<td>${escape(row[key])}</td>` : `<th scope="row">${escape(row[key])}</th>`).join('')}</tr>`).join('');
+export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, search, syncedAt, notice, site, masterDataPath, by = '', sort = '', dir = 'asc' }) {
+  const link = values => pulseMastersPath + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}),
+    ...(by ? { by } : {}), ...(sort ? { sort, dir } : {}), ...values });
+  const body = rows.map(row => `<tr>${master.columns.map(([key, label], index) =>
+    index ? `<td data-label="${escape(label)}">${escape(row[key])}</td>` : `<th scope="row">${escape(row[key])}</th>`).join('')}</tr>`).join('');
   const empty = syncedAt ? 'No records match.' : 'Records are temporarily unavailable. Retrying automatically.';
   return `<!doctype html>
 <html lang="en"><head>
@@ -36,7 +37,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
       <header class="workspace-heading master-data-heading">
         ${mastersMenuLink(masterDataPath, 'Back to Master Data')}
         <h1 id="workspace-title">${escape(master.name)}</h1>
-        ${masterDataSearch({ master, action: pulseMastersPath, search })}
+        ${masterDataSearch({ master, action: pulseMastersPath, search, columns: master.columns, by, sort, dir })}
         <div class="master-data-tools" data-export-source="${escape(pulseMastersPath + '/records?' + new URLSearchParams({ master: master.slug }))}" data-export-name="${master.slug}-master">
           ${masterDataFileMenu('Download')}
         </div>

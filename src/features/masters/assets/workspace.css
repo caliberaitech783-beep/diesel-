@@ -156,3 +156,5 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 #master-search:focus-visible { outline: 2px solid var(--accent); }
 #search-status { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 #search-status:empty { margin: 0; }
+
+.master-count { float: inline-end; margin-inline-start: 8px; padding: 0 6px; border-radius: 9px; background: var(--nav-hover); color: var(--muted); font-size: 12px; line-height: 18px; }

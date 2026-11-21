@@ -115,4 +115,5 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
     const file = await store.attachment(actor, slug, req.params.id, req.params.fileId);
     res.attachment(file.name).type('application/octet-stream').send(file.bytes);
   }));
+  return { listRecords: (actor, slug) => listWithCompany(actor, slug, '') };
 }
