@@ -10,7 +10,7 @@ export function createPulseMasterStore(db) {
     replace(copy, syncedAt) {
       db.exec('BEGIN IMMEDIATE');
       try {
-        for (const { slug } of pulseMasters) save.run(slug, JSON.stringify(copy[slug]), syncedAt);
+        for (const { slug } of pulseMasters) save.run(slug, JSON.stringify(copy[slug] ?? []), syncedAt);
         db.exec('COMMIT');
       } catch (error) {
         db.exec('ROLLBACK');

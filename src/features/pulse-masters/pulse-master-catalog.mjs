@@ -23,6 +23,10 @@ export const pulseMasters = [
     ['lastDate', 'Last logbook date'], ['source', 'Source'], ['designation', 'Designation'], ['department', 'Department'],
     ['status', 'Status'], ['phone', 'Phone no.'],
   ] },
+  { slug: 'shift', name: 'Shift Master', siteColumn: 'site', columns: [
+    ['site', 'Site'], ['shiftName', 'Shift'], ['shiftCode', 'Shift code'], ['startTime', 'Start time'], ['endTime', 'End time'],
+    ['effectiveFrom', 'Effective from'], ['effectiveTo', 'Effective to'], ['status', 'Status'], ['remarks', 'Remarks'],
+  ] },
 ];
 
 export const pulseMaster = slug => pulseMasters.find(master => master.slug === slug);

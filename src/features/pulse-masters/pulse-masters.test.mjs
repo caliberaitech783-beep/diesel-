@@ -22,6 +22,8 @@ const feed = () => ({ masters: {
     { empId: 'E002', name: 'Anita Rao', site: 'Majri OC', designation: 'Store Keeper' }],
   driver: [{ empId: 'D200', name: 'Mahesh Patel', site: 'Majri OC', vehicle: 'EX-7', lastDate: '2026-11-20', source: 'Equipment logbook' },
     { empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', vehicle: 'T-101', lastDate: '2026-11-18', source: 'Vehicle logbook', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
+  shift: [{ site: 'Sasti OC', shiftName: 'First', shiftCode: 'A', startTime: '06:00', endTime: '14:00', status: 'Active' },
+    { site: 'Majri OC', shiftName: 'Night', shiftCode: 'C', startTime: '22:00', endTime: '06:00', status: 'Active' }],
 }, erpDrivers });
 
 test('a Pulse master copy keeps only listed columns and rejects an incomplete reply', () => {
@@ -75,7 +77,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.equal((await req('/pulse-masters?master=item-master', 'a')).status, 400);
 
   const sidebar = await page('/master-data', 'a');
-  const order = ['Site Master · Pulse', 'Region Master · Pulse', 'Equipment Master · Pulse', 'Employee Master · Pulse', 'Driver Master · Pulse', 'Item Master']
+  const order = ['Site Master · Pulse', 'Region Master · Pulse', 'Equipment Master · Pulse', 'Employee Master · Pulse', 'Driver Master · Pulse', 'Shift Master · Pulse', 'Item Master']
     .map(name => sidebar.indexOf('>' + name + '<'));
   assert.ok(order.every((position, index) => position > 0 && (!index || position > order[index - 1])), 'Pulse masters lead Master Data');
 
@@ -105,6 +107,10 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.doesNotMatch(drivers, /only directory drivers/);
   assert.match(await page('/pulse-masters?master=driver', 'v'), /Ravi Kumar/);
   assert.doesNotMatch(await page('/pulse-masters?master=driver', 'v'), /Mahesh Patel/);
+  const shifts = await page('/pulse-masters?master=shift', 'a');
+  assert.match(shifts, /Shift code/);
+  assert.match(shifts, /22:00/);
+  assert.doesNotMatch(await page('/pulse-masters?master=shift', 'v'), /22:00/);
   assert.equal(fetched, 1, 'one Pulse read serves every master while the copy is fresh');
   const searched = await page('/pulse-masters?master=equipment&q=fmx+460', 'a');
   assert.match(searched, /T-202/);
