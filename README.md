@@ -26,6 +26,8 @@ CMLL, Account and Location masters support multiple **Dated attributes**, each w
 
 Site names are matched by Pulse's own spelling rules (`src/features/pulse-masters/site-names.mjs`): "OB" and "OC" are the same pit, and known ERP spellings such as "Gouri Pouni" or "Dudhichua West OB" mean the Pulse sites "Gauri Pauni OC (2nd)" and "Dudhichua OC". Add a new spelling there, matching Pulse's `site-location.mjs`, when one appears under Data checks.
 
+Where a Diesel master has the same name as a Pulse master (Driver, Shift and Company Master), Master Data lists it once, as the Pulse master that holds the data. The Diesel form of that name stays under **Master**.
+
 ## Run locally
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.

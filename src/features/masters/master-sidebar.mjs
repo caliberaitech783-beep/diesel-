@@ -1,5 +1,5 @@
 import { masters } from './catalog.mjs';
-import { pulseMasters as pulseMasterList, pulseMastersPath } from '../pulse-masters/pulse-master-catalog.mjs';
+import { pulseMasters as pulseMasterList, pulseMastersPath, replacedByPulse } from '../pulse-masters/pulse-master-catalog.mjs';
 
 export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data', pulseMasters } = {}) {
   // Pulse-owned masters open read-only and sort alongside Diesel masters.
@@ -8,7 +8,7 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
     name: `${name} · Pulse`,
     html: `<li data-fields="pulse ${columns.map(([, label]) => label).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ')}"><a href="${pulseMastersPath}?master=${slug}">${name} · Pulse</a></li>`,
   })) : [];
-  const masterLinks = link => masters.map(({ name, slug, sections }) => {
+  const masterLinks = (link, list = masters) => list.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
     return { name, html: `<li data-fields="${fields}"><a href="${link(slug)}">${name}</a></li>` };
@@ -30,7 +30,7 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
         ${masterData ? `<details class="master-group" name="diesel-sidebar"><summary><span class="folder-icon" aria-hidden="true"></span>Entry</summary><ul aria-label="Entry subtabs"><li data-fields="indent purchase fuel"><a href="/entries">Entry workspace</a></li>${localIndentDrafts ? '<li data-fields="item"><a href="/entries/indents">Diesel Indent drafts</a></li>' : ''}</ul></details>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>
-          <ul id="master-data-list" aria-label="Master Data subtabs"${pulseMasters ? ' data-counts="/api/master-insights/counts"' : ''}>${overviewLink}${renderLinks([...masterLinks(slug => masterDataPath + '?master=' + slug), ...pulseLinks])}</ul>
+          <ul id="master-data-list" aria-label="Master Data subtabs"${pulseMasters ? ' data-counts="/api/master-insights/counts"' : ''}>${overviewLink}${renderLinks([...masterLinks(slug => masterDataPath + '?master=' + slug, pulseMasters ? masters.filter(({ name }) => !replacedByPulse(name)) : masters), ...pulseLinks])}</ul>
         </details>` : ''}
         <details class="master-group" name="diesel-sidebar"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>
