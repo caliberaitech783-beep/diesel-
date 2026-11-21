@@ -49,7 +49,7 @@ function checks({ findings }) {
 export function siteSummary({ categories, rows, total, unplaced = 0 }) {
   const headings = ['Site', ...categories, 'Total equipment', 'Drivers', 'Active shifts', 'Storage locations'];
   const line = (name, row, link) => [link ? { html: `<a href="${escape('/pulse-masters?' + new URLSearchParams({ master: 'equipment', by: 'currentLocation', q: name }))}">${escape(name)}</a>${
-    row.listed === false ? ' <small class="record-incomplete" title="Not in the Site Master">Not in Site Master</small>' : ''}` } : name,
+    row.listed === false ? ' <small class="record-incomplete" title="Not in the Location Master">Not in Location Master</small>' : ''}` } : name,
     ...categories.map(category => row.counts[category] || ''), { html: `<strong>${row.total}</strong>` }, row.drivers || '', row.shifts || '', row.storage || ''];
   return `<h2>Equipment by site</h2>
     <p class="record-meta">Vehicles and equipment in the Pulse Equipment Master, counted by current location and equipment category.</p>

@@ -45,7 +45,7 @@ test('the site checklist counts what each Pulse site has and names what is missi
   assert.deepEqual(checklist[1].missing, ['equipment', 'drivers', 'active shifts', 'storage locations']);
 });
 
-test('equipment is counted by site and category, including locations the Site Master lacks', () => {
+test('equipment is counted by site and category, including locations the Location Master lacks', () => {
   const summary = equipmentBySite({ sites, storage, drivers: [{ site: 'Sasti OC' }], shifts: [{ site: 'Sasti OC', status: 'Active' }], equipment: [
     { currentLocation: 'Sasti OC', category: 'Tipper' }, { currentLocation: 'sasti ob', category: 'Tipper' }, { currentLocation: 'Sasti OC', category: 'Excavator' },
     { currentLocation: 'Workshop', category: 'Tipper' }, { currentLocation: '', category: '' }, { currentLocation: ' - ', category: 'Tipper' }] });
@@ -73,12 +73,12 @@ test('data checks find duplicates and records at unknown sites', () => {
     accounts: [{ code: '1', name: 'A', values: { 'Registration No.': '27X' } }, { code: '2', name: 'B', values: { 'Registration No.': '27x' } }, { code: '3', name: 'C', values: {} }],
   }).map(check => [check.title, check]));
   assert.equal(found['Storage locations that share a short name'].count, 1);
-  assert.deepEqual(found['Storage locations at a site that is not in the Site Master'].items, ['T1-B · T1-MH34AA0002 — UNKNOWN CAMP']);
+  assert.deepEqual(found['Storage locations at a site that is not in the Location Master'].items, ['T1-B · T1-MH34AA0002 — UNKNOWN CAMP']);
   assert.equal(found['Storage locations with no capacity'].count, 1);
-  assert.equal(found['Equipment with no site, or a site that is not in the Site Master'].count, 1);
+  assert.equal(found['Equipment with no site, or a site that is not in the Location Master'].count, 1);
   assert.equal(found['Equipment that shares a registration number'].count, 1);
   assert.deepEqual(found['Drivers listed under more than one employee code'].items, ['Ravi Kumar: D1, D2']);
-  assert.equal(found['Shifts for a site that is not in the Site Master'].count, 1);
+  assert.equal(found['Shifts for a site that is not in the Location Master'].count, 1);
   assert.equal(found['Accounts that share a GST registration number'].count, 1);
 });
 
@@ -134,7 +134,7 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(sidebar, /<a href="\/master-insights\?view=sites">Site checklist<\/a>/);
   assert.match(sidebar, /<h2>Equipment by site<\/h2>/);
   assert.match(sidebar, /master=equipment&amp;by=currentLocation&amp;q=Sasti\+OC">Sasti OC<\/a><\/th><td data-label="Uncategorised">1<\/td><td data-label="Total equipment"><strong>1<\/strong><\/td><td data-label="Drivers">1<\/td><td data-label="Active shifts">1<\/td><td data-label="Storage locations">8<\/td>/);
-  assert.match(sidebar, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Site Master/);
+  assert.match(sidebar, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Location Master/);
   assert.match(sidebar, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   assert.match(sidebar, /data-counts="\/api\/master-insights\/counts"/);
@@ -143,7 +143,9 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
     assert.match(sidebar, new RegExp('>' + name + ' · Pulse</a>'));
     assert.doesNotMatch(sidebar, new RegExp('master-data\\?master=[a-z-]+">' + name + '</a>'), name + ' is listed once in Master Data');
   }
-  assert.match(sidebar, /master-data\?master=location-master">Location Master<\/a>/);
+  assert.match(sidebar, /pulse-masters\?master=site">Location Master · Pulse<\/a>/);
+  assert.match(sidebar, /pulse-masters\?master=site">Location Master<\/a>/);
+  assert.doesNotMatch(sidebar, /href="[^"]*[?&](?:amp;)?master=location-master"|>Site Master/);
 
   const byMake = await page('/pulse-masters?master=equipment&q=volvo&by=make&sort=door&dir=desc');
   assert.ok(byMake.indexOf('T-303') > 0 && byMake.indexOf('T-303') < byMake.indexOf('T-101'), 'Z → A by door');

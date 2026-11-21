@@ -42,7 +42,7 @@ test('a Pulse master copy keeps only listed columns and rejects an incomplete re
   assert.equal(forSite(pulseMaster('region'), copy.region, ['Sasti']).length, 1);
 });
 
-test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver masters read-only', async t => {
+test('Master Data lists the Pulse Location, Region, Equipment, Employee and Driver masters read-only', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'diesel-pulse-masters-'));
   const db = openHostedMasterDatabase(join(dir, 'masters.sqlite'));
   const itemSubmissions = await openItemSubmissions(join(dir, 'previous'));
@@ -80,7 +80,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.equal((await req('/pulse-masters?master=item-master', 'a')).status, 400);
 
   const sidebar = await page('/master-data', 'a');
-  const order = ['Account Master', 'Company Master · Pulse', 'Driver Master · Pulse', 'Employee Master · Pulse', 'Equipment Master · Pulse', 'Item Master', 'Region Master · Pulse', 'Shift Master · Pulse', 'Site Master · Pulse', 'Volume Correction Table']
+  const order = ['Account Master', 'Company Master · Pulse', 'Driver Master · Pulse', 'Employee Master · Pulse', 'Equipment Master · Pulse', 'Item Master', 'Location Master · Pulse', 'Region Master · Pulse', 'Shift Master · Pulse', 'Volume Correction Table']
     .map(name => sidebar.indexOf('>' + name + '<'));
   assert.ok(order.every((position, index) => position > 0 && (!index || position > order[index - 1])), 'Master Data mixes Pulse and Diesel masters alphabetically');
 
