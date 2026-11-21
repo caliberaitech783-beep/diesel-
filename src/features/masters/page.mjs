@@ -32,7 +32,7 @@ export function mastersPage({ master, account, guest, masterDataEnabled, masterD
   </header>
   <div class="layout">
     ${selected ? '' : masterSidebar({ masterData: masterDataEnabled, masterDataPath, pulseMasters: masterDataEnabled })}
-    <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
+    <main id="workspace"${selected ? ' class="master-form-workspace"' : ''} tabindex="-1" aria-labelledby="workspace-title">
       ${selected ? mastersMenuLink('/') : ''}
       <header class="workspace-heading">
         <h1 id="workspace-title">${heading}</h1>

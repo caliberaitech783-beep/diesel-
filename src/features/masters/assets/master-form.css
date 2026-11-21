@@ -1,26 +1,34 @@
-/* Master record forms.
-   Every section shares one column grid, so boxes line up from section to section.
-   Each field is a three-row subgrid (label, box, hint), so boxes in a row line up
-   even when one label wraps onto two lines. */
+/* Sections use the available width; subgrids align each row's labels, controls and hints. */
 .master-form {
-  --control-height: 36px;
-  --heading-width: 10.5rem;
+  --control-height: 38px;
   width: min(100%, 920px);
   container-type: inline-size;
 }
 .layout .master-form { width: 100%; }
+.layout > main.master-form-workspace {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 12px 16px;
+  padding: 18px clamp(16px, 2.2vw, 32px) 28px;
+}
+.master-form-workspace > * { grid-column: 1 / -1; min-width: 0; }
+.master-form-workspace > .masters-back { grid-area: 1 / 1; margin: 0; align-self: center; }
+.master-form-workspace > :is(.workspace-heading, .item-form-header) { grid-area: 1 / 2; margin: 0; min-width: 0; }
+.master-form-workspace:not(:has(> .masters-back)) > :is(.workspace-heading, .item-form-header) { grid-column: 1 / -1; }
+.master-form-workspace h1 { font-size: clamp(22px, 2vw, 28px); line-height: 1.25; }
+.master-form-workspace > output:empty { display: none; }
 .required-key { margin: 0; color: var(--muted); font-size: 13px; }
 .required-mark { color: var(--danger); }
 
-.field-group { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); margin: 0 0 8px; }
-.field-group-heading { margin: 0; padding: 10px 14px; font-size: 15px; font-weight: 650; line-height: 1.3; }
-.master-form > * { --form-cols: 1; }
+.field-group { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); margin: 0 0 12px; overflow: clip; }
+.field-group-heading { margin: 0; padding: 10px 16px; background: var(--page-bg); font-size: 14px; font-weight: 650; line-height: 1.35; }
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(var(--form-cols), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   grid-auto-rows: auto;
-  gap: 12px 14px;
-  padding: 10px 14px 12px;
+  gap: 8px 16px;
+  padding: 14px 16px 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -31,7 +39,7 @@
   row-gap: 0;
   min-width: 0;
 }
-.master-field > label { align-self: end; margin: 0 0 4px; font-size: 13.5px; font-weight: 550; line-height: 1.25; }
+.master-field > label { align-self: end; margin: 0 0 6px; font-size: 13px; font-weight: 550; line-height: 1.35; }
 .master-field > :is(input, select, textarea) { align-self: start; }
 .field-hint { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.3; }
 .master-field > .field-hint, .master-field > a, .master-field > label:has(> [data-remove-for]) { grid-row: 3; }
@@ -47,7 +55,7 @@
   background: var(--control-bg);
   color: inherit;
   font: inherit;
-  font-size: 14.5px;
+  font-size: 14px;
 }
 /* Remarks and addresses start one line high and grow as the user types or drags. */
 .master-field textarea { min-height: var(--control-height); padding-block: 7px; line-height: 1.35; resize: vertical; max-height: 12em; }
@@ -103,22 +111,14 @@
   cursor: pointer;
 }
 
-/* Column count follows the form's own width, so every section uses the same columns. */
-@container (min-width: 480px) {
-  .master-form > * { --form-cols: 2; }
-  /* Remarks, addresses and attachments take two columns. */
+/* Long fields span two tracks only once both tracks fit inside the form. */
+@container (min-width: 544px) {
   .master-field:is(:has(> textarea), :has(> input[type="file"])) { grid-column: span 2; }
 }
-@container (min-width: 760px) {
-  .master-form > * { --form-cols: 3; }
-  .field-group { display: grid; grid-template-columns: var(--heading-width) minmax(0, 1fr); align-items: stretch; }
-  .field-group-heading { padding: 12px 14px; align-self: start; }
-  .field-group > :is(.field-grid, .attribute-body) { border-top: 0; border-left: 1px solid var(--border); }
-  .field-group > .field-grid { padding: 10px 14px 12px; }
+/* Four fields make two balanced rows at tablet widths rather than leaving one alone. */
+@container (min-width: 784px) and (max-width: 1039px) {
+  .field-grid:has(> .master-field:nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@container (min-width: 1000px) { .master-form > * { --form-cols: 4; } }
-@container (min-width: 1180px) { .master-form > * { --form-cols: 6; } }
-@container (min-width: 1600px) { .master-form > * { --form-cols: 8; } }
 
 /* In the workspace the sections sit in one card, sized to their content. */
 @media (min-width: 800px) {
@@ -131,5 +131,14 @@
   .layout .master-form > .field-group { margin: 0; border: 0; border-radius: 0; background: transparent; }
   .layout .master-form > :is(.field-group, .change-reason, .form-footer) + :is(.field-group, .change-reason, .form-footer),
   .layout .master-form > .record-meta + .field-group { border-top: 1px solid var(--border); }
-  .layout .master-form > .form-footer { margin: 0; padding: 10px 14px; background: var(--page-bg); }
+  .layout .master-form > .form-footer { margin: 0; padding: 12px 16px; background: var(--page-bg); }
+}
+@media (max-width: 600px) {
+  .layout > main.master-form-workspace { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 14px 22px; }
+  .master-form-workspace > :is(.masters-back, .workspace-heading, .item-form-header) { grid-area: auto; }
+  .master-form { --control-height: 44px; }
+  .master-field :is(input, select, textarea) { font-size: 16px; }
+  .field-grid { padding: 12px; }
+  .field-group-heading { padding: 10px 12px; }
+  .form-footer button { min-height: 44px; }
 }

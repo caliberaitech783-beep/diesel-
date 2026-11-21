@@ -144,5 +144,5 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     <div class="account">${themeToggle}${submissionsOnly || prefix ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
     <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true,
       masterDataPath: prefix+'/master-data', pulseMasters: Boolean(prefix || submissionsOnly),localIndentDrafts: !prefix && !submissionsOnly && !actor.siteEntryTypes }) : ''}
-    <main id="workspace"${editing ? '' : ' class="master-data-workspace"'} tabindex="-1" aria-labelledby="workspace-title">${content}</main></div>${!editing ? recordDialogHost : ''}</body></html>`;
+    <main id="workspace"${editing ? itemEditing ? '' : ' class="master-form-workspace"' : ' class="master-data-workspace"'} tabindex="-1" aria-labelledby="workspace-title">${content}</main></div>${!editing ? recordDialogHost : ''}</body></html>`;
 }
