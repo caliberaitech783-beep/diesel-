@@ -160,3 +160,12 @@ test('company ERP records can be revised or deleted in Diesel without changing t
   const storage=await (await fetch(base+'/api/master-data/records?master=storage-location-master')).json();
   assert.ok(!storage.records.some(record=>record.id===freshSource.id));
 });
+
+test('deleting an original item submission keeps its legacy attachment available in history',async t=>{
+  const directory=await mkdtemp(join(tmpdir(),'diesel-deleted-attachment-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const store=await openItemSubmissions(directory);
+  const item=await store.create(maker,'item-master',{...sampleValues('item-master'),Attachment:attachment});
+  await store.delete(maker,'item-master',item.id,{revision:1,reason:'Remove duplicate item'});
+  assert.deepEqual((await store.attachment(maker,'item-master',item.id,item.values.Attachment.id)).bytes,pdf);
+});
