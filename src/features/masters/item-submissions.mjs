@@ -131,7 +131,7 @@ export async function openItemSubmissions(directory) {
   async function attachment(actor, slug, id, fileId) {
     const {folder,record} = await locate(actor,slug,id);
     const snapshots = [record,...(record.changes ?? []).map(event=>event.snapshot).filter(Boolean)];
-    const snapshot = snapshots.find(saved=>Object.values(saved.values).some(value=>value?.id===fileId));
+    const snapshot = snapshots.sort((a,b)=>a.revision-b.revision).find(saved=>Object.values(saved.values).some(value=>value?.id===fileId));
     const file = Object.values(snapshot?.values ?? {}).find(value => value?.id === fileId);
     if (!file || !attachmentId.test(fileId)) throw new MasterRecordError('Attachment not found.', 404);
     const filename = slug === legacyMaster && snapshot.revision === 1 ? 'attachment' : file.id;
