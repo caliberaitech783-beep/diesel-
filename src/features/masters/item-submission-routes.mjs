@@ -1,5 +1,5 @@
 import express from 'express';
-import { masterDefinition, MasterRecordError, recordMasters } from './records-fields.mjs';
+import { masterDefinition, MasterRecordError, recordMasters, recordDraftScope } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 import { companyRecord, companyRecords } from '../company-records/company-records.mjs';
@@ -22,9 +22,20 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
   });
   // A person's own submissions, then the company's ERP records for that master.
   async function listWithCompany(actor, slug, search) {
-    const own = await store.list(actor, slug, { search, offset: 0 });
-    const ownCodes = new Set(own.map(record => record.code.trim().toLowerCase()));
-    return [...own, ...companyRecords(slug, search).filter(record => !ownCodes.has(record.code.trim().toLowerCase()))];
+    const saved = await store.list(actor,slug,{search:'',offset:0,includeDeleted:true});
+    const query = search.trim().normalize('NFKC').toLowerCase();
+    const visible = saved.filter(record=>record.status!=='deleted' && [record.code,record.name].some(value=>value.normalize('NFKC').toLowerCase().includes(query)));
+    const codes = new Set(saved.map(record=>record.code.trim().toLowerCase()));
+    const sources = new Set(saved.map(record=>record.companySourceId));
+    return [...visible,...companyRecords(slug,search).filter(record=>!sources.has(record.id) && !codes.has(record.code.trim().toLowerCase()))
+      .map(record=>({...record,canEdit:true}))];
+  }
+  async function savedOrCompany(actor,slug,id) {
+    try { return await store.get(actor,slug,id); } catch(error) {
+      const source = companyRecord(slug,id);
+      if (error.status === 404 && source) return {...source,canEdit:true};
+      throw error;
+    }
   }
   function route(handler) {
     return async (request, response, next) => {
@@ -52,14 +63,36 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
       throw new MasterRecordError('Choose a valid search or page.');
     }
     const creating = !id && req.query.new === '1';
-    const record = id ? companyRecord(slug, id) ?? await store.get(actor, slug, id) : null;
+    const current = id ? await savedOrCompany(actor,slug,id) : null;
+    const historical = Boolean(current && req.query.revision !== undefined);
+    const record = historical ? current.changes?.find(event=>event.revision===Number(req.query.revision))?.snapshot : current;
+    if (historical && !record) throw new MasterRecordError('Record revision not found.',404);
     const limit = 50;
-    const rows = record || creating ? [] : (await listWithCompany(actor, slug, search)).slice(offset, offset + limit);
+    const rows = record || creating ? [] : (await listWithCompany(actor,slug,search)).slice(offset,offset+limit);
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'");
     res.type('html').send(recordsPage({
       master, rows, actor, record, creating, search, status: '', offset, limit,
-      editingAllowed: !record, masterSelected: true, submissionsOnly: true,
+      dialog: req.query.dialog === '1', historical, revisions: [...(current?.changes ?? [])].reverse(),
+      editingAllowed: !historical && record?.status !== 'deleted' && current?.canEdit !== false, masterSelected: true, submissionsOnly: true,
     }));
   }));
+  for (const [method,path,deleting] of [['put',api+'/:id',false],['post',api+'/:id/delete',true]]) {
+    app[method](path,route(async (req,res,actor,slug) => {
+      if (req.get('origin') !== publicOrigin || req.get('sec-fetch-site') === 'cross-site') return res.status(403).json({error:requiredOrigin});
+      if (!req.is('application/json')) return res.status(415).json({error:'Send the record as JSON.'});
+      express.json({limit:'15mb'})(req,res,async error => {
+        if (error) return res.status(error.type === 'entity.too.large' ? 413 : 400).json({error:'The record could not be read.'});
+        try {
+          if (req.body?.scope !== recordDraftScope(actor,slug)) throw new MasterRecordError('Reopen this record with the Pulse account that prepared it.',409);
+          const source = companyRecord(slug,req.params.id);
+          res.json(source ? await store.changeCompany(actor,slug,source,req.body,deleting)
+            : await store[deleting ? 'delete' : 'update'](actor,slug,req.params.id,req.body));
+        } catch (failure) {
+          res.status(failure instanceof MasterRecordError ? failure.status : 503).json({error:failure instanceof MasterRecordError ? failure.message : 'The record could not be saved. Please try again.'});
+        }
+      });
+    }));
+  }
 
   app.post(api, route(async (req, res, actor, slug) => {
     if (req.get('origin') !== publicOrigin || req.get('sec-fetch-site') === 'cross-site') {

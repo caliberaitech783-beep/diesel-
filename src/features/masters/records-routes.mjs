@@ -90,13 +90,13 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
       return res.redirect(303,prefix+'/records?master=location-master&id='+existingLocation.id);
     }
     const rows = !record && req.query.new !== '1' ? store.list(slug, { ...page, site: actor.site }) : [];
-    res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'");
     const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];
     const hasLocation = Boolean(existingLocation);
     const references = referenceChoices(slug, readActiveMasters(db, actor.site, referencedMasters(slug)));
     res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, references, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
-      creating: req.query.new === '1', historical, editingAllowed: !historical && actor.canEditMasters === true,
+      dialog: req.query.dialog === '1', creating: req.query.new === '1', historical, editingAllowed: !historical && actor.canEditMasters === true,
       approvingAllowed: !historical && actor.canApproveMasters === true, revisions: record ? store.history(slug, record.id) : [],
     }));
   }));
@@ -127,7 +127,7 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   };
   app.post(api, checkWrite, recordJson, route(write));
   app.put(resource, checkWrite, recordJson, route(write));
-  for (const action of ['approve', 'return', 'deactivate', 'reactivate']) {
+  for (const action of ['approve', 'return', 'deactivate', 'reactivate', 'delete']) {
     app.post(resource + '/' + action, checkWrite, json, route((req, res, actor, slug) => {
       requirePermission(actor, ['approve', 'return'].includes(action) ? 'canApproveMasters' : 'canEditMasters');
       checkScope(req,actor,slug);

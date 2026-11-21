@@ -28,7 +28,7 @@ export function registerLocalSession(app) {
     }
     response.set({
       'Cache-Control': 'no-store', 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
     });
     const cookie = (request.get('cookie') || '').split(';').map(value => value.trim()).find(value => value.startsWith('diesel_local='));
     const [role, site, mac] = (cookie?.slice('diesel_local='.length) || '').split('.');

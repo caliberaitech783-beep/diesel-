@@ -2,6 +2,9 @@ import { restoreImportedRecord } from './import-draft.mjs';
 import { collectAttributes, setupAttributeInputs } from './attribute-fields.js';
 
 const form = document.querySelector('#record-form');
+const embedded = document.body.classList.contains('record-dialog-page') && window.parent !== window;
+const notify = data => { if (embedded) window.parent.postMessage(data,location.origin); };
+const deletion = document.querySelector('.record-delete-confirm');
 
 function readFile(file) {
   if (file.size > 5 * 1024 * 1024) throw new Error('Choose a file up to 5 MiB.');
@@ -15,13 +18,14 @@ function readFile(file) {
 
 async function save(action) {
   if (form.dataset.importing) return;
-  const status = form.querySelector('output');
+  const status = action === 'delete' ? deletion.querySelector('output') : form.querySelector('output');
   const buttons = [...form.elements].filter(control => control.tagName === 'BUTTON');
-  const reason = form.querySelector('#change-reason');
+  const reason = action === 'delete' ? deletion.querySelector('textarea') : form.querySelector('#change-reason');
   if (reason && action !== 'approve' && !reason.reportValidity()) return;
   if (!action && !form.reportValidity()) return;
   for (const button of buttons) button.disabled = true;
-  status.textContent = 'Saving…';
+  status.textContent = action === 'delete' ? 'Submitting deletion…' : 'Saving…';
+  notify({type:'master-record-busy',busy:true});
   try {
     const { api, record, revision, writeScope, recordHome } = form.dataset;
     const payload = { revision: Number(revision), reason: reason?.value, scope:writeScope };
@@ -46,9 +50,15 @@ async function save(action) {
     if (!response.ok) throw new Error(result.error || 'The record could not be saved.');
     const target = new URL(recordHome,location.origin);
     target.searchParams.set('id',result.id);
-    location.assign(target);
+    notify({type:'master-record-busy',busy:false});
+    if (embedded) {
+      notify({type:'master-record-saved',message:action === 'delete' ? (result.status === 'deleted' ? 'Record deleted.' : 'Deletion sent for review.') : 'Record saved for review.'});
+    } else if (action === 'delete') {
+      location.assign(recordHome);
+    } else location.assign(target);
   } catch (error) {
     status.textContent = error.message;
+    notify({type:'master-record-busy',busy:false});
     for (const button of buttons) button.disabled = false;
   }
 }
@@ -60,4 +70,19 @@ if (form) {
   for (const button of form.querySelectorAll('[data-action]')) {
     button.addEventListener('click', () => save(button.dataset.action));
   }
+}
+
+if (deletion) {
+  form.querySelector('[data-delete-record]')?.addEventListener('click', () => {
+    deletion.querySelector('textarea').value = form.querySelector('#change-reason')?.value ?? '';
+    deletion.querySelector('output').textContent = '';
+    deletion.showModal();
+    deletion.querySelector('textarea').focus();
+  });
+  deletion.querySelector('[data-confirm-delete]').addEventListener('click', async () => {
+    const button = deletion.querySelector('[data-confirm-delete]');
+    if (button.disabled) return;
+    button.disabled = true;
+    try { await save('delete'); } finally { button.disabled = false; }
+  });
 }

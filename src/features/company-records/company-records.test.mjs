@@ -24,7 +24,7 @@ test('the ERP sheets load as 71 storage locations and 165 accounts with unique c
   assert.equal(companyRecord('account-master', storage[0].id), null);
 });
 
-test('every signed-in person sees the company ERP records in Storage Location and Account Master, read-only', async t => {
+test('every signed-in person sees the company ERP records in Storage Location and Account Master', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'diesel-company-records-'));
   const itemSubmissions = await openItemSubmissions(directory);
   const app = createApp({ itemSubmissions,

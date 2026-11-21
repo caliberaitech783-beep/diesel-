@@ -38,6 +38,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
             return {
               id: record.id, slug: record.master, master: definition.name, code: record.code, name: record.name,
               status: record.status.replaceAll('_', ' '), site: record.site, revision: record.revision, updatedAt: record.updatedAt,
+              canEdit: record.canEdit,
               fields: definition.fields.map(field => {
                 const value = record.values[field.key];
                 return [field.key, field.type === 'attributes' ? attributeExport(record.attributes)

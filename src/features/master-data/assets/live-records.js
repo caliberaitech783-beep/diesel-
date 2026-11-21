@@ -2,6 +2,7 @@ import { createLiveRefresh } from './live-refresh.mjs';
 
 const records = document.querySelector('[data-live-records]');
 if (records) {
+  let localChange = false;
   const errorMessage = document.createElement('p');
   errorMessage.className = 'live-refresh-error';
   errorMessage.setAttribute('role', 'status');
@@ -27,7 +28,8 @@ if (records) {
       // Preserve table scrolling and keyboard focus, and leave identical rows untouched.
       const tables = [...records.querySelectorAll('.master-data-table, .record-list')];
       const focusedTable = tables.indexOf(document.activeElement);
-      if ((!records.contains(document.activeElement) || focusedTable >= 0) && records.innerHTML !== updated.innerHTML) {
+      const focusedLink = localChange && records.contains(document.activeElement) ? document.activeElement.closest('a')?.getAttribute('href') : null;
+      if ((localChange || !records.contains(document.activeElement) || focusedTable >= 0) && records.innerHTML !== updated.innerHTML) {
         const positions = tables
           .map(table => ({ left: table.scrollLeft, top: table.scrollTop }));
         records.replaceChildren(...updated.childNodes);
@@ -36,7 +38,9 @@ if (records) {
           table.scrollTop = positions[index]?.top ?? 0;
           if (index === focusedTable) table.focus({ preventScroll: true });
         });
+        if (focusedLink) [...records.querySelectorAll('a')].find(link=>link.getAttribute('href')===focusedLink)?.focus({preventScroll:true});
       }
+      localChange = false;
       errorMessage.textContent = '';
     },
     onError(error) {
@@ -45,6 +49,7 @@ if (records) {
   });
   document.addEventListener('visibilitychange', refresh.refresh);
   window.addEventListener('focus', refresh.refresh);
+  window.addEventListener('master-record-changed', () => { localChange = true; refresh.refresh(); });
   window.addEventListener('online', refresh.refresh);
   window.addEventListener('pagehide', () => refresh.stop(), { once: true });
   window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
