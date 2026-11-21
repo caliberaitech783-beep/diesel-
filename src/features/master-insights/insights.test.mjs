@@ -54,6 +54,12 @@ test('equipment is counted by site and category, including locations the Site Ma
   assert.deepEqual(summary.rows.map(row => [row.site, row.total, row.listed]), [['Sasti OC', 3, true], ['Workshop', 1, false], ['Majri OC', 0, true]]);
   assert.deepEqual(summary.rows[0], { site: 'Sasti OC', listed: true, counts: { Tipper: 2, Excavator: 1 }, total: 3, drivers: 1, shifts: 1, storage: 1 });
   assert.deepEqual(summary.total, { counts: { Tipper: 3, Excavator: 1 }, total: 4, drivers: 1, shifts: 1, storage: 1 });
+  const kinds = equipmentBySite({ equipment: [{ currentLocation: 'A', category: 'VEHICLE' }, { currentLocation: 'A', category: 'Other vehicles', group: 'LMV' },
+    { currentLocation: 'A', category: 'EQUIPMENT', equipmentName: 'DG SET 125 KVA' }, { currentLocation: 'A', category: 'EQUIPMENT', group: 'D.G. Set' },
+    { currentLocation: 'A', category: 'EQUIPMENT', equipmentName: 'DGX loader' }] });
+  assert.deepEqual(kinds.rows[0].counts, { VEHICLE: 1, LMV: 1, 'DG set': 2, EQUIPMENT: 1 });
+  const small = equipmentBySite({ equipment: [...Array.from({ length: 20 }, (_, index) => ({ currentLocation: 'A', category: 'C' + (index % 5) })), { currentLocation: 'A', group: 'LMV' }] }, 3);
+  assert.deepEqual(small.categories, ['C0', 'C1', 'LMV', 'Other'], 'a small LMV count still gets its own column');
   const many = equipmentBySite({ equipment: Array.from({ length: 20 }, (_, index) => ({ currentLocation: 'A', category: 'C' + index })) }, 4);
   assert.deepEqual(many.categories, ['C0', 'C1', 'C10', 'Other']);
   assert.equal(many.rows[0].counts.Other, 17);
