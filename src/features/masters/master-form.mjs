@@ -19,7 +19,7 @@ function fieldControl(field, id) {
     }
   }
   const hint = field.hint ? `<small id="${id}-hint" class="field-hint">${field.hint}</small>` : '';
-  return `<div class="master-field"><label for="${id}">${field.label}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
+  return `<div class="master-field"><label for="${id}">${field.label}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
 export function masterForm({ slug, sections }) {

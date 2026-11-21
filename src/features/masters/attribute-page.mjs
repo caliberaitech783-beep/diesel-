@@ -7,7 +7,7 @@ const esc=text=>String(text??'').replace(/[&<>"']/g, char=>({
 function row(item, editable, base, approved) {
   const state=approved ? attributeExpiry(item.validTo) : '';
   const disabled=editable?'':' disabled';
-  return `<fieldset data-attribute-row data-id="${esc(item.id)}" class="field-group">
+  return `<fieldset data-attribute-row data-id="${esc(item.id)}" class="attribute-row">
     <legend>${esc(item.name || 'Attribute')}</legend><div class="field-grid">
     <label>Attribute name<select data-attribute-name required${disabled}><option value="">Select…</option>
     ${attributeNames.map(name=>`<option${name===item.name?' selected':''}>${esc(name)}</option>`).join('')}</select></label>
@@ -28,8 +28,10 @@ export function attributeFields(record, editable, base) {
   if (!rows.length && !editable) return '';
   return `<section data-attributes data-limit="${maxAttributes}" class="field-group">
     <h2 class="field-group-heading">${attributeColumn}</h2>
+    <div class="attribute-body">
     <input type="hidden" name="${attributeColumn}" data-attribute-import value="${esc(attributeExport(rows))}">
     <div data-attribute-list>${rows.map(item=>row(item,editable,base,record?.status==='approved')).join('')}</div>
     ${editable ? `<template>${row({},true,base,false)}</template><button type="button" data-add-attribute>Add attribute</button>` : ''}
+    </div>
   </section>`;
 }
