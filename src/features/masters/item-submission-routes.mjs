@@ -3,27 +3,29 @@ import { masterDefinition, MasterRecordError, recordMasters, recordDraftScope } 
 import { recordsPage } from './records-page.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
 import { companyRecord, companyRecords } from '../company-records/company-records.mjs';
+import { costCentreSlug, mergeCostCentres } from '../cost-centres/cost-centre-records.mjs';
 
 const defaultMaster = 'item-master';
 const api = '/api/masters/:master/records';
 const requiredOrigin = 'Open Diesel to make changes.';
 
-export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory, homeOverview }) {
+export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory, homeOverview, costCentres }) {
   async function signedInActor(request) {
     const profile = await getProfile(request);
     return profile ? { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login } : null;
   }
   registerMasterDataRoutes(app, {
     enabledMasters: recordMasters, getActor: signedInActor, homeOverview,
-    async listRecords(actor, slugs, { offset, limit, search = '' }) {
-      const groups = await Promise.all(slugs.map(slug => listWithCompany(actor, slug, search)));
+    async listRecords(actor, slugs, { offset, limit, search = '' }, request) {
+      const groups = await Promise.all(slugs.map(slug => listWithCompany(actor, slug, search, { request })));
       return groups.flat().slice(offset, limit === undefined ? undefined : offset + limit);
     },
   });
   // A person's own submissions, then the company's ERP records for that master.
-  async function listWithCompany(actor, slug, search) {
+  async function listWithCompany(actor, slug, search, context) {
     if (slug==='item-master' && itemDirectory) return itemDirectory.list(actor,{search});
     const saved = await store.list(actor,slug,{search:'',offset:0,includeDeleted:true});
+    if (slug === costCentreSlug && costCentres) return mergeCostCentres(saved, await costCentres(context), { search });
     const query = search.trim().normalize('NFKC').toLowerCase();
     const visible = saved.filter(record=>record.status!=='deleted' && [record.code,record.name].some(value=>value.normalize('NFKC').toLowerCase().includes(query)));
     const codes = new Set(saved.map(record=>record.code.trim().toLowerCase()));
@@ -31,10 +33,12 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
     return [...visible,...companyRecords(slug,search).filter(record=>!sources.has(record.id) && !codes.has(record.code.trim().toLowerCase()))
       .map(record=>({...record,canEdit:true}))];
   }
-  async function savedOrCompany(actor,slug,id) {
+  async function savedOrCompany(actor,slug,id,request) {
     try { return await store.get(actor,slug,id); } catch(error) {
-      const source = companyRecord(slug,id);
-      if (error.status === 404 && source) return {...source,canEdit:true};
+      if (error.status !== 404) throw error;
+      const source = companyRecord(slug,id) ?? (slug === costCentreSlug && costCentres
+        ? (await costCentres({ request })).find(record => record.id === id) : null);
+      if (source) return {...source,canEdit:source.canEdit ?? true};
       throw error;
     }
   }
@@ -64,12 +68,12 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
       throw new MasterRecordError('Choose a valid search or page.');
     }
     const creating = !id && req.query.new === '1';
-    const current = id ? await savedOrCompany(actor,slug,id) : null;
+    const current = id ? await savedOrCompany(actor,slug,id,req) : null;
     const historical = Boolean(current && req.query.revision !== undefined);
     const record = historical ? current.changes?.find(event=>event.revision===Number(req.query.revision))?.snapshot : current;
     if (historical && !record) throw new MasterRecordError('Record revision not found.',404);
     const limit = 50;
-    const rows = record || creating ? [] : (await listWithCompany(actor,slug,search)).slice(offset,offset+limit);
+    const rows = record || creating ? [] : (await listWithCompany(actor,slug,search,{ request:req })).slice(offset,offset+limit);
     res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'`);
     res.type('html').send(recordsPage({
       master, rows, actor, record, creating, search, status: '', offset, limit,
@@ -117,5 +121,5 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
     const file = await store.attachment(actor, slug, req.params.id, req.params.fileId);
     res.attachment(file.name).type('application/octet-stream').send(file.bytes);
   }));
-  return { listRecords: (actor, slug) => listWithCompany(actor, slug, '') };
+  return { listRecords: (actor, slug, access) => listWithCompany(actor, slug, '', { access }) };
 }

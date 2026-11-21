@@ -104,6 +104,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     ${dialog ? '' : submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     <div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
     ${record?.companyRecord ? '<p class="record-meta">Company ERP record · Changes are saved in Diesel.</p>' : ''}
+    ${record?.sourceName ? `<p class="record-meta">${escape(record.sourceName)}</p>` : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
     <output id="item-file-status" aria-live="polite"></output>
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}

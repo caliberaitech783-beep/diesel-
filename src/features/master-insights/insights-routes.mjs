@@ -39,7 +39,7 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
   async function masterCounts(access) {
     const actor = actorOf(access);
     return Promise.all(masters.map(async ({ slug, name }) => {
-      const records = await listRecords(actor, slug);
+      const records = await listRecords(actor, slug, access);
       const definition = definitions.get(slug);
       return { slug, name, count: records.length, incomplete: records.filter(record => missingFields(definition, record.values).length).length };
     }));

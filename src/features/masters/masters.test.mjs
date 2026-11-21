@@ -58,7 +58,7 @@ const templateCounts = [
   ['item-master', 23, 16],
   ['account-master', 60, 28],
   ['cmll-master', 49, 14],
-  ['cost-centre-vehicle-master', 19, 14],
+  ['cost-centre-vehicle-master', 19, 13],
   ['storage-location-master', 21, 12],
   ['route-wise-diesel-master', 16, 12],
   ['driver-master', 71, 14],

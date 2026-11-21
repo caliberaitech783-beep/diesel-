@@ -9,12 +9,12 @@ export const costCentreVehicleMaster = [
     ],
   },
   {
-    name: 'Vehicle details',
+    name: 'Vehicle and equipment details',
     columns: 5,
     fields: [
       { label: 'Fleet No.', required: true },
-      { label: 'Registration No.', required: true },
-      { label: 'Vehicle type', required: true },
+      { label: 'Registration No.', required: false, hint: 'Leave blank for equipment without a registration number.' },
+      { label: 'Vehicle type', required: true, hint: 'Vehicle or equipment category.' },
       { label: 'Make and model', required: true },
       { label: 'Ownership', required: true },
       { label: 'Hire party or contractor', required: false },
