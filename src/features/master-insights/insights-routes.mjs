@@ -2,7 +2,7 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { masters } from '../masters/catalog.mjs';
 import { masterDefinition } from '../masters/records-fields.mjs';
-import { pulseMasters } from '../pulse-masters/pulse-master-catalog.mjs';
+import { pulseMasters, replacedByPulse } from '../pulse-masters/pulse-master-catalog.mjs';
 import { dataChecks, equipmentBySite, missingFields, siteChecklist } from './insights.mjs';
 import { insightsPage, insightsPath, overview } from './insights-page.mjs';
 
@@ -46,7 +46,7 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
   }
 
   async function overviewData(access, copies) {
-    return { masters: await masterCounts(access), masterDataPath: access.masterDataPath,
+    return { masters: (await masterCounts(access)).filter(row => !replacedByPulse(row.name)), masterDataPath: access.masterDataPath,
       pulse: pulseMasters.map(({ slug, name }) => ({ slug, name, count: copies[slug].records.length, syncedAt: copies[slug].syncedAt })) };
   }
   const siteWise = async (access, copies) => equipmentBySite({ sites: copies.site.records, equipment: copies.equipment.records,

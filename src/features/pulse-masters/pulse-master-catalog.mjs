@@ -36,3 +36,6 @@ export const pulseMasters = [
 
 export const pulseMaster = slug => pulseMasters.find(master => master.slug === slug);
 export const pulseMastersPath = '/pulse-masters';
+
+// A Diesel master with the same name as a Pulse master is listed once in Master Data, as the Pulse one that holds the data.
+export const replacedByPulse = name => pulseMasters.some(master => master.name === name);
