@@ -7,3 +7,4 @@
 .insight-check ul { margin: 6px 0 0; padding-inline-start: 20px; font-size: 14px; }
 .insight-check li { margin-block: 3px; overflow-wrap: anywhere; }
 .insight-clear { margin-inline-start: 6px; color: var(--muted); font-weight: 400; font-size: 13px; }
+.master-data-workspace > .insight-views { margin: 0 0 4px; justify-content: flex-start; }

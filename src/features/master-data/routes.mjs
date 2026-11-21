@@ -6,7 +6,7 @@ import { filterAndSort, missingFields } from '../master-insights/insights.mjs';
 
 const pageSize = 50;
 
-export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false, prefix = '', attributeWarnings }) {
+export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRecords, local = false, prefix = '', attributeWarnings, homeOverview }) {
   const bySlug = new Map(masters.map(({ slug }) => {
     const definition=masterDefinition(slug);
     if ((local || prefix) && attributeMasters.has(slug)) {
@@ -72,7 +72,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
         .slice(offset, offset + pageSize + 1);
     } else rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
     res.type('html').send(masterDataPage({
-      by, sort, dir,
+      by, sort, dir, overview: master ? undefined : await homeOverview?.(req),
       actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix, search,
       warnings:master ? attributeWarnings?.(actor,master.slug) : undefined,
     }));

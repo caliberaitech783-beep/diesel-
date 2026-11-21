@@ -14,7 +14,8 @@ const table = (label, headings, rows) => `<div class="master-data-table" role="r
     return index ? `<td data-label="${escape(headings[index])}">${body}</td>` : `<th scope="row">${body}</th>`;
   }).join('')}</tr>`).join('') || `<tr class="master-data-empty"><td colspan="${headings.length}">Nothing to show yet.</td></tr>`}</tbody></table></div>`;
 
-function overview({ pulse, masters, masterDataPath }) {
+// Also shown on the Master Data home, so the page is never empty.
+export function overview({ pulse, masters, masterDataPath }) {
   return `<h2>From Pulse</h2>
     ${table('Pulse masters', ['Master', 'Records', 'Last fetched'], pulse.map(row => [
       { html: `<a href="/pulse-masters?master=${row.slug}">${escape(row.name)}</a>` }, row.count,
