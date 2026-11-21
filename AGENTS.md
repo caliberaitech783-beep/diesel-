@@ -9,5 +9,5 @@
 
 ## Deploying Diesel
 
-- For a requested production release, use the shared GitHub Actions workflow `Test and deploy Diesel` on `main` in `caliberaitech783-beep/diesel-`. See the README deployment section for configuration and the Azure Deployment Center fallback.
+- Merging to `main` in `caliberaitech783-beep/diesel-` deploys to production: the shared GitHub Actions workflow `Test and deploy Diesel` tests, builds, deploys and verifies every merge, so merge only what is ready to go live and do not start the workflow again after a merge. See the README deployment section for configuration and the Azure Deployment Center fallback.
 - Check the workflow run and verify the expected release at `https://pulse-lll.cmll.in/healthz`. GitHub Actions uses the app-scoped Azure identity when configured, so a Codex chat does not need its own Azure portal login to deploy.
