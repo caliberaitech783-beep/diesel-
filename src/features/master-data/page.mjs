@@ -63,6 +63,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   ${master ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
   ${canSave ? '<script type="module" src="/master-data/assets/download.js"></script>' : ''}
   ${canImport ? '<script type="module" src="/master-data/assets/import.js"></script>' : ''}
+  ${master && canSave ? '<script type="module" src="/master-data/assets/live-records.js"></script>' : ''}
 </head><body>
   <a class="skip" href="#workspace">Skip to Master Data</a>
   <header class="masthead">
@@ -72,11 +73,12 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   </header>
   <div class="layout">
     ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
-    <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
-      ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
-      <header class="workspace-heading">
+    <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
+      <header class="workspace-heading${master ? ' master-data-heading' : ''}">
+        ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
         <h1 id="workspace-title">${escape(heading)}</h1>
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
+          <span class="live-status" data-live-status role="status" title="Updates automatically every 30 seconds">Live</span>
           ${fileMenu('Download')}
           ${canImport ? fileMenu('Import', true) : ''}
           ${fileMenu('Export')}
@@ -102,6 +104,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         <p><button type="button" data-bulk-save>Save all for review</button> <button type="button" data-bulk-cancel>Cancel</button></p>
       </section>` : ''}
       ${canSave ? '<output class="master-data-feedback" aria-live="polite"></output>' : ''}
+      ${master ? `<div data-live-records data-live-scope="${recordDraftScope(actor, master.slug)}">` : ''}
       ${warnings.length ? `<details open><summary>Attribute expiry alerts (${warnings.length})</summary><ul>${warnings.map(warning=>{
         const url=prefix+'/records?'+new URLSearchParams({master:master.slug,id:warning.id,revision:warning.revision});
         return `<li><a href="${escape(url)}">${escape(warning.code)}</a> · ${escape(warning.name)}
@@ -112,6 +115,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}
         ${hasMore ? `<a href="${escape(pageLink(offset + pageSize))}">Next</a>` : ''}
       </nav>` : ''}
+      ${master ? '</div>' : ''}
     </main>
   </div>
 </body></html>`;

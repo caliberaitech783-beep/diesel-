@@ -45,6 +45,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
     x: { login: 'excluded' },
   };
   let pulseUp = true, fetched = 0, clock = Date.parse('2026-11-19T10:00:00Z');
+  const currentFeed = feed();
   const app = createApp({
     env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43), DIESEL_ALLOWED_PULSE_LOGINS: 'admin' },
     itemSubmissions, sharedMasterDb: db, pulseMasterClock: () => clock,
@@ -53,7 +54,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
       if (url.pathname.endsWith('/masters')) {
         assert.equal(options.headers.Authorization, 'Bearer ' + 's'.repeat(43));
         fetched++;
-        return pulseUp ? Response.json(feed()) : new Response('', { status: 503 });
+        return pulseUp ? Response.json(currentFeed) : new Response('', { status: 503 });
       }
       const profile = profiles[grant[0]];
       return profile ? Response.json({ profile }) : new Response('', { status: 401 });
@@ -79,7 +80,9 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   const equipment = await page('/pulse-masters?master=equipment', 'a');
   assert.match(equipment, /T-101/);
   assert.match(equipment, /T-202/);
-  assert.match(equipment, /From Pulse · read-only · 2 records/);
+  assert.match(equipment, /data-live-records/);
+  assert.match(equipment, /live-records.js/);
+  assert.doesNotMatch(equipment, /From Pulse|Fetched|Refresh from Pulse|Make changes in Pulse/);
   assert.doesNotMatch(equipment, /Save for review|data-import-format/);
   assert.match(await page('/pulse-masters?master=site', 'a'), /Majri OC/);
   assert.match(await page('/pulse-masters?master=region', 'a'), /Western Coalfields Limited/);
@@ -101,17 +104,38 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.match(text, /Emp ID,Employee name/);
   assert.match(text, /'=9000000001/);
 
-  const post = (who, headers) => req('/pulse-masters/refresh', who, { method: 'POST', body: new URLSearchParams({ master: 'site' }),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers } });
-  assert.equal((await post('a', { Origin: 'https://elsewhere.test' })).status, 403);
-  assert.equal(fetched, 1);
-  assert.equal((await post('a', { Origin: origin })).headers.get('location'), '/pulse-masters?master=site');
-  assert.equal(fetched, 2);
+  assert.equal((await req('/pulse-masters/refresh', 'a', { method: 'POST' })).status, 404);
+
+  currentFeed.masters.equipment[0].model = 'FMX Live';
+  currentFeed.masters.employee[0].name = 'Ravi Updated';
+  clock += 30_000;
+  const updated = await Promise.all([
+    page('/pulse-masters?master=equipment', 'a'), page('/pulse-masters?master=employee', 'v'),
+  ]);
+  assert.match(updated[0], /FMX Live/);
+  assert.match(updated[1], /Ravi Updated/);
+  assert.doesNotMatch(updated[1], /Anita Rao/);
+  assert.equal(fetched, 2, 'automatic reads share one fresh copy across all masters');
+
+  currentFeed.masters.driver[0].name = 'Updated driver';
+  clock += 30_000;
+  assert.match(await (await req('/pulse-masters/download?master=driver', 'a')).text(), /Updated driver/);
+  assert.equal(fetched, 3, 'downloads fetch current data too');
 
   pulseUp = false;
-  clock += 16 * 60_000;
+  clock += 30_000;
   const stale = await page('/pulse-masters?master=equipment', 'a');
   assert.match(stale, /Pulse could not be reached just now/);
   assert.match(stale, /T-101/, 'the last fetched copy stays available');
-  assert.match((await post('a', { Origin: origin })).headers.get('location'), /refreshed=0/);
+  assert.match(stale, /Reconnecting/);
+  assert.equal(fetched, 4);
+  await page('/pulse-masters?master=employee', 'v');
+  assert.equal(fetched, 4, 'an outage retries at the next interval instead of on every user request');
+  assert.equal((await req('/pulse-masters/download?master=driver', 'a')).status, 503, 'downloads do not silently export stale data');
+  pulseUp = true;
+  clock += 30_000;
+  const recovered = await page('/pulse-masters?master=equipment', 'a');
+  assert.doesNotMatch(recovered, /could not be reached|Reconnecting/);
+  assert.match(recovered, /FMX Live/);
+  assert.equal(fetched, 5, 'automatically recovers without a manual refresh');
 });

@@ -108,7 +108,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
         const actor = hostedMasters?.actor(profile, request);
         const listed = Boolean(itemSubmissions && allowed(profile));
         const sites = listed || !actor ? [] : [actor.site, actor.project?.name, pulseProject(sharedMasterDb, actor.site)?.name];
-        return { grant: readCookie(request, sessionCookie), actor: { name: profile.name || profile.login }, sites,
+        return { grant: readCookie(request, sessionCookie), actor: { id: profile.login, name: profile.name || profile.login }, sites,
           masterDataPath: actor ? masterWorkspacePath + '/master-data' : '/master-data' };
       },
     });
