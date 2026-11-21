@@ -11,6 +11,7 @@ import { forSite, readPulseMasters } from './pulse-master-rules.mjs';
 import { pulseMaster } from './pulse-master-catalog.mjs';
 
 const origin = 'https://diesel.test';
+let erpDrivers = true;
 const feed = () => ({ masters: {
   region: [{ id: '1', name: 'Western Coalfields Limited', code: 'WCL', state: 'MH / MP', sites: 'Sasti OC | Majri OC' }],
   site: [{ name: 'Sasti OC', region: 'Western Coalfields Limited', regionCode: 'WCL', state: 'MH / MP' },
@@ -19,8 +20,9 @@ const feed = () => ({ masters: {
     { door: 'T-202', reg: 'MH34CD5678', currentLocation: 'Majri OC', make: 'Volvo', model: 'FMX 460' }],
   employee: [{ empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', designation: 'TIPPER DRIVER', phone: '9000000001', passwordHash: 'never' },
     { empId: 'E002', name: 'Anita Rao', site: 'Majri OC', designation: 'Store Keeper' }],
-  driver: [{ empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
-} });
+  driver: [{ empId: 'D200', name: 'Mahesh Patel', site: 'Majri OC', vehicle: 'EX-7', lastDate: '2026-11-20', source: 'Equipment logbook' },
+    { empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', vehicle: 'T-101', lastDate: '2026-11-18', source: 'Vehicle logbook', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
+}, erpDrivers });
 
 test('a Pulse master copy keeps only listed columns and rejects an incomplete reply', () => {
   const copy = readPulseMasters(feed());
@@ -83,7 +85,15 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.doesNotMatch(equipment, /Save for review|data-import-format/);
   assert.match(await page('/pulse-masters?master=site', 'a'), /Majri OC/);
   assert.match(await page('/pulse-masters?master=region', 'a'), /Western Coalfields Limited/);
-  assert.match(await page('/pulse-masters?master=driver', 'a'), /TIPPER DRIVER/);
+  const drivers = await page('/pulse-masters?master=driver', 'a');
+  assert.match(drivers, /Mahesh Patel/);
+  assert.match(drivers, /Last vehicle/);
+  assert.match(drivers, /EX-7/);
+  assert.match(drivers, /2026-11-20/);
+  assert.match(drivers, /TIPPER DRIVER/);
+  assert.doesNotMatch(drivers, /only directory drivers/);
+  assert.match(await page('/pulse-masters?master=driver', 'v'), /Ravi Kumar/);
+  assert.doesNotMatch(await page('/pulse-masters?master=driver', 'v'), /Mahesh Patel/);
   assert.equal(fetched, 1, 'one Pulse read serves every master while the copy is fresh');
   const searched = await page('/pulse-masters?master=equipment&q=fmx+460', 'a');
   assert.match(searched, /T-202/);
@@ -98,7 +108,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   const csv = await req('/pulse-masters/download?master=driver', 'a');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
   const text = await csv.text();
-  assert.match(text, /Emp ID,Employee name/);
+  assert.match(text, /Emp code,Driver name,Last site,Last vehicle,Last logbook date,Source/);
   assert.match(text, /'=9000000001/);
 
   const post = (who, headers) => req('/pulse-masters/refresh', who, { method: 'POST', body: new URLSearchParams({ master: 'site' }),
@@ -107,6 +117,19 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.equal(fetched, 1);
   assert.equal((await post('a', { Origin: origin })).headers.get('location'), '/pulse-masters?master=site');
   assert.equal(fetched, 2);
+
+  // Pulse without the ERP: the Driver Master says so and the copy is fetched again after a minute, not fifteen.
+  erpDrivers = false;
+  t.after(() => { erpDrivers = true; });
+  await post('a', { Origin: origin });
+  assert.equal(fetched, 3);
+  assert.match(await page('/pulse-masters?master=driver', 'a'), /only directory drivers are shown/);
+  assert.doesNotMatch(await page('/pulse-masters?master=site', 'a'), /only directory drivers/);
+  assert.equal(fetched, 3);
+  clock += 61_000;
+  erpDrivers = true;
+  assert.doesNotMatch(await page('/pulse-masters?master=driver', 'a'), /only directory drivers/);
+  assert.equal(fetched, 4);
 
   pulseUp = false;
   clock += 16 * 60_000;

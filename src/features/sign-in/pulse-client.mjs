@@ -22,17 +22,18 @@ export function createPulseClient({ origin, secret, fetcher }) {
     },
     // The Site, Region, Equipment, Employee and Driver masters, for a person signed in to Pulse now.
     async masters(grant) {
-      const result = await this.request('masters', { grant });
+      // Pulse may read the ERP driver list first, so this waits longer than a sign-in check.
+      const result = await this.request('masters', { grant }, 20_000);
       if (!result?.masters) throw new Error('Pulse masters unavailable.');
       return result;
     },
-    async request(operation, payload) {
+    async request(operation, payload, timeout = 8000) {
       const response = await fetcher(new URL(`/api/diesel-sso/${operation}`, origin), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
         body: JSON.stringify(payload),
         redirect: 'error',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(timeout),
       });
       if ([401, 403, 428].includes(response.status)) return null;
       if (response.status === 204) return {};

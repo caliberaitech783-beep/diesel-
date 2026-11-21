@@ -17,7 +17,12 @@ export const pulseMasters = [
     ['chassisNo', 'Chassis no.'], ['documentStatus', 'Document status'], ['asset', 'Asset no.'], ['status', 'Equipment status'],
   ] },
   { slug: 'employee', name: 'Employee Master', siteColumn: 'site', columns: employeeColumns },
-  { slug: 'driver', name: 'Driver Master', siteColumn: 'site', columns: employeeColumns },
+  // Everyone the ERP has recorded driving or operating a machine, with the latest site, vehicle and date.
+  { slug: 'driver', name: 'Driver Master', siteColumn: 'site', columns: [
+    ['empId', 'Emp code'], ['name', 'Driver name'], ['site', 'Last site'], ['vehicle', 'Last vehicle'],
+    ['lastDate', 'Last logbook date'], ['source', 'Source'], ['designation', 'Designation'], ['department', 'Department'],
+    ['status', 'Status'], ['phone', 'Phone no.'],
+  ] },
 ];
 
 export const pulseMaster = slug => pulseMasters.find(master => master.slug === slug);
