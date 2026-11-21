@@ -23,7 +23,7 @@ const catalog = [
   ['Item Master', itemMaster],
   ['Account Master', accountMaster],
   ['Company Master', cmllMaster, 'cmll-master'],
-  ['Cost Centre-Vehicle Master', costCentreVehicleMaster],
+  ['Cost Centre Master', costCentreVehicleMaster, 'cost-centre-vehicle-master'],
   ['Storage Location Master', storageLocationMaster],
   ['Route Wise Diesel Master', routeWiseDieselMaster],
   ['Driver Master', driverMaster],
