@@ -11,6 +11,8 @@ import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 import { writeCsvTable, writeExcelTable } from '../masters/assets/tabular-files.mjs';
 import { exportTable, fitExcelCells, writeMasterDataPdf } from './assets/export-data.mjs';
+import { pulseMasterExport } from '../pulse-masters/pulse-master-export.mjs';
+import { pulseMaster } from '../pulse-masters/pulse-master-catalog.mjs';
 
 const rows = [
   {
@@ -58,4 +60,21 @@ test('Master Data PDF paginates long fields and supports an empty export', async
   assert.ok(document.getPageCount() > 1);
   const empty = await pdf.PDFDocument.load(await writeMasterDataPdf([], false, pdf, fontkit, font));
   assert.equal(empty.getPageCount(), 1);
+});
+
+test('Pulse master downloads write CSV, Excel and PDF with the listed fields', async () => {
+  const master = pulseMaster('site');
+  const data = pulseMasterExport(master, [{ name: '00123 डीज़ल', region: '=1+1', regionCode: 'WR', state: 'MH' }]);
+  const table = exportTable(data.records, data.showSite, data.columns);
+  assert.deepEqual(table.columns, ['Site', 'Region', 'Region short name', 'State code']);
+  const csv = parse(writeCsvTable(table.columns, table.rows, { stringify }), { bom: true });
+  assert.deepEqual(csv[1], ['00123 डीज़ल', "'=1+1", 'WR', 'MH']);
+  const workbook = xlsx.read(writeExcelTable('Master Data', table.columns, table.rows, xlsx));
+  assert.deepEqual(xlsx.utils.sheet_to_json(workbook.Sheets['Master Data'], { header: 1 }), [table.columns, ...table.rows]);
+  const require = createRequire(import.meta.url);
+  const fontDirectory = dirname(require.resolve('@expo-google-fonts/noto-sans-devanagari/package.json'));
+  const font = await readFile(resolve(fontDirectory, '400Regular/NotoSansDevanagari_400Regular.ttf'));
+  const document = await pdf.PDFDocument.load(await writeMasterDataPdf(data.records, data.showSite, pdf, fontkit, font, data.columns));
+  assert.equal(document.getPageCount(), 1);
+  assert.equal(document.getTitle(), 'Diesel Master Data');
 });

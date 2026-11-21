@@ -14,9 +14,9 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
   }
   registerMasterDataRoutes(app, {
     enabledMasters: recordMasters, getActor: signedInActor,
-    async listRecords(actor, slugs, { offset, limit }) {
-      if (slugs.length === 1) return store.list(actor, slugs[0], { search: '', offset, limit });
-      const groups = await Promise.all(slugs.map(slug => store.list(actor, slug, { search: '', offset: 0 })));
+    async listRecords(actor, slugs, { offset, limit, search = '' }) {
+      if (slugs.length === 1) return store.list(actor, slugs[0], { search, offset, limit });
+      const groups = await Promise.all(slugs.map(slug => store.list(actor, slug, { search, offset: 0 })));
       return groups.flat().slice(offset, limit === undefined ? undefined : offset + limit);
     },
   });

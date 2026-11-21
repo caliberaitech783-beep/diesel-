@@ -324,10 +324,11 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     return queryRecords([slug], { search, status, site, limit, offset });
   }
 
-  function listSaved(slugs, { site, limit = -1, offset = 0 }) {
+  function listSaved(slugs, { site, limit = -1, offset = 0, search = '' }) {
     for (const slug of slugs) definition(slug);
     if (typeof site !== 'string' || !site.trim()) throw new MasterRecordError('Choose a workspace site.', 401);
-    return queryRecords(slugs, { site, limit, offset, search: '', status: '' });
+    if (typeof search !== 'string' || search.length > 256) throw new MasterRecordError('Choose a valid search.', 400);
+    return queryRecords(slugs, { site, limit, offset, search, status: '' });
   }
 
   return { get, list, listSaved, history, snapshot, attachment, changeStatus,

@@ -1,33 +1,36 @@
-import express from 'express';
 import { stringify } from 'csv-stringify/sync';
 import { pulseMaster, pulseMastersPath } from './pulse-master-catalog.mjs';
 import { pulseMasterPage } from './pulse-master-page.mjs';
 import { forSite, matching, readPulseMasters } from './pulse-master-rules.mjs';
 import { createPulseMasterStore } from './pulse-master-store.mjs';
+import { pulseMasterExport } from './pulse-master-export.mjs';
 
 const pageSize = 50;
-const staleAfter = 15 * 60_000;
+const staleAfter = 30_000;
 const unavailable = 'Pulse could not be reached just now. Showing the last fetched copy.';
-const retryPartialAfter = 60_000;
-const driversPartial = 'Pulse could not read the ERP driver list just now, so only directory drivers are shown. Select Refresh from Pulse in a minute.';
+const driversPartial = 'Pulse could not read the ERP driver list just now, so only directory drivers are shown. Retrying automatically.';
 // Spreadsheet programs run cells that begin with these characters as formulas.
 const cell = value => /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
 
-export function registerPulseMasters(app, { db, publicOrigin, getAccess, fetchMasters, startSignIn, now = Date.now }) {
+export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSignIn, now = Date.now }) {
   const store = createPulseMasterStore(db);
   let refreshing;
-  // Pulse says when its Driver master lacks the ERP drivers; that copy is fetched again sooner.
+  let retryAt = 0;
+  // Keep Pulse's ERP availability notice while automatically retrying the feed.
   let withoutErpDrivers = false;
 
   // One fetch at a time, shared by everyone who opens a Pulse master while the copy is stale.
   function refresh(grant) {
+    if (now() < retryAt) return false;
     refreshing ??= (async () => {
       try {
         const reply = await fetchMasters(grant);
         store.replace(readPulseMasters(reply), new Date(now()).toISOString());
         withoutErpDrivers = reply.erpDrivers === false;
+        retryAt = 0;
         return true;
       } catch {
+        retryAt = now() + staleAfter;
         return false;
       } finally {
         refreshing = undefined;
@@ -55,33 +58,36 @@ export function registerPulseMasters(app, { db, publicOrigin, getAccess, fetchMa
     const { records, syncedAt } = store.read(master.slug);
     return { records: forSite(master, records, access.sites), syncedAt };
   };
+  async function ensureFresh(master, access) {
+    const { syncedAt } = store.read(master.slug);
+    return Boolean(syncedAt && now() - Date.parse(syncedAt) < staleAfter) || await refresh(access.grant);
+  }
 
   app.get(pulseMastersPath, route(async (request, response, access, master) => {
     const search = typeof request.query.q === 'string' ? request.query.q.slice(0, 256) : '';
     const offset = Number(request.query.offset ?? 0);
     if (!Number.isSafeInteger(offset) || offset < 0) return response.status(400).send('Choose a valid page.');
-    const age = store.read(master.slug).syncedAt;
-    const fresh = age && now() - Date.parse(age) < (withoutErpDrivers ? retryPartialAfter : staleAfter);
-    const refreshed = fresh || await refresh(access.grant);
+    const refreshed = await ensureFresh(master, access);
     const { records, syncedAt } = visible(master, access);
     const found = matching(master, records, search);
     response.type('html').send(pulseMasterPage({
       actor: access.actor, master, rows: found.slice(offset, offset + pageSize), total: found.length, offset, pageSize, search,
       syncedAt, site: master.siteColumn ? access.sites?.[0] : undefined, masterDataPath: access.masterDataPath,
-      notice: !refreshed || request.query.refreshed === '0' ? unavailable : master.slug === 'driver' && withoutErpDrivers ? driversPartial : '',
+      notice: !refreshed ? unavailable : master.slug === 'driver' && withoutErpDrivers ? driversPartial : '',
     }));
   }));
 
-  app.get(pulseMastersPath + '/download', route((_request, response, access, master) => {
+  app.get(pulseMastersPath + '/records', route(async (_request, response, access, master) => {
+    if (!await ensureFresh(master, access)) return response.status(503).json({ error: 'Download is temporarily unavailable. Try again shortly.' });
+    const { records } = visible(master, access);
+    response.json(pulseMasterExport(master, records));
+  }));
+
+  app.get(pulseMastersPath + '/download', route(async (_request, response, access, master) => {
+    if (!await ensureFresh(master, access)) return response.status(503).send('Download is temporarily unavailable. Retrying automatically on the master page.');
     const { records } = visible(master, access);
     const rows = records.map(record => master.columns.map(([key]) => cell(record[key])));
     response.attachment(master.name + ' (Pulse).csv').type('text/csv')
       .send('﻿' + stringify([master.columns.map(([, label]) => label), ...rows]));
-  }));
-
-  app.post(pulseMastersPath + '/refresh', express.urlencoded({ extended: false, limit: '2kb' }), route(async (request, response, access, master) => {
-    if (request.get('origin') !== publicOrigin || request.get('sec-fetch-site') === 'cross-site') return response.sendStatus(403);
-    const refreshed = await refresh(access.grant);
-    response.redirect(303, pulseMastersPath + '?' + new URLSearchParams({ master: master.slug, ...(refreshed ? {} : { refreshed: '0' }) }));
   }));
 }

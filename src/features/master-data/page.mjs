@@ -3,19 +3,12 @@ import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { recordDraftScope } from '../masters/records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from '../masters/master-site-menu.mjs';
+import { masterDataFileMenu } from './file-menu.mjs';
+import { masterDataSearch } from './search.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
-
-function fileMenu(label, importing = false) {
-  const attribute = importing ? 'data-import-format' : 'data-format';
-  return `<details class="master-data-menu" name="master-data-file-actions">
-    <summary>${label}</summary>
-    <div>${[['Excel', 'xlsx'], ['CSV', 'csv'], ['PDF', 'pdf']].map(([name, format]) =>
-      `<button type="button" ${attribute}="${format}" aria-label="${label} ${name}">${name}</button>`).join('')}</div>
-  </details>`;
-}
 
 function savedTable(master, rows, canSave, prefix) {
   const records = rows.map(row => {
@@ -42,12 +35,12 @@ function savedTable(master, rows, canSave, prefix) {
   </div>`;
 }
 
-export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [] }) {
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '' }) {
   const heading = master?.name ?? 'Master Data';
   const home = prefix + '/master-data';
   const selection = master ? '?master=' + master.slug : '';
-  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, offset: position });
-  const exportPath = master && prefix + '/api/master-data/records?' + new URLSearchParams({ master: master.slug });
+  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}), offset: position });
+  const exportPath = master && prefix + '/api/master-data/records?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}) });
   const canImport = canSave && ((!local && !prefix) || actor.canEditMasters === true);
   const account = local ? `<a href="/workspace">${escape(actor.name ?? actor.id)}</a>`
     : `<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>`;
@@ -63,6 +56,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   ${master ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
   ${canSave ? '<script type="module" src="/master-data/assets/download.js"></script>' : ''}
   ${canImport ? '<script type="module" src="/master-data/assets/import.js"></script>' : ''}
+  ${master && canSave ? '<script type="module" src="/master-data/assets/live-records.js"></script>' : ''}
 </head><body>
   <a class="skip" href="#workspace">Skip to Master Data</a>
   <header class="masthead">
@@ -72,14 +66,15 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   </header>
   <div class="layout">
     ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
-    <main id="workspace" tabindex="-1" aria-labelledby="workspace-title">
-      ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
-      <header class="workspace-heading">
+    <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
+      <header class="workspace-heading${master ? ' master-data-heading' : ''}">
+        ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
         <h1 id="workspace-title">${escape(heading)}</h1>
+        ${master ? masterDataSearch({ master, action: home, search }) : ''}
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
-          ${fileMenu('Download')}
-          ${canImport ? fileMenu('Import', true) : ''}
-          ${fileMenu('Export')}
+          ${masterDataFileMenu('Download')}
+          ${canImport ? masterDataFileMenu('Import', true) : ''}
+          ${masterDataFileMenu('Export')}
         </div>` : ''}
       </header>
       ${masterSiteMenu(actor,prefix,'master-data',master?.slug)}
@@ -102,6 +97,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         <p><button type="button" data-bulk-save>Save all for review</button> <button type="button" data-bulk-cancel>Cancel</button></p>
       </section>` : ''}
       ${canSave ? '<output class="master-data-feedback" aria-live="polite"></output>' : ''}
+      ${master ? `<div data-live-records data-live-scope="${recordDraftScope(actor, master.slug)}">` : ''}
       ${warnings.length ? `<details open><summary>Attribute expiry alerts (${warnings.length})</summary><ul>${warnings.map(warning=>{
         const url=prefix+'/records?'+new URLSearchParams({master:master.slug,id:warning.id,revision:warning.revision});
         return `<li><a href="${escape(url)}">${escape(warning.code)}</a> · ${escape(warning.name)}
@@ -112,6 +108,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}
         ${hasMore ? `<a href="${escape(pageLink(offset + pageSize))}">Next</a>` : ''}
       </nav>` : ''}
+      ${master ? '</div>' : ''}
     </main>
   </div>
 </body></html>`;

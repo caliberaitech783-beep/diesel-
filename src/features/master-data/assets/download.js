@@ -37,12 +37,12 @@ for (const button of buttons) {
     menu.querySelector('summary').focus();
     feedback.textContent = 'Preparing download…';
     try {
-      const response = await fetch(tools.dataset.exportSource);
+      const response = await fetch(tools.dataset.exportSource, { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (response.status === 401) throw new Error('Sign in again to download Master Data.');
       if (!response.ok) throw new Error('Master Data could not be loaded. Try again.');
       const { records, showSite, columns } = await response.json();
       const format = formats[extension];
-      downloadFile(await format.write(records, showSite, columns), format.type, 'master-data.' + extension);
+      downloadFile(await format.write(records, showSite, columns), format.type, (tools.dataset.exportName || 'master-data') + '.' + extension);
       feedback.textContent = '';
     } catch (error) {
       feedback.textContent = error.message;

@@ -134,6 +134,11 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.deepEqual(columnNames(masterData), expectedColumns);
     assert.match(masterData, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
     assert.match(masterData, /<td>00123456<\/td>/);
+    const filtered = await (await restarted(tableUrl + '&q=missing', maker)).text();
+    assert.match(filtered, /No saved records for this master/);
+    assert.doesNotMatch(filtered, /<th scope="row"><a[^>]*>TEST-001/);
+    const found = await (await restarted('/api/master-data/records?master=item-master&q=test-001', maker)).json();
+    assert.deepEqual(found.records.map(row=>row.code), ['TEST-001']);
     for (const label of ['Download', 'Import', 'Export']) {
       const menu = masterData.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
       assert.ok(menu, label + ' has its own dropdown');
