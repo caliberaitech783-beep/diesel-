@@ -38,7 +38,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
 
   const allowedLogins = new Set((env.DIESEL_ALLOWED_PULSE_LOGINS ?? '')
     .split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
-  const allowed = profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase());
+  // Every signed-in Pulse user may open Diesel. DIESEL_PULSE_ACCESS=listed limits it to the listed logins and assigned roles again.
+  const everyPulseUser = env.DIESEL_PULSE_ACCESS !== 'listed';
+  // A Pulse user with a Diesel site role or Entry assignment keeps exactly that; everyone else gets the listed-login access.
+  const allowed = profile => typeof profile?.login === 'string' && Boolean(profile.login.trim())
+    && (allowedLogins.has(profile.login.trim().toLowerCase())
+      || (everyPulseUser && !masterAllowed(profile) && !entryAllowed(profile)));
   const masterAllowed = profile => Boolean(sharedMasterDb && masterAssignments(profile).length);
   const canOpenMasters = profile => allowed(profile) || masterAllowed(profile);
   const entryMode = production ? 'site-stock' : (env.DIESEL_ENTRY_ACCESS_MODE ?? 'personal-review');

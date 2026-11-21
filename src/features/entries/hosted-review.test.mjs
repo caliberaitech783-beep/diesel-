@@ -13,7 +13,7 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   const dir=await mkdtemp(join(tmpdir(),'diesel-hosted-review-'));
   const origin='https://diesel.test';
   const app=createApp({entryReviewDirectory:dir,env:{DIESEL_ACCESS_MODE:'pulse',DIESEL_PUBLIC_ORIGIN:origin,
-    DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),DIESEL_ALLOWED_PULSE_LOGINS:'alice,bob'},
+    DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),DIESEL_ALLOWED_PULSE_LOGINS:'alice,bob',DIESEL_PULSE_ACCESS:'listed'},
     fetcher:async(_url,options)=>Response.json({profile:{login:{a:'alice',b:'bob',c:'excluded'}[JSON.parse(options.body).grant[0]]}})});
   const server=app.listen(0,'127.0.0.1');await once(server,'listening');
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));await rm(dir,{recursive:true});});
@@ -56,7 +56,7 @@ test('Azure waits for live Entry setup and never opens a sample workspace',async
   t.after(()=>rm(dir,{recursive:true,force:true}));
   for (const mode of [undefined, 'personal-review', 'assigned-pilot', 'site-stock']) {
     const env={WEBSITE_SITE_NAME:'diesel',DIESEL_PUBLIC_ORIGIN:origin,DIESEL_SSO_CLIENT_SECRET:'s'.repeat(43),
-      DIESEL_ENTRY_ACCESS_MODE:mode,DIESEL_ALLOWED_PULSE_LOGINS:'operator'};
+      DIESEL_ENTRY_ACCESS_MODE:mode,DIESEL_ALLOWED_PULSE_LOGINS:'operator',DIESEL_PULSE_ACCESS:'listed'};
     const app=createApp({env,entryReviewDirectory:mode==='site-stock'?undefined:dir,
       fetcher:async(_url,options)=>Response.json({profile:{login:JSON.parse(options.body).grant[0]==='o'?'operator':'excluded'}})});
     const server=app.listen(0,'127.0.0.1');await once(server,'listening');

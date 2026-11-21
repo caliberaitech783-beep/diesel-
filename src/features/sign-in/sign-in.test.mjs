@@ -124,7 +124,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
 test('Azure requires Pulse and denies direct master access outside the explicit username list', async t => {
   for (const logins of ['', 'different, test2']) {
     const app = createApp({
-      env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_ACCESS_MODE: 'guest', DIESEL_ALLOWED_PULSE_LOGINS: logins, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+      env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_ACCESS_MODE: 'guest', DIESEL_ALLOWED_PULSE_LOGINS: logins, DIESEL_PULSE_ACCESS: 'listed', DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
       fetcher: async () => Response.json({ profile: { login: 'test', name: 'different' } }),
     });
     const server = app.listen(0, '127.0.0.1');
@@ -140,4 +140,25 @@ test('Azure requires Pulse and denies direct master access outside the explicit 
     assert.equal(blocked.status, 403);
     assert.doesNotMatch(await blocked.text(), /master-list/);
   }
+});
+
+test('every signed-in Pulse user can open Diesel, and nobody can without a Pulse sign-in', async t => {
+  let profile = { login: 'anyone', name: 'Any Pulse User' };
+  const app = createApp({
+    env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_ALLOWED_PULSE_LOGINS: '', DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+    fetcher: async () => profile ? Response.json({ profile }) : new Response('', { status: 401 }),
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => server.close());
+  const url = 'http://127.0.0.1:' + server.address().port + '/';
+  const signedIn = { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) }, redirect: 'manual' };
+  assert.equal((await fetch(url, { redirect: 'manual' })).status, 303, 'a visitor without a session is sent to Pulse');
+  const opened = await fetch(url, signedIn);
+  assert.equal(opened.status, 200);
+  assert.match(await opened.text(), /Any Pulse User/);
+  profile = { login: '  ' };
+  assert.equal((await fetch(url, signedIn)).status, 403, 'a profile without a login is not a Pulse user');
+  profile = null;
+  assert.equal((await fetch(url, signedIn)).status, 303, 'an ended Pulse session is sent to sign in again');
 });
