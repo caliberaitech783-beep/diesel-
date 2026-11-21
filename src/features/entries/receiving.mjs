@@ -32,6 +32,9 @@ export const receiving = {
     'Choose a calibrated instrument valid for this inspection and storage location.');
     const item=c.siteConfig?.item??review;
     check(reject || (d.density>=item.densityMin && d.density<=item.densityMax),'Density is outside the item range. Reject or investigate this load.');
+    const partial=d.decision==='Accept part, reject part', rejected=partial ? d.rejected??0 : 0;
+    check(!partial || (rejected>0 && rejected<invoiceLitres),'Enter the rejected litres, less than the invoice quantity.');
+    check(partial || !d.rejected,'Rejected litres apply only to Accept part, reject part.');
     let accepted=0;
     if (ug && !reject) {
       check(d.tank && d.before!==undefined && d.after>d.before,'Select a tank and enter increasing dips.');
@@ -40,13 +43,14 @@ export const receiving = {
       const acceptedLitres=round(litresAtDip(d.after,location?.chart)-opening);
       check(opening+invoiceLitres<=safe && c.balance(d.tank)+invoiceLitres<=safe,'There is insufficient safe fill space.');
       accepted=acceptedLitres;
-      check(accepted<=invoiceLitres,'Measured receipt exceeds the invoice. Recheck dips.');
+      check(accepted+rejected<=invoiceLitres,'Measured receipt and rejected litres exceed the invoice. Recheck dips.');
     }
-    const shortage=ug || reject ? round(invoiceLitres-accepted) : 0;
-    const exception=reject || shortage>invoiceLitres*po.result.transitTolerance/100;
-    check(!shortage || reject || d.decision==='Accept with shortage','Choose Accept with shortage.');
+    // Rejected litres go back to the supplier: they are neither stock nor shortage.
+    const shortage=ug || reject ? round(invoiceLitres-accepted-rejected) : 0;
+    const exception=reject || partial || shortage>invoiceLitres*po.result.transitTolerance/100;
+    check(!shortage || reject || partial || d.decision==='Accept with shortage','Choose Accept with shortage.');
     check(!exception || d.reason,'Select a shortage or rejection reason.');
-    return { accepted,shortage,invoiceLitres,openingTT:!ug&&!reject?invoiceLitres:0,generateGRN:ug&&!reject,
+    return { accepted,shortage,invoiceLitres,...(partial?{rejected}:{}),openingTT:!ug&&!reject?round(invoiceLitres-rejected):0,generateGRN:ug&&!reject,
       approvals:exception?['Site In-charge','Project Manager']:['Site In-charge'] };
   },
 };

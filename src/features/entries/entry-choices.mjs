@@ -1,10 +1,11 @@
+import { correctionTypes } from './catalog.mjs';
 // Filter the local register for the next step. Posting still validates the balances in a transaction.
 export function sourceChoices(field,doc,rows,actor) {
   const active=rows.filter(r=>r.id!==doc.id && r.site===actor.site && !['Draft','Superseded','Returned'].includes(r.status));
   const posted=active.filter(r=>r.status==='Posted' && r.day<=doc.day);
   const amount=(type,key,id,result,onlyPosted=false)=>(onlyPosted?posted:active)
     .filter(r=>r.type===type && r.data[key]===id).reduce((sum,r)=>sum+Number(r.result[result]??0),0);
-  if(field.source==='correctable') return posted.filter(r=>r.maker===actor.id && ['E1','E14','E11','E8'].includes(r.type));
+  if(field.source==='correctable') return posted.filter(r=>r.maker===actor.id && correctionTypes.includes(r.type));
   return posted.filter(r=>r.type===field.source).filter(r=>{
     if(doc.type==='E2')return amount('E2','indent',r.id,'litres')<r.result.litres;
     if(doc.type==='E3')return amount('E3','po',r.id,'amount')<r.result.value;

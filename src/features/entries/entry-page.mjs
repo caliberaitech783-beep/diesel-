@@ -1,7 +1,7 @@
 import { page, esc, option } from './entry-shell.mjs';
 import { byId, entries } from './catalog.mjs';
 import { entryRole,roleKey,otherSite,review } from './review-masters.mjs';
-import { businessDay } from './entry-rules.mjs';
+import { businessDay, money } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
@@ -123,6 +123,8 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=d.result.approvals?.[d.stage];
   const reviewable=mayApproveEntry(d,actor);
   const receipt=d.type==='E12'&&actor.site===d.result.destination;
+  const pending=d.type==='E8'&&d.status==='Posted' ? Number(d.result.expectedPostSaleDiscount??0)-Number(d.result.creditReceived??0) : 0;
+  const creditOpen=pending>0.004 && d.site===actor.site && ['Accounts Executive','Head – Accounts'].includes(role);
   let switchForm='';
   if (d.status==='Awaiting approval'&&!reviewable) {
     const profile=next==='Site In-charge'&&d.maker===d.site+'-'+roleKey(next)?'entry-deputy':roleKey(next);
@@ -164,8 +166,10 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${next&&d.status==='Awaiting approval'?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
     ${d.status==='Awaiting Treasury'&&role==='Treasury'?`<p><a href="/entries/bank-file/${d.id}">Download payment advice</a></p><label>Bank UTR<input name="utr"></label><label>Payment date<input type="date" name="paymentDate"></label>`:''}
+    ${creditOpen?`<section><h2>Post-sale discount credit note</h2><p>₹${esc(money(pending))} of ₹${esc(money(d.result.expectedPostSaleDiscount))} is still awaiting a credit note.</p>
+      <div class="fields"><label>Credit note number<input name="creditNote" autocomplete="off"></label><label>Amount (₹)<input type="number" step="0.01" min="0.01" name="creditAmount"></label><label>Credit note date<input type="date" name="creditDate"></label></div></section>`:''}
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
-    <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
+    <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}

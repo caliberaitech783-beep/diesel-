@@ -26,6 +26,12 @@ export function entryAlerts(rows, actor, policy, now = Date.now()) {
       }
       if (type === 'E10A' && result.difference > limits.bowserLimit) add('Tank to bowser variance', doc, result.difference + '%');
       if (type === 'E11' && result.repeatFill) add('Repeat fill',doc,doc.data.vehicle);
+      const pending = type === 'E8' && doc.status === 'Posted'
+        ? Number(result.expectedPostSaleDiscount ?? 0) - Number(result.creditReceived ?? 0) : 0;
+      const waitDays = policy.alerts.get('Credit note pending')?.limit ?? 30;
+      if (pending > 0.004 && (now - Date.parse(doc.day + 'T00:00:00Z')) / 86400000 >= waitDays) {
+        add('Credit note pending', doc, '₹' + pending.toFixed(2) + ' post-sale discount awaiting credit note', waitDays * 24);
+      }
       if (type === 'E11' && result.meterJump) add('Meter jump',doc,doc.data.vehicle);
       if (type === 'E15') {
         const measurements = result.measurements ?? [{code:'Tank',variance:result.tankVariance},{code:'Bowser',variance:result.bowserVariance}];

@@ -244,6 +244,22 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         check(/^[A-Z0-9-]{5,40}$/.test(utr) && !all().some(r=>r.result.utr===utr),'Enter a valid unique UTR.');
         check(validDate(body.paymentDate) && body.paymentDate>=doc.day && body.paymentDate<=dayFor(doc.site,now),'Check the payment date.');
         Object.assign(doc.result,{utr,paymentDate:body.paymentDate});doc.status='Posted';
+      } else if (action==='Record credit note') {
+        // The post-sale discount stays outstanding on the bill match until its credit notes add up to it.
+        check(doc.type==='E8' && doc.status==='Posted' && doc.site===actor.site && ['Accounts Executive','Head – Accounts'].includes(role),
+          'Switch to Accounts at this site to record a credit note.');
+        const expected=Number(doc.result.expectedPostSaleDiscount??0), notes=doc.result.creditNotes??[];
+        const received=notes.reduce((sum,note)=>sum+note.amount,0);
+        check(expected>received,'No post-sale discount is outstanding on this bill.');
+        const number=String(body.creditNote??'').trim(), amount=Number(body.creditAmount);
+        check(/^[A-Za-z0-9/_.-]{2,40}$/.test(number),'Enter the credit note number.');
+        check(!all().some(r=>r.type==='E8' && (r.result.creditNotes??[]).some(note=>note.number.toLowerCase()===number.toLowerCase())),'This credit note is already recorded.');
+        check(Number.isFinite(amount) && amount>0 && money(received+amount)<=expected,'Enter an amount up to the ₹'+money(expected-received)+' still outstanding.');
+        check(validDate(body.creditDate) && body.creditDate>=doc.day && body.creditDate<=dayFor(doc.site,now),'Check the credit note date.');
+        const total=money(received+amount);
+        Object.assign(doc.result,{creditNotes:[...notes,{number,amount:money(amount),date:body.creditDate,by:actor.id}],
+          creditReceived:total,creditPending:money(expected-total)});
+        log+=' · '+number+' ₹'+money(amount);
       } else if (action==='Confirm receipt' || action==='Approve transfer variance') {
         const first=action==='Confirm receipt';
         check(doc.type==='E12' && doc.result.destination===actor.site && doc.maker!==actor.id && (first?doc.status==='In transit'&&role==='Site Store':doc.status==='Receipt review'&&role==='Project Manager'),'Switch to the receiving site and assigned role.');
