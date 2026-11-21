@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { masters } from '../masters/catalog.mjs';
 import { masterDefinition } from '../masters/records-fields.mjs';
 import { pulseMasters } from '../pulse-masters/pulse-master-catalog.mjs';
-import { dataChecks, missingFields, siteChecklist } from './insights.mjs';
+import { dataChecks, equipmentBySite, missingFields, siteChecklist } from './insights.mjs';
 import { insightsPage, insightsPath, overview } from './insights-page.mjs';
 
 const assets = fileURLToPath(new URL('./assets/', import.meta.url));
@@ -49,6 +49,8 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
     return { masters: await masterCounts(access), masterDataPath: access.masterDataPath,
       pulse: pulseMasters.map(({ slug, name }) => ({ slug, name, count: copies[slug].records.length, syncedAt: copies[slug].syncedAt })) };
   }
+  const siteWise = async (access, copies) => equipmentBySite({ sites: copies.site.records, equipment: copies.equipment.records,
+    drivers: copies.driver.records, shifts: copies.shift.records, storage: await listRecords(actorOf(access), 'storage-location-master') });
   // The same overview as HTML for the Master Data home; null for a person these views are not for.
   async function homeOverview(request) {
     const access = await getAccess(request);
@@ -56,7 +58,7 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
     const { copies, fresh } = await pulseCopy(access);
     const escape = value => String(value).replace(/[&<>"']/g, char => '&#' + char.charCodeAt(0) + ';');
     return `<nav class="insight-views" aria-label="Master Data views"><a href="${insightsPath}?view=sites">Site checklist</a><a href="${insightsPath}?view=checks">Data checks</a></nav>
-      ${fresh ? '' : `<p class="record-meta" role="alert">${escape(unavailable)}</p>`}${overview(await overviewData(access, copies))}`;
+      ${fresh ? '' : `<p class="record-meta" role="alert">${escape(unavailable)}</p>`}${overview({ ...await overviewData(access, copies), summary: await siteWise(access, copies) })}`;
   }
 
   app.get('/api/master-insights/counts', route(async (_request, response, access) => {
@@ -72,7 +74,7 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
     const { copies, fresh } = await pulseCopy(access);
     const page = { actor: access.actor, view, masterDataPath: access.masterDataPath, notice: fresh ? '' : unavailable };
     if (view === 'overview') {
-      return response.type('html').send(insightsPage({ ...page, ...await overviewData(access, copies) }));
+      return response.type('html').send(insightsPage({ ...page, ...await overviewData(access, copies), summary: await siteWise(access, copies) }));
     }
     const actor = actorOf(access);
     const [storage, accounts] = await Promise.all([listRecords(actor, 'storage-location-master'), listRecords(actor, 'account-master')]);
