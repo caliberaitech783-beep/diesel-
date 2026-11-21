@@ -1,3 +1,4 @@
+import { deletionProblem } from './deletion-rules.mjs';
 import { randomUUID } from 'node:crypto';
 import { recordIdentity, recordMasters, masterDefinition, MasterRecordError, validateScalar } from './records-fields.mjs';
 import { preparePulseProjects, masterLocationProject } from './pulse-projects.mjs';
@@ -53,7 +54,7 @@ export function readActiveMasters(db, site, enabledMasters = ['item-master']) {
   if (!slugs.length) return available;
   const approved = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
     ON h.record_id=m.id AND h.revision=m.approved_revision
-    WHERE m.status!='inactive' AND (m.approved_site_key='' OR m.approved_site_key=?)
+    WHERE m.status NOT IN ('inactive','deleted') AND (m.approved_site_key='' OR m.approved_site_key=?)
     AND m.master IN (${slugs.map(()=>'?').join(',')}) ORDER BY m.master, m.code`).all(normalize(String(site ?? '')),...slugs);
   for (const row of approved) {
     const item = JSON.parse(row.snapshot);
@@ -65,7 +66,7 @@ export function readActiveMasters(db, site, enabledMasters = ['item-master']) {
 export function approvedLocationDirectory(db) {
   const rows = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
     ON h.record_id=m.id AND h.revision=m.approved_revision
-    WHERE m.master='location-master' AND m.status!='inactive' AND m.approved_site_key!='' ORDER BY m.approved_site_key`).all();
+    WHERE m.master='location-master' AND m.status NOT IN ('inactive','deleted') AND m.approved_site_key!='' ORDER BY m.approved_site_key`).all();
   return rows.map(row => JSON.parse(row.snapshot)).filter(isActive)
     .map(item => ({ site: item.site, pulseName: item.values['Location Name'] }));
 }
@@ -208,7 +209,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     const current = id ? get(slug, id) : null;
     if (current) {
       assertRevision(current, payload.revision);
-      if (['inactive','pending_deactivation'].includes(current.status)) throw new MasterRecordError('This record cannot be edited in its current state.', 409);
+      if (['inactive','pending_deactivation','pending_deletion','deleted'].includes(current.status)) throw new MasterRecordError('This record cannot be edited in its current state.', 409);
     }
     const recordId = current?.id ?? randomUUID();
     const site = payload.site ?? current?.site ?? '';
@@ -222,7 +223,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     if (slug === 'location-master' && !privateSubmission) {
       const project = masterLocationProject(db, site, actor);
       if (!project) throw new MasterRecordError('Sync the project directory from Pulse 1 first.');
-      if (!current && db.prepare("SELECT 1 FROM master_records WHERE master='location-master' AND site_key=?").get(siteKey)) {
+      if (!current && db.prepare("SELECT 1 FROM master_records WHERE master='location-master' AND status!='deleted' AND site_key=?").get(siteKey)) {
         throw new MasterRecordError('This Pulse project already has a Location record. Open it to make changes.', 409);
       }
       input = { ...input, 'Location Code': input?.['Location Code'] ?? current?.code, 'Location Name': project.name, Client: project.client };
@@ -269,10 +270,10 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       const current = get(slug, id);
       assertRevision(current, revision);
       let status;
-      if (['approve','return'].includes(action) && ['pending','pending_deactivation'].includes(current.status)) {
+      if (['approve','return'].includes(action) && ['pending','pending_deactivation','pending_deletion'].includes(current.status)) {
         if (normalize(editor.id) === normalize(current.editedBy)) throw new MasterRecordError('A different actor must review this revision.', 403);
         status = action === 'return' ? 'returned'
-          : current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
+          : current.status === 'pending_deletion' ? 'deleted' : current.status === 'pending_deactivation' || current.values.Status === 'Inactive' ? 'inactive' : 'approved';
         if (status === 'approved') {
           const problem = slug==='shift-master'
             ? validateEntryShift(current,readActiveMasters(db,current.site,[slug])[slug])
@@ -281,6 +282,8 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
               : validatePolicyMaster(slug, current.values);
           if (problem) throw new MasterRecordError(problem);
         }
+      } else if (action === 'delete' && !['deleted','pending_deletion'].includes(current.status)) {
+        status = 'pending_deletion';
       } else if (action === 'deactivate' && ['approved','pending','returned'].includes(current.status)) {
         status = 'pending_deactivation';
       } else if (action === 'reactivate' && current.status === 'inactive') {
@@ -288,10 +291,21 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       } else {
         throw new MasterRecordError('This action is unavailable for the current record status.', 409);
       }
+      if (action === 'delete' || status === 'deleted') {
+        const rows = db.prepare(`SELECT m.*, h.snapshot AS approved_snapshot FROM master_records m
+          LEFT JOIN master_history h ON h.record_id=m.id AND h.revision=m.approved_revision
+          WHERE m.status NOT IN ('deleted','inactive') AND (m.site_key=? OR m.site_key='' OR ?='')`).all(normalize(current.site),normalize(current.site));
+        const dependents = rows.flatMap(row => [unpack(row), ...(row.approved_snapshot ? [{...JSON.parse(row.approved_snapshot),status:row.status}] : [])]);
+        const approved = db.prepare(`SELECT h.snapshot FROM master_records m JOIN master_history h
+          ON h.record_id=m.id AND h.revision=m.approved_revision WHERE m.id=?`).get(id);
+        const problem = deletionProblem(current, dependents)
+          || (approved && deletionProblem(JSON.parse(approved.snapshot), dependents));
+        if (problem) throw new MasterRecordError(problem,409);
+      }
       const nextRevision = revision + 1;
       if (slug === 'storage-location-master' && (status === 'approved' || action === 'reactivate')) requireLocation(current.site, current.values.Location);
       if (slug === 'location-master' && (action === 'deactivate' || status === 'inactive')) {
-        const dependent = db.prepare("SELECT 1 FROM master_records WHERE master='storage-location-master' AND site_key=? AND status!='inactive' LIMIT 1").get(normalize(current.site));
+        const dependent = db.prepare("SELECT 1 FROM master_records WHERE master='storage-location-master' AND site_key=? AND status NOT IN ('inactive','deleted') LIMIT 1").get(normalize(current.site));
         if (dependent) throw new MasterRecordError('Deactivate this project’s storage records before retiring its location.', 409);
       }
       const timestamp = new Date().toISOString();
@@ -299,9 +313,9 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       if (slug !== 'location-master' && action === 'reactivate') values.Status = 'Active';
       if (slug !== 'location-master' && status === 'inactive') values.Status = 'Inactive';
       db.prepare(`UPDATE master_records SET status=?,revision=?,updated_at=?,edited_by=?,values_json=?,
-        approved_revision=CASE WHEN ?='approved' THEN ? WHEN ?='inactive' THEN NULL ELSE approved_revision END,
-        approved_code_key=CASE WHEN ?='approved' THEN code_key WHEN ?='inactive' THEN NULL ELSE approved_code_key END,
-        approved_site_key=CASE WHEN ?='approved' THEN site_key WHEN ?='inactive' THEN NULL ELSE approved_site_key END WHERE id=?`)
+        approved_revision=CASE WHEN ?='approved' THEN ? WHEN ? IN ('inactive','deleted') THEN NULL ELSE approved_revision END,
+        approved_code_key=CASE WHEN ?='approved' THEN code_key WHEN ? IN ('inactive','deleted') THEN NULL ELSE approved_code_key END,
+        approved_site_key=CASE WHEN ?='approved' THEN site_key WHEN ? IN ('inactive','deleted') THEN NULL ELSE approved_site_key END WHERE id=?`)
         .run(status, nextRevision, timestamp, ['approve','return'].includes(action) ? current.editedBy : editor.id,
           storedValues(values,current.attributes), status, nextRevision, status, status, status, status, status, id);
       return audit(get(slug, id), action, editor, action === 'approve' ? '' : changeReason(reason));
@@ -310,7 +324,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
 
   function queryRecords(slugs, { search, status, site, limit, offset }) {
     const placeholders = slugs.map(() => '?').join(',');
-    return db.prepare(`SELECT * FROM master_records WHERE master IN (${placeholders}) AND (?='' OR status=?)
+    return db.prepare(`SELECT * FROM master_records WHERE master IN (${placeholders}) AND status!='deleted' AND (?='' OR status=?)
       AND (? IS NULL OR site_key=?)
       AND (instr(lower(code),lower(?))>0 OR instr(lower(name),lower(?))>0)
       ORDER BY master,code COLLATE NOCASE,id LIMIT ? OFFSET ?`)
@@ -319,7 +333,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
 
   function list(slug, { search = '', status = '', site = null, limit = 100, offset = 0 } = {}) {
     definition(slug);
-    if (typeof search !== 'string' || search.length > 256 || !['', 'approved', 'pending', 'returned', 'pending_deactivation', 'inactive'].includes(status)) throw new MasterRecordError('Choose a valid search or status.');
+    if (typeof search !== 'string' || search.length > 256 || !['', 'approved', 'pending', 'returned', 'pending_deactivation', 'pending_deletion', 'inactive'].includes(status)) throw new MasterRecordError('Choose a valid search or status.');
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 250 || !Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Invalid page.');
     return queryRecords([slug], { search, status, site, limit, offset });
   }

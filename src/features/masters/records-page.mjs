@@ -6,6 +6,7 @@ import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from './master-site-menu.mjs';
 import { attributeMasters } from './master-attributes.mjs';
 import { attributeFields } from './attribute-page.mjs';
+import { recordDialogAssets, recordDialogHost, deleteConfirmation } from './record-dialog.mjs';
 import { masterDataSearch } from '../master-data/search.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -36,17 +37,17 @@ function recordField(field, value, index, base, editable) {
   return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
-export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {
+export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
   const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
   const home = prefix + '/records?master=' + master.slug;
   const mastersHome = submissionsOnly || prefix ? '/' : '/records';
   const scope = record?.site ?? actor.site ?? '';
-  const history = record && !submissionsOnly ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
-    `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
+  const history = record && revisions.length ? `<section><h2>Revision history</h2><ol class="revisions">${revisions.map(event =>
+    `<li><a href="${home}&amp;id=${record.id}&amp;revision=${event.revision}${dialog ? '&amp;dialog=1' : ''}">Revision ${event.revision}</a> · ${escape(event.action)} · ${escape(event.actorName)} · <time>${escape(event.at)}</time>${event.reason ? ' · ' + escape(event.reason) : ''}</li>`).join('')}</ol></section>` : '';
   const editing = Boolean(record || creating);
   const showSidebar = !editing && !masterSelected;
-  const editable = editingAllowed && !['inactive', 'pending_deactivation'].includes(record?.status);
+  const editable = editingAllowed && !['inactive', 'pending_deactivation', 'pending_deletion', 'deleted'].includes(record?.status);
   const actorId = typeof actor === 'string' ? actor : actor.id;
   const isLocation = master.slug === 'location-master';
   const isStorage = master.slug === 'storage-location-master';
@@ -84,24 +85,27 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
   }).join('') : '';
   const actions = [];
   if (editable) actions.push('<button type="submit" data-save-for-review>Save for review</button>');
-  const mayReview = approvingAllowed && ['pending', 'pending_deactivation'].includes(record?.status)
+  const mayReview = approvingAllowed && ['pending', 'pending_deactivation', 'pending_deletion'].includes(record?.status)
     && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase();
   if (mayReview) actions.push('<button type="button" data-action="approve">Approve revision</button>',
     '<button type="button" data-action="return">Return for changes</button>');
-  if (editingAllowed && record && record.status !== 'pending_deactivation') actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
+  if (!submissionsOnly && editingAllowed && record && !['pending_deactivation','pending_deletion','deleted'].includes(record.status)) actions.push(record.status === 'inactive' ? '<button type="button" data-action="reactivate">Request reactivation</button>' : '<button type="button" data-action="deactivate">Request deactivation</button>');
+  if (editingAllowed && record && !['pending_deletion','deleted'].includes(record.status)) actions.push('<button type="button" class="record-delete" data-delete-record>Delete record</button>');
+  if (dialog) actions.push('<button type="button" data-dialog-cancel>Cancel</button>');
   const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
   const content = editing ? `
-    ${submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
+    ${dialog ? '' : submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
     <div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
+    ${record?.companyRecord ? '<p class="record-meta">Company ERP record · Changes are saved in Diesel.</p>' : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
     <output id="item-file-status" aria-live="polite"></output>
     ${record ? `<p class="record-meta">${escape(record.code)} · ${escape(record.status.replace('_',' '))} · Revision ${record.revision}${historical ? ` · <a href="${home}&amp;id=${record.id}">Open current record</a>` : ''}</p>` : ''}
-    <form class="master-form" id="record-form" data-api="${endpoint}" data-record-home="${home}" data-slug="${master.slug}" data-master-name="${escape(master.name)}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}"${prefix ? ` data-write-scope="${recordDraftScope(actor, master.slug)}"` : ''}${creating && editable ? ` data-import-scope="${recordDraftScope(actor, master.slug)}"` : ''}>
+    <form class="master-form" id="record-form" data-api="${endpoint}"${submissionsOnly ? ' data-private-submission="true"' : ''} data-record-home="${home}" data-slug="${master.slug}" data-master-name="${escape(master.name)}" data-record="${record?.id ?? ''}" data-revision="${record?.revision ?? ''}"${prefix || submissionsOnly ? ` data-write-scope="${recordDraftScope(actor, master.slug)}"` : ''}${creating && editable ? ` data-import-scope="${recordDraftScope(actor, master.slug)}"` : ''}>
       ${submissionsOnly ? '' : `<p class="record-meta">Site · ${escape(scope)}</p>`}${groups}
       ${!submissionsOnly && attributeMasters.has(master.slug) ? attributeFields(record,editable,endpoint) : ''}
-      ${mayReview || (editingAllowed && record && record.status !== 'pending_deactivation') ? '<div class="master-field change-reason"><label for="change-reason">Reason for change or return</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
+      ${mayReview || (editingAllowed && record && !['pending_deactivation','pending_deletion','deleted'].includes(record.status)) ? '<div class="master-field change-reason"><label for="change-reason">Reason for change or return</label><textarea id="change-reason" maxlength="1000" required></textarea></div>' : ''}
       ${actions.length ? `<div class="form-footer">${actions.join(' ')}<output aria-live="polite"></output></div>` : ''}
-    </form>${history}` : `
+    </form>${history}${record && editingAllowed ? deleteConfirmation(submissionsOnly) : ''}` : `
     <header class="workspace-heading master-data-heading">
       ${mastersMenuLink(prefix + '/master-data', 'Back to Master Data')}
       <h1 id="workspace-title">${escape(master.name)}</h1>
@@ -112,24 +116,24 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
     ${editingAllowed && !prerequisite && !hasLocation ? `<p><a class="record-primary" href="${home}&amp;new=1">New record</a></p>` : ''}
     <div data-live-records data-live-scope="${recordDraftScope(actor, master.slug)}">
-    <div class="record-list">${rows.length ? `<table><thead><tr><th>Code</th><th>Name</th>${submissionsOnly ? '' : '<th>Site</th>'}<th>Status</th><th>Revision</th></tr></thead><tbody>${rows.map(row =>
-      `<tr><td><a href="${home}&amp;id=${row.id}">${escape(row.code)}</a></td><td>${escape(row.name)}</td>${submissionsOnly ? '' : `<td>${escape(row.site || 'Company-wide')}</td>`}<td>${escape(row.status.replace('_',' '))}</td><td>${row.revision}</td></tr>`).join('')}</tbody></table>` : '<p>No records match this view.</p>'}</div>
+    <div class="record-list">${rows.length ? `<table><thead><tr><th>Code</th><th>Name</th>${submissionsOnly ? '' : '<th>Site</th>'}<th>Status</th><th>Revision</th><th>Actions</th></tr></thead><tbody>${rows.map(row =>
+      `<tr><td><a data-record-dialog href="${home}&amp;id=${row.id}">${escape(row.code)}</a></td><td>${escape(row.name)}</td>${submissionsOnly ? '' : `<td>${escape(row.site || 'Company-wide')}</td>`}<td>${escape(row.status.replace('_',' '))}</td><td>${row.revision}</td><td><a class="record-edit-link" data-record-dialog href="${home}&amp;id=${row.id}">${editingAllowed && row.canEdit !== false && !['inactive','pending_deactivation','pending_deletion','deleted'].includes(row.status) ? 'Edit' : 'View'}</a></td></tr>`).join('')}</tbody></table>` : '<p>No records match this view.</p>'}</div>
     <div class="pager">${[...(offset > 0 ? [[Math.max(0, offset - limit), 'Previous']] : []), ...(rows.length === limit ? [[offset + limit, 'Next']] : [])]
       .map(([next, title]) => `<a href="${home}&amp;q=${encodeURIComponent(search)}&amp;status=${status}&amp;offset=${next}">${title}</a>`).join(' ')}</div></div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(master.name)} records · Diesel</title>
     <link rel="icon" href="/masters/assets/pulse.png">
-    ${themeHead}
+    ${themeHead}${recordDialogAssets}
     <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/masters/assets/master-form.css"><link rel="stylesheet" href="/masters/assets/records.css">
     ${editing ? '' : '<link rel="stylesheet" href="/master-data/assets/master-data.css"><script type="module" src="/master-data/assets/live-records.js"></script>'}
     <script type="module" src="/masters/assets/records.js"></script>
     ${editing ? '<link rel="stylesheet" href="/masters/assets/item-file-menu.css"><script type="module" src="/masters/assets/item-file-menu.js"></script>' : ''}
     ${isStorage && editing ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : ''}
     ${master.slug === 'diesel-rate-master' && editing ? '<script type="module" src="/masters/assets/diesel-rate.js"></script>' : ''}
-    ${showSidebar ? '<script type="module" src="/masters/assets/navigation.js"></script>' : ''}</head><body>
+    ${showSidebar ? '<script type="module" src="/masters/assets/navigation.js"></script>' : ''}</head><body${dialog ? ' class="record-dialog-page"' : ''}>
     <a class="skip" href="#workspace">Skip to workspace</a>
     <header class="masthead"><div class="brand"><img src="/masters/assets/pulse.png" width="36" height="36" alt=""><span class="wordmark">Caliber <strong>Pulse</strong></span><span class="product">Diesel</span></div>
     <div class="account">${themeToggle}${submissionsOnly || prefix ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
     <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true,
       masterDataPath: prefix+'/master-data', pulseMasters: Boolean(prefix || submissionsOnly),localIndentDrafts: !prefix && !submissionsOnly && !actor.siteEntryTypes }) : ''}
-    <main id="workspace"${editing ? '' : ' class="master-data-workspace"'} tabindex="-1" aria-labelledby="workspace-title">${content}</main></div></body></html>`;
+    <main id="workspace"${editing ? '' : ' class="master-data-workspace"'} tabindex="-1" aria-labelledby="workspace-title">${content}</main></div>${!editing ? recordDialogHost : ''}</body></html>`;
 }

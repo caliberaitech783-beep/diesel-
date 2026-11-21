@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -48,10 +48,11 @@ export async function openItemSubmissions(directory) {
   }
 
   async function get(actor, slug, id) {
-    return (await locate(actor, slug, id)).record;
+    const {folder,record} = await locate(actor,slug,id);
+    return {...record,canEdit:folder === ownerDirectory(actor,slug)};
   }
 
-  async function list(actor, slug, { search, limit, offset }) {
+  async function list(actor, slug, { search, limit, offset, includeDeleted = false }) {
     const query = normalize(search);
     const records = [], seen = new Set();
     for (const folder of await slugDirectories(actor, slug)) {
@@ -73,7 +74,8 @@ export async function openItemSubmissions(directory) {
           throw error;
         }
         seen.add(entry.name);
-        if (normalize(record.code).includes(query) || normalize(record.name).includes(query)) records.push(record);
+        if (!includeDeleted && record.status === 'deleted') continue;
+        if (normalize(record.code).includes(query) || normalize(record.name).includes(query)) records.push({...record,canEdit:folder === ownerDirectory(actor,slug)});
       }
     }
     return records.sort((a, b) => a.code.localeCompare(b.code)).slice(offset, limit === undefined ? undefined : offset + limit);
@@ -97,16 +99,7 @@ export async function openItemSubmissions(directory) {
     } finally {
       db.close();
     }
-    // A code already saved by anyone stays unique across Diesel.
-    for (const folder of (await slugDirectories(actor, slug)).slice(1)) {
-      try {
-        await access(join(folder, record.id, 'record.json'));
-        throw new MasterRecordError('This record code is already saved by another user.', 409);
-      } catch (error) {
-        if (error instanceof MasterRecordError) throw error;
-        if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error;
-      }
-    }
+    await uniqueCode(actor,slug,record.code);
     await mkdir(owner, { recursive: true, mode: 0o700 });
     const staged = await mkdtemp(join(owner, '.saving-'));
     const metadata = join(staged, 'record.json');
@@ -136,12 +129,98 @@ export async function openItemSubmissions(directory) {
   }
 
   async function attachment(actor, slug, id, fileId) {
-    const { folder, record } = await locate(actor, slug, id);
-    const file = Object.values(record.values).find(value => value?.id === fileId);
+    const {folder,record} = await locate(actor,slug,id);
+    const snapshots = [record,...(record.changes ?? []).map(event=>event.snapshot).filter(Boolean)];
+    const snapshot = snapshots.find(saved=>Object.values(saved.values).some(value=>value?.id===fileId));
+    const file = Object.values(snapshot?.values ?? {}).find(value => value?.id === fileId);
     if (!file || !attachmentId.test(fileId)) throw new MasterRecordError('Attachment not found.', 404);
-    const filename = slug === legacyMaster ? 'attachment' : file.id;
-    return { name: file.name, bytes: await readFile(join(folder, id, filename)) };
+    const filename = slug === legacyMaster && snapshot.revision === 1 ? 'attachment' : file.id;
+    return { name: file.name, bytes: await readFile(join(folder,id,filename)) };
   }
 
-  return { get, list, create, attachment };
+  async function locked(actor, slug, operation) {
+    const lock = join(directory, '.editing-'+slug);
+    try { await mkdir(lock); } catch (error) {
+      if (error.code === 'EEXIST') throw new MasterRecordError('Another save is in progress. Please try again.',409);
+      throw error;
+    }
+    try { return await operation(); } finally { await rmdir(lock); }
+  }
+
+  async function uniqueCode(actor, slug, code, id) {
+    const records = await list(actor,slug,{search:'',offset:0,includeDeleted:true});
+    const duplicate = records.find(record => record.id !== id && normalize(record.code) === normalize(code));
+    if (duplicate) {
+      throw new MasterRecordError(duplicate.canEdit === false ? 'This record code is already saved by another user.' : 'You have already submitted this record code.',409);
+    }
+  }
+
+  async function change(actor, slug, id, payload, deleting = false, companySource) {
+    return locked(actor,slug,async () => {
+      let current;
+      try {
+        const saved = await locate(actor,slug,id);
+        if (saved.folder !== ownerDirectory(actor,slug)) throw new MasterRecordError('Only the person who saved this record can edit or delete it.',403);
+        current = saved.record;
+      } catch (error) {
+        if (error.status !== 404 || !companySource) throw error;
+        current = companySource;
+      }
+      if (current.status === 'deleted' || payload?.revision !== current.revision) {
+        throw new MasterRecordError('This record changed. Reopen it before saving.',409);
+      }
+      if (typeof payload?.reason !== 'string' || !payload.reason.trim() || payload.reason.trim().length > 1000) {
+        throw new MasterRecordError('Give a reason for the change (up to 1,000 characters).');
+      }
+      let record = current;
+      const files = new Map();
+      if (!deleting) {
+        const values = { ...payload.values };
+        if (slug === 'location-master') values['Location Code'] ??= current.code;
+        for (const [key,value] of Object.entries(values)) {
+          if (!value?.id) continue;
+          if (current.values[key]?.id !== value.id) throw new MasterRecordError('Use an attachment belonging to this field and record.');
+          const file = await attachment(actor,slug,id,value.id);
+          values[key] = {name:file.name,base64:Buffer.from(file.bytes).toString('base64')};
+        }
+        const db = new DatabaseSync(':memory:', {enableForeignKeyConstraints:true});
+        try {
+          const store = createMasterStore(db,[slug]);
+          record = store.createPrivateSubmission(slug,values,actor);
+          await uniqueCode(actor,slug,record.code,id);
+          for (const field of masterDefinition(slug).fields) {
+            if (field.type !== 'file' || !record.values[field.key]) continue;
+            const file = store.attachment(slug,record.id,record.values[field.key].id);
+            files.set(file.id,file.bytes);
+          }
+        } finally { db.close(); }
+      }
+      const updatedAt = new Date().toISOString();
+      const revision = current.revision + 1;
+      const {changes:previousChanges,...previousSnapshot} = current;
+      const sourceId = current.companySourceId ?? (current.companyRecord ? current.id : undefined);
+      const nextSnapshot = {...record,id,revision,updatedAt,editedBy:actor.id,status:deleting ? 'deleted' : 'pending',
+        ...(sourceId ? {companyRecord:false,companySourceId:sourceId,companySourceCode:current.companySourceCode ?? current.code} : {})};
+      delete nextSnapshot.changes;
+      const next = {...nextSnapshot, changes:[...(previousChanges ?? [{revision:current.revision,action:'created',actorName:actor.name ?? actor.id,at:current.updatedAt,snapshot:previousSnapshot}]),
+        {revision,action:deleting ? 'deleted' : 'edited',actorName:actor.name ?? actor.id,at:updatedAt,reason:payload.reason.trim(),snapshot:nextSnapshot}]};
+      const folder = join(ownerDirectory(actor,slug),id);
+      await mkdir(folder,{recursive:true,mode:0o700});
+      // Files are immutable. Publish the new metadata only after all files exist.
+      for (const [fileId,bytes] of files) await writeFile(join(folder,fileId),bytes,{mode:0o600,flush:true});
+      const staged = join(folder,'.record-'+randomUUID()+'.json');
+      try {
+        await writeFile(staged,JSON.stringify(next),{mode:0o600,flush:true});
+        await rename(staged,join(folder,'record.json'));
+      } finally { await unlink(staged).catch(error=>{if(error.code!=='ENOENT') throw error;}); }
+      return next;
+    });
+  }
+
+  return { get, list, attachment,
+    create: (actor,slug,values) => locked(actor,slug,() => create(actor,slug,values)),
+    update: (actor,slug,id,payload) => change(actor,slug,id,payload),
+    delete: (actor,slug,id,payload) => change(actor,slug,id,payload,true),
+    changeCompany: (actor,slug,source,payload,deleting) => change(actor,slug,source.id,payload,deleting,source),
+  };
 }

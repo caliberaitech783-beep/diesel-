@@ -121,7 +121,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.doesNotMatch(reopened, /Back to records/);
     // Every signed-in user sees a saved record, in Masters and in Master Data, and cannot save the same code again.
     assert.match(await (await restarted(url, other)).text(), /Diesel test item/);
-    assert.match(await (await restarted('/master-data?master=item-master', other)).text(), /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
+    assert.match(await (await restarted('/master-data?master=item-master', other)).text(), /<th scope="row"><a data-record-dialog href="[^"]+">TEST-001<\/a><\/th>/);
     const duplicate = await restarted('/api/masters/item-master/records', other, { method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'https://diesel.test' }, body: JSON.stringify({ values }) });
     assert.equal(duplicate.status, 409);
@@ -138,8 +138,8 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.doesNotMatch(masterData, /id="masters-sidebar"/);
     const expectedColumns = masterDefinition('item-master').fields.map(field => field.key);
     const columnNames = page => [...page.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(([, name]) => name);
-    assert.deepEqual(columnNames(masterData), expectedColumns);
-    assert.match(masterData, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
+    assert.deepEqual(columnNames(masterData), [...expectedColumns,'Actions']);
+    assert.match(masterData, /<th scope="row"><a data-record-dialog href="[^"]+">TEST-001<\/a><\/th>/);
     assert.match(masterData, /<td>00123456<\/td>/);
     const filtered = await (await restarted(tableUrl + '&q=missing', maker)).text();
     assert.match(filtered, /No saved records for this master/);
@@ -156,8 +156,8 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.ok(scope);
     assert.ok(newForm.includes('data-import-scope="' + scope + '"'));
     const sharedMaster = await (await restarted(tableUrl, other)).text();
-    assert.deepEqual(columnNames(sharedMaster), expectedColumns);
-    assert.match(sharedMaster, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/, 'another user sees the saved item');
+    assert.deepEqual(columnNames(sharedMaster), [...expectedColumns,'Actions']);
+    assert.match(sharedMaster, /<th scope="row"><a data-record-dialog href="[^"]+">TEST-001<\/a><\/th>/, 'another user sees the saved item');
     assert.ok(!sharedMaster.includes(scope), 'drafts and imports stay scoped to each person');
     const preview = await (await restarted('/master-data?master=account-master', maker)).text();
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
