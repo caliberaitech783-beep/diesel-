@@ -41,7 +41,7 @@ function memoryStore(t) {
   return { db, store: createMasterStore(db) };
 }
 
-test('Azure Item Master saves to app storage and only the submitting Pulse account can reopen the item', async t => {
+test('Azure Item Master saves to app storage and every signed-in Pulse account sees the item', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'diesel-item-submissions-test-'));
   const env = {
     WEBSITE_SITE_NAME: 'diesel-test',
@@ -119,7 +119,14 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.match(reopened, /Diesel test item/);
     assert.match(reopened, /href="\/" aria-label="Back to masters"[^>]*>\s*<svg\b/);
     assert.doesNotMatch(reopened, /Back to records/);
-    assert.equal((await restarted(url, other)).status, 404);
+    // Every signed-in user sees a saved record, in Masters and in Master Data, and cannot save the same code again.
+    assert.match(await (await restarted(url, other)).text(), /Diesel test item/);
+    assert.match(await (await restarted('/master-data?master=item-master', other)).text(), /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/);
+    const duplicate = await restarted('/api/masters/item-master/records', other, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://diesel.test' }, body: JSON.stringify({ values }) });
+    assert.equal(duplicate.status, 409);
+    assert.match((await duplicate.json()).error, /already saved by another user/);
+    assert.equal((await restarted('/records?master=item-master&id=' + 'f'.repeat(64), other)).status, 404);
     const records = await (await restarted('/records?master=item-master&q=TEST-001', maker)).text();
     assert.match(records, /Diesel test item/);
     const directoryPage = await (await restarted('/master-data', maker)).text();
@@ -148,11 +155,10 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     const scope = masterData.match(/data-scope="([a-f0-9]+)"/)?.[1];
     assert.ok(scope);
     assert.ok(newForm.includes('data-import-scope="' + scope + '"'));
-    const emptyMaster = await (await restarted(tableUrl, other)).text();
-    assert.deepEqual(columnNames(emptyMaster), expectedColumns);
-    assert.match(emptyMaster, /No saved records for this master/);
-    assert.doesNotMatch(emptyMaster, /TEST-001/);
-    assert.ok(!emptyMaster.includes(scope));
+    const sharedMaster = await (await restarted(tableUrl, other)).text();
+    assert.deepEqual(columnNames(sharedMaster), expectedColumns);
+    assert.match(sharedMaster, /<th scope="row"><a href="[^"]+">TEST-001<\/a><\/th>/, 'another user sees the saved item');
+    assert.ok(!sharedMaster.includes(scope), 'drafts and imports stay scoped to each person');
     const preview = await (await restarted('/master-data?master=account-master', maker)).text();
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
     assert.ok(columnNames(preview).length > 0);
@@ -178,7 +184,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
       assert.equal(submitted.status, 'pending');
       const detail = '/records?master=' + slug + '&id=' + submitted.id;
       assert.equal((await restarted(detail, maker)).status, 200, slug);
-      assert.equal((await restarted(detail, other)).status, 404, slug);
+      assert.equal((await restarted(detail, other)).status, 200, slug);
       const tableApi = '/api/master-data/records?master=' + slug;
       const exported = await (await restarted(tableApi, maker)).json();
       assert.equal(exported.records[0].id, submitted.id, slug);
@@ -186,7 +192,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
         for (const name of ['Attributes / Attachment', 'Bank account details / Attachment']) {
           const path = api + '/' + submitted.id + '/attachments/' + submitted.values[name].id;
           assert.deepEqual(Buffer.from(await (await restarted(path, maker)).arrayBuffer()), pdf);
-          assert.equal((await restarted(path, other)).status, 404);
+          assert.deepEqual(Buffer.from(await (await restarted(path, other)).arrayBuffer()), pdf);
         }
       }
       if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/KL), worked out'], '400');
@@ -197,12 +203,13 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     assert.equal(exported.records[0].id, saved.id);
     assert.equal(Object.fromEntries(exported.records[0].fields).Attachment, 'reference.pdf');
     assert.equal(exported.showSite, false);
-    assert.deepEqual((await (await restarted(exportUrl, other)).json()).records, []);
+    assert.equal((await (await restarted(exportUrl, other)).json()).records[0].id, saved.id);
     assert.equal((await restarted(exportUrl)).status, 401);
     assert.equal((await restarted('/master-data', undefined, { redirect: 'manual' })).status, 303);
     const file = endpoint + '/' + saved.id + '/attachments/' + saved.values.Attachment.id;
     assert.deepEqual(Buffer.from(await (await restarted(file, maker)).arrayBuffer()), pdf);
-    assert.equal((await restarted(file, other)).status, 404);
+    assert.deepEqual(Buffer.from(await (await restarted(file, other)).arrayBuffer()), pdf);
+    assert.equal((await restarted(file)).status, 401);
   } finally {
     assert.equal(dirname(directory), resolve(tmpdir()));
     await rm(directory, { recursive: true, force: true });
