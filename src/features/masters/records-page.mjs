@@ -6,6 +6,7 @@ import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from './master-site-menu.mjs';
 import { attributeMasters } from './master-attributes.mjs';
 import { attributeFields } from './attribute-page.mjs';
+import { masterDataSearch } from '../master-data/search.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -104,15 +105,12 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     <header class="workspace-heading master-data-heading">
       ${mastersMenuLink(prefix + '/master-data', 'Back to Master Data')}
       <h1 id="workspace-title">${escape(master.name)}</h1>
+      ${masterDataSearch({ master, action: prefix + '/records', search, status: submissionsOnly ? undefined : status })}
     </header>
     ${masterSiteMenu(actor,prefix,'records',master.slug)}
     ${project ? `<p>Pulse 1 project · ${escape(project.name)} · ${escape(project.client)}</p>` : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
-    <form class="record-tools" action="${prefix}/records" method="get"><input type="hidden" name="master" value="${master.slug}">
-      <label>Find by code or name <input type="search" name="q" value="${escape(search)}"></label>
-      ${submissionsOnly ? '' : `<label>Status <select name="status">${['', 'pending', 'approved', 'returned', 'pending_deactivation', 'inactive'].map(item =>
-        `<option value="${item}"${status === item ? ' selected' : ''}>${item.replace('_',' ') || 'All'}</option>`).join('')}</select></label>`}<button>Search</button>
-    </form>${editingAllowed && !prerequisite && !hasLocation ? `<p><a class="record-primary" href="${home}&amp;new=1">New record</a></p>` : ''}
+    ${editingAllowed && !prerequisite && !hasLocation ? `<p><a class="record-primary" href="${home}&amp;new=1">New record</a></p>` : ''}
     <div data-live-records data-live-scope="${recordDraftScope(actor, master.slug)}">
     <div class="record-list">${rows.length ? `<table><thead><tr><th>Code</th><th>Name</th>${submissionsOnly ? '' : '<th>Site</th>'}<th>Status</th><th>Revision</th></tr></thead><tbody>${rows.map(row =>
       `<tr><td><a href="${home}&amp;id=${row.id}">${escape(row.code)}</a></td><td>${escape(row.name)}</td>${submissionsOnly ? '' : `<td>${escape(row.site || 'Company-wide')}</td>`}<td>${escape(row.status.replace('_',' '))}</td><td>${row.revision}</td></tr>`).join('')}</tbody></table>` : '<p>No records match this view.</p>'}</div>

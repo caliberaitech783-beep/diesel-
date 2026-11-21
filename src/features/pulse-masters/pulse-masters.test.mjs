@@ -84,6 +84,10 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.match(equipment, /T-202/);
   assert.match(equipment, /data-live-records/);
   assert.match(equipment, /live-records.js/);
+  assert.doesNotMatch(equipment, /id="masters-sidebar"|navigation.js/);
+  assert.match(equipment, /<h1[^>]*>Equipment Master<\/h1>\s*<form class="master-data-search"/);
+  assert.equal([...equipment.matchAll(/type="search"/g)].length, 1);
+  assert.doesNotMatch(equipment, /<label>Search|<button>Search<\/button>/);
   assert.match(equipment, /data-export-source="\/pulse-masters\/records\?master=equipment"/);
   assert.match(equipment, /<summary>Download<\/summary>/);
   for (const format of ['CSV', 'Excel', 'PDF']) assert.match(equipment, new RegExp('aria-label="Download ' + format + '"'));
@@ -146,14 +150,13 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.equal(fetched, 3, 'downloads fetch current data too');
 
   // The ERP availability notice is preserved while automatic retries continue.
-  erpDrivers = false;
-  t.after(() => { erpDrivers = true; });
+  currentFeed.erpDrivers = false;
   clock += 30_000;
   assert.match(await page('/pulse-masters?master=driver', 'a'), /only directory drivers are shown/);
   assert.doesNotMatch(await page('/pulse-masters?master=site', 'a'), /only directory drivers/);
   assert.equal(fetched, 4);
   clock += 30_000;
-  erpDrivers = true;
+  currentFeed.erpDrivers = true;
   assert.doesNotMatch(await page('/pulse-masters?master=driver', 'a'), /only directory drivers/);
   assert.equal(fetched, 5);
 

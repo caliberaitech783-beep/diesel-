@@ -4,6 +4,8 @@ import { createLiveRefresh } from './assets/live-refresh.mjs';
 import { masterDataPage } from './page.mjs';
 import { recordsPage } from '../masters/records-page.mjs';
 import { masterDefinition, recordMasters } from '../masters/records-fields.mjs';
+import { pulseMasterPage } from '../pulse-masters/pulse-master-page.mjs';
+import { pulseMasters } from '../pulse-masters/pulse-master-catalog.mjs';
 
 test('registers refresh repeatedly, skip hidden tabs, retry failures and never overlap', async () => {
   let timer, delay, loads = 0, visible = true, failure = false, release;
@@ -64,6 +66,8 @@ test('every saved master and review register updates live while record forms kee
       prefix: '/masters-workspace' });
     assert.match(page, /live-records.js/);
     assert.doesNotMatch(page, /data-live-status|>Live</);
+    assert.doesNotMatch(page, /id="masters-sidebar"/);
+    assert.match(page, /<h1[^>]*>[^<]+<\/h1>\s*<form class="master-data-search"/);
     assert.match(page, /data-live-records data-live-scope="[a-f0-9]{64}"/);
     const register = recordsPage({ actor, master, rows: [], offset: 0, limit: 50, search: '', status: '',
       masterSelected: true, editingAllowed: true, prefix: '/masters-workspace' });
@@ -77,4 +81,10 @@ test('every saved master and review register updates live while record forms kee
   const scope = actor => masterDataPage({ ...options, actor }).match(/data-live-scope="([a-f0-9]+)"/)[1];
   assert.notEqual(scope(actor), scope(otherActor), 'another account cannot replace the open table');
   assert.notEqual(scope(actor), scope({ ...actor, site: 'Other site' }), 'another site cannot replace the open table');
+  for (const master of pulseMasters) {
+    const page = pulseMasterPage({ actor, master, rows: [], total: 0, offset: 0, pageSize: 50, masterDataPath: '/master-data' });
+    assert.doesNotMatch(page, /id="masters-sidebar"|navigation.js/);
+    assert.equal([...page.matchAll(/type="search"/g)].length, 1);
+    assert.match(page, /href="\/master-data" aria-label="Back to Master Data"[^>]*>\s*<svg/);
+  }
 });

@@ -1,9 +1,9 @@
-import { masterSidebar } from '../masters/master-sidebar.mjs';
 import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { pulseMastersPath } from './pulse-master-catalog.mjs';
 import { recordDraftScope } from '../masters/records-fields.mjs';
 import { masterDataFileMenu } from '../master-data/file-menu.mjs';
+import { masterDataSearch } from '../master-data/search.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -22,7 +22,6 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
   <link rel="stylesheet" href="/masters/assets/workspace.css">
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   <link rel="stylesheet" href="/masters/assets/records.css">
-  <script type="module" src="/masters/assets/navigation.js"></script>
   <script type="module" src="/master-data/assets/live-records.js"></script>
   <script type="module" src="/master-data/assets/download.js"></script>
 </head><body>
@@ -33,20 +32,16 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
     <div class="account">${themeToggle}<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form></div>
   </header>
   <div class="layout">
-    ${masterSidebar({ masterData: true, masterDataCurrent: true, masterDataPath, pulseMasters: true })}
     <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
       <header class="workspace-heading master-data-heading">
         ${mastersMenuLink(masterDataPath, 'Back to Master Data')}
         <h1 id="workspace-title">${escape(master.name)}</h1>
+        ${masterDataSearch({ master, action: pulseMastersPath, search })}
         <div class="master-data-tools" data-export-source="${escape(pulseMastersPath + '/records?' + new URLSearchParams({ master: master.slug }))}" data-export-name="${master.slug}-master">
           ${masterDataFileMenu('Download')}
         </div>
       </header>
-      <form class="record-tools master-data-search" method="get" action="${pulseMastersPath}">
-        <input type="hidden" name="master" value="${master.slug}">
-        <label>Search <input type="search" name="q" value="${escape(search)}" maxlength="256"></label><button>Search</button>
-        ${site ? `<span class="record-meta">Site · ${escape(site)}</span>` : ''}
-      </form>
+      ${site ? `<p class="record-meta">Site · ${escape(site)}</p>` : ''}
       <output class="master-data-feedback" aria-live="polite"></output>
       <div data-live-records data-live-scope="${recordDraftScope({ ...actor, site }, master.slug)}">
       ${notice ? `<p class="record-meta" data-live-warning role="alert">${escape(notice)}</p>` : ''}

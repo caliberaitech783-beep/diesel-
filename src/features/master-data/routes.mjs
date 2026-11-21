@@ -27,10 +27,12 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
         if (slug !== '' && !master) throw new MasterRecordError('Choose a listed master.', 400);
         response.set('Cache-Control', 'no-store');
         const canSave = enabled.has(slug);
+        const search = request.query.q ?? '';
+        if (typeof search !== 'string' || search.length > 256) throw new MasterRecordError('Choose a valid search.', 400);
         const slugs = master ? (canSave ? [slug] : []) : enabledMasters;
         async function records(options) {
           if (!slugs.length) return [];
-          const saved = await listRecords(actor, slugs, options);
+          const saved = await listRecords(actor, slugs, { ...options, search });
           return saved.map(record => {
             const definition = bySlug.get(record.master);
             return {
@@ -44,7 +46,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
             };
           });
         }
-        await handler(request, response, { actor, master, canSave, records });
+        await handler(request, response, { actor, master, canSave, records, search });
       } catch (error) {
         if (error instanceof MasterRecordError) return response.status(error.status).json({ error: error.message });
         next(error);
@@ -52,12 +54,12 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
     };
   }
 
-  app.get('/master-data', route(async (req, res, { actor, master, canSave, records }) => {
+  app.get('/master-data', route(async (req, res, { actor, master, canSave, records, search }) => {
     const offset = Number(req.query.offset ?? 0);
     if (!Number.isSafeInteger(offset) || offset < 0) throw new MasterRecordError('Choose a valid page.', 400);
     const rows = master ? await records({ offset, limit: pageSize + 1 }) : [];
     res.type('html').send(masterDataPage({
-      actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix,
+      actor, master, canSave, rows: rows.slice(0, pageSize), offset, pageSize, hasMore: rows.length > pageSize, local, prefix, search,
       warnings:master ? attributeWarnings?.(actor,master.slug) : undefined,
     }));
   }));

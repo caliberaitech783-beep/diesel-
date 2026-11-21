@@ -4,6 +4,7 @@ import { recordDraftScope } from '../masters/records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from '../masters/master-site-menu.mjs';
 import { masterDataFileMenu } from './file-menu.mjs';
+import { masterDataSearch } from './search.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -34,12 +35,12 @@ function savedTable(master, rows, canSave, prefix) {
   </div>`;
 }
 
-export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [] }) {
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '' }) {
   const heading = master?.name ?? 'Master Data';
   const home = prefix + '/master-data';
   const selection = master ? '?master=' + master.slug : '';
-  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, offset: position });
-  const exportPath = master && prefix + '/api/master-data/records?' + new URLSearchParams({ master: master.slug });
+  const pageLink = position => home + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}), offset: position });
+  const exportPath = master && prefix + '/api/master-data/records?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}) });
   const canImport = canSave && ((!local && !prefix) || actor.canEditMasters === true);
   const account = local ? `<a href="/workspace">${escape(actor.name ?? actor.id)}</a>`
     : `<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>`;
@@ -69,6 +70,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
       <header class="workspace-heading${master ? ' master-data-heading' : ''}">
         ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
         <h1 id="workspace-title">${escape(heading)}</h1>
+        ${master ? masterDataSearch({ master, action: home, search }) : ''}
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
           ${masterDataFileMenu('Download')}
           ${canImport ? masterDataFileMenu('Import', true) : ''}
