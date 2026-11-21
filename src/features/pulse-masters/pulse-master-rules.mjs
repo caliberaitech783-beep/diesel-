@@ -8,8 +8,8 @@ const text = value => (typeof value === 'string' || typeof value === 'number' ? 
 // Keeps the listed columns of each Pulse master. A missing or malformed master rejects the whole copy.
 export function readPulseMasters(payload) {
   const copy = {};
-  for (const { slug, columns } of pulseMasters) {
-    const records = payload?.masters?.[slug];
+  for (const { slug, columns, optional } of pulseMasters) {
+    const records = payload?.masters?.[slug] ?? (optional && payload?.masters ? [] : undefined);
     if (!Array.isArray(records) || records.length > maximumRecords) throw new Error('Pulse did not send the ' + slug + ' master.');
     copy[slug] = records.filter(record => record && typeof record === 'object')
       .map(record => Object.fromEntries(columns.map(([key]) => [key, text(record[key])])));

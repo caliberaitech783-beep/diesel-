@@ -27,6 +27,11 @@ export const pulseMasters = [
     ['site', 'Site'], ['shiftName', 'Shift'], ['shiftCode', 'Shift code'], ['startTime', 'Start time'], ['endTime', 'End time'],
     ['effectiveFrom', 'Effective from'], ['effectiveTo', 'Effective to'], ['status', 'Status'], ['remarks', 'Remarks'],
   ] },
+  // From the ERP company table through Pulse. Optional: an older Pulse reply without it still loads the others.
+  { slug: 'company', name: 'Company Master', optional: true, columns: [
+    ['code', 'Company code'], ['name', 'Company name'], ['shortName', 'Short name'], ['type', 'Company type'], ['owner', 'Owner name'],
+    ['city', 'City'], ['state', 'State'], ['pinCode', 'Pin code'], ['phone', 'Phone no.'], ['email', 'Email'], ['registrationNo', 'GST registration no.'],
+  ] },
 ];
 
 export const pulseMaster = slug => pulseMasters.find(master => master.slug === slug);
