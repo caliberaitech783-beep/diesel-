@@ -7,7 +7,7 @@ import test from 'node:test';
 import { createApp } from '../../server.mjs';
 import { openItemSubmissions } from '../masters/item-submissions.mjs';
 import { masterDefinition } from '../masters/records-fields.mjs';
-import { dataChecks, filterAndSort, missingFields, siteChecklist, siteKey } from './insights.mjs';
+import { dataChecks, equipmentBySite, filterAndSort, missingFields, siteChecklist, siteKey } from './insights.mjs';
 
 const sites = [{ name: 'Sasti OC', regionCode: 'WCL' }, { name: 'Majri OC', regionCode: 'WCL' }];
 const storage = [
@@ -43,6 +43,19 @@ test('the site checklist counts what each Pulse site has and names what is missi
     shifts: [{ site: 'Sasti OC', status: 'Active' }, { site: 'Majri OC', status: 'Inactive' }] });
   assert.deepEqual(checklist[0], { site: 'Sasti OC', region: 'WCL', equipment: 2, drivers: 1, shifts: 1, storage: 1, missing: [] });
   assert.deepEqual(checklist[1].missing, ['equipment', 'drivers', 'active shifts', 'storage locations']);
+});
+
+test('equipment is counted by site and category, including locations the Site Master lacks', () => {
+  const summary = equipmentBySite({ sites, storage, drivers: [{ site: 'Sasti OC' }], shifts: [{ site: 'Sasti OC', status: 'Active' }], equipment: [
+    { currentLocation: 'Sasti OC', category: 'Tipper' }, { currentLocation: 'sasti ob', category: 'Tipper' }, { currentLocation: 'Sasti OC', category: 'Excavator' },
+    { currentLocation: 'Workshop', category: 'Tipper' }, { currentLocation: '', category: '' }] });
+  assert.deepEqual(summary.categories, ['Tipper', 'Excavator', 'Uncategorised']);
+  assert.deepEqual(summary.rows.map(row => [row.site, row.total, row.listed]), [['Sasti OC', 3, true], ['No location', 1, false], ['Workshop', 1, false], ['Majri OC', 0, true]]);
+  assert.deepEqual(summary.rows[0], { site: 'Sasti OC', listed: true, counts: { Tipper: 2, Excavator: 1 }, total: 3, drivers: 1, shifts: 1, storage: 1 });
+  assert.deepEqual(summary.total, { counts: { Tipper: 3, Excavator: 1, Uncategorised: 1 }, total: 5, drivers: 1, shifts: 1, storage: 1 });
+  const many = equipmentBySite({ equipment: Array.from({ length: 20 }, (_, index) => ({ currentLocation: 'A', category: 'C' + index })) }, 4);
+  assert.deepEqual(many.categories, ['C0', 'C1', 'C10', 'Other']);
+  assert.equal(many.rows[0].counts.Other, 17);
 });
 
 test('data checks find duplicates and records at unknown sites', () => {
@@ -112,6 +125,10 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(sidebar, /<a href="\/pulse-masters\?master=equipment">Equipment Master<\/a><\/th><td data-label="Records">3<\/td>/);
   assert.match(sidebar, /Storage Location Master<\/a><\/th><td data-label="Records">71<\/td>/);
   assert.match(sidebar, /<a href="\/master-insights\?view=sites">Site checklist<\/a>/);
+  assert.match(sidebar, /<h2>Equipment by site<\/h2>/);
+  assert.match(sidebar, /master=equipment&amp;by=currentLocation&amp;q=Sasti\+OC">Sasti OC<\/a><\/th><td data-label="Uncategorised">1<\/td><td data-label="Total equipment"><strong>1<\/strong><\/td><td data-label="Drivers">1<\/td><td data-label="Active shifts">1<\/td><td data-label="Storage locations">8<\/td>/);
+  assert.match(sidebar, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Site Master/);
+  assert.match(sidebar, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   assert.match(sidebar, /data-counts="\/api\/master-insights\/counts"/);
   assert.match(sidebar, /<a href="\/master-insights">Overview and checks<\/a>/);

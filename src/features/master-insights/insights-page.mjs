@@ -7,7 +7,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 export const insightsPath = '/master-insights';
 const views = [['overview', 'Overview'], ['sites', 'Site checklist'], ['checks', 'Data checks']];
 const istTime = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
-const table = (label, headings, rows) => `<div class="master-data-table" role="region" aria-label="${escape(label)}" tabindex="0"><table>
+const table = (label, headings, rows) => `<div class="master-data-table insight-table" role="region" aria-label="${escape(label)}" tabindex="0"><table>
   <thead><tr>${headings.map(heading => `<th scope="col">${escape(heading)}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(cells => `<tr>${cells.map((cell, index) => {
     const body = cell?.html ?? escape(cell);
@@ -15,11 +15,12 @@ const table = (label, headings, rows) => `<div class="master-data-table" role="r
   }).join('')}</tr>`).join('') || `<tr class="master-data-empty"><td colspan="${headings.length}">Nothing to show yet.</td></tr>`}</tbody></table></div>`;
 
 // Also shown on the Master Data home, so the page is never empty.
-export function overview({ pulse, masters, masterDataPath }) {
+export function overview({ pulse, masters, masterDataPath, summary }) {
   return `<h2>From Pulse</h2>
     ${table('Pulse masters', ['Master', 'Records', 'Last fetched'], pulse.map(row => [
       { html: `<a href="/pulse-masters?master=${row.slug}">${escape(row.name)}</a>` }, row.count,
       row.syncedAt ? istTime.format(new Date(row.syncedAt)) + ' IST' : 'Not fetched yet']))}
+    ${summary ? siteSummary(summary) : ''}
     <h2>Diesel masters</h2>
     ${table('Diesel masters', ['Master', 'Records', 'Incomplete'], masters.map(row => [
       { html: `<a href="${escape(masterDataPath + '?master=' + row.slug)}">${escape(row.name)}</a>` }, row.count,
@@ -42,6 +43,17 @@ function checks({ findings }) {
       ${check.count ? `<p class="record-meta">${escape(check.help)}</p><ul>${check.items.slice(0, 100).map(item => `<li>${escape(item)}</li>`).join('')}</ul>
         ${check.count > 100 ? `<p class="record-meta">Showing the first 100 of ${check.count}.</p>` : ''}` : ''}
     </details>`).join('')}`;
+}
+
+// Site-wise equipment by category, then each site's drivers, shifts and storage locations.
+export function siteSummary({ categories, rows, total }) {
+  const headings = ['Site', ...categories, 'Total equipment', 'Drivers', 'Active shifts', 'Storage locations'];
+  const line = (name, row, link) => [link ? { html: `<a href="${escape('/pulse-masters?' + new URLSearchParams({ master: 'equipment', by: 'currentLocation', q: name }))}">${escape(name)}</a>${
+    row.listed === false ? ' <small class="record-incomplete" title="Not in the Site Master">Not in Site Master</small>' : ''}` } : name,
+    ...categories.map(category => row.counts[category] || ''), { html: `<strong>${row.total}</strong>` }, row.drivers || '', row.shifts || '', row.storage || ''];
+  return `<h2>Equipment by site</h2>
+    <p class="record-meta">Vehicles and equipment in the Pulse Equipment Master, counted by current location and equipment category.</p>
+    ${table('Equipment by site', headings, [...rows.map(row => line(row.site, row, row.site !== 'No location')), ...(rows.length ? [line('All sites', total, false)] : [])])}`;
 }
 
 export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {

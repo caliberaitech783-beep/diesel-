@@ -8,3 +8,5 @@
 .insight-check li { margin-block: 3px; overflow-wrap: anywhere; }
 .insight-clear { margin-inline-start: 6px; color: var(--muted); font-weight: 400; font-size: 13px; }
 .master-data-workspace > .insight-views { margin: 0 0 4px; justify-content: flex-start; }
+.master-data-table.insight-table thead th:last-child { position: static; background: inherit; box-shadow: none; }
+.master-data-table.insight-table :is(td, th) { min-width: 6rem; }
