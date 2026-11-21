@@ -5,7 +5,7 @@ import { registerMasterRecords } from './records-routes.mjs';
 
 export const masterWorkspacePath = '/masters-workspace';
 
-export function registerHostedMasters(app, { db, publicOrigin, getProfile, startSignIn, hasSubmissions }) {
+export function registerHostedMasters(app, { db, publicOrigin, getProfile, startSignIn, hasSubmissions, itemDirectory }) {
   const workspace = express.Router();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const cookie = (secure ? '__Host-' : '') + 'diesel_master_site';
@@ -43,7 +43,7 @@ export function registerHostedMasters(app, { db, publicOrigin, getProfile, start
     const master = recordMasters.includes(req.body.master) ? '?master='+req.body.master : '';
     return res.redirect(303,masterWorkspacePath+view+master);
   });
-  registerMasterRecords(workspace,{db,enabledMasters:recordMasters,prefix:masterWorkspacePath,publicOrigin,
+  registerMasterRecords(workspace,{db,enabledMasters:recordMasters,prefix:masterWorkspacePath,publicOrigin,itemDirectory,
     getActor:request=>request.dieselMasterActor});
   workspace.use((error,_req,res,next) => {
     if (error instanceof MasterRecordError) return res.status(error.status).json({error:error.message});
