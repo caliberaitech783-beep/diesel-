@@ -8,13 +8,13 @@ const defaultMaster = 'item-master';
 const api = '/api/masters/:master/records';
 const requiredOrigin = 'Open Diesel to make changes.';
 
-export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory }) {
+export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory, homeOverview }) {
   async function signedInActor(request) {
     const profile = await getProfile(request);
     return profile ? { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login } : null;
   }
   registerMasterDataRoutes(app, {
-    enabledMasters: recordMasters, getActor: signedInActor,
+    enabledMasters: recordMasters, getActor: signedInActor, homeOverview,
     async listRecords(actor, slugs, { offset, limit, search = '' }) {
       const groups = await Promise.all(slugs.map(slug => listWithCompany(actor, slug, search)));
       return groups.flat().slice(offset, limit === undefined ? undefined : offset + limit);

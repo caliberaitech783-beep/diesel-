@@ -132,15 +132,16 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (itemSubmissions) {
+    let insights;
     const submissions = registerItemSubmissions(app, {
-      store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory,
+      store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory, homeOverview: request => insights?.homeOverview(request),
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;
       },
     });
     // Counts, the site checklist and data checks over the Pulse masters and a person's visible records.
-    registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords,
+    insights = registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords,
       async getAccess(request) {
         const access = await pulseMasterAccess(request);
         return access && access.masterDataPath === '/master-data' ? access : null;
