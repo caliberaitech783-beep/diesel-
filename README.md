@@ -1,5 +1,7 @@
 # Diesel
 
+Cost Centre Master means **vehicles + equipment**. Its Master Data includes the visible Pulse Equipment Master assets and refreshes from the same live copy. A saved Diesel record with the same code, fleet number or registration appears once with its Diesel settings. Registration is optional for equipment without one. Pulse reference rows open read-only; fuel capacity, ownership, meter readings and approval rules are not inferred from the equipment feed. The projection and duplicate matching live under `src/features/cost-centres/`.
+
 Item Master uses one read directory across the submission store and site workspace. An item saved from either form appears in Master Data for other signed-in Master Data users, including makers and checkers routed to a different workspace. Existing saves are included without copying or approval changes. Opening a record uses its original editing workflow when permitted; otherwise it opens a read-only dialog with history and attachments. Entry still selects approved items for its assigned site.
 
 Diesel on Azure uses verified Pulse assignments for shared Master Data. A **Master Maker** can import or enter a record and select **Save for review**. A separate **Master Checker** can approve the revision or return it with a reason. A **Master Viewer** can read and download records for the assigned site. Each edit, return, approval, deactivation and reactivation is recorded in the revision history. Entry uses the last approved revision while a change is in review.

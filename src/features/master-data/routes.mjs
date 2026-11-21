@@ -33,7 +33,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
         const slugs = master ? (canSave ? [slug] : []) : enabledMasters;
         async function records(options) {
           if (!slugs.length) return [];
-          const saved = await listRecords(actor, slugs, { search, ...options });
+          const saved = await listRecords(actor, slugs, { search, ...options }, request);
           return saved.map(record => {
             const definition = bySlug.get(record.master);
             return {

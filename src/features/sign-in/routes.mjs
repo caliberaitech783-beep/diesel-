@@ -12,6 +12,7 @@ import { registerEntrySetup } from '../entries/entry-setup.mjs';
 import { registerHostedMasters, masterWorkspacePath } from '../masters/hosted-masters.mjs';
 import { masterAssignments } from '../masters/master-access.mjs';
 import { registerPulseMasters } from '../pulse-masters/pulse-master-routes.mjs';
+import { createPulseCostCentres } from '../cost-centres/pulse-cost-centres.mjs';
 import { registerMasterInsights } from '../master-insights/insights-routes.mjs';
 import { createItemDirectory } from '../masters/item-directory.mjs';
 import { registerItemDirectoryRoutes } from '../masters/item-directory-routes.mjs';
@@ -100,8 +101,13 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     return configured && isProof(grant) ? pulse.request('validate', { grant }) : null;
   }
 
+  let pulseMasterCopies, pulseMasterAccess;
+  const costCentres = createPulseCostCentres({
+    getAccess: request => pulseMasterAccess?.(request),
+    readEquipment: access => pulseMasterCopies.read('equipment', access),
+  });
   const itemDirectory = createItemDirectory({db:sharedMasterDb,submissions:itemSubmissions});
-  const hostedMasters = sharedMasterDb && registerHostedMasters(app,{db:sharedMasterDb,publicOrigin:publicUrl.origin,startSignIn,itemDirectory,
+  const hostedMasters = sharedMasterDb && registerHostedMasters(app,{db:sharedMasterDb,publicOrigin:publicUrl.origin,startSignIn,itemDirectory,costCentres,
     hasSubmissions:profile=>Boolean(itemSubmissions && allowed(profile)),
     async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
   });
@@ -113,7 +119,6 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     },
   });
 
-  let pulseMasterCopies, pulseMasterAccess;
   if (itemSubmissions || hostedMasters) {
     // Pulse's own masters, read-only. A listed login sees every site; a site role sees its site.
     pulseMasterCopies = registerPulseMasters(app, {
@@ -134,7 +139,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   if (itemSubmissions) {
     let insights;
     const submissions = registerItemSubmissions(app, {
-      store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory, homeOverview: request => insights?.homeOverview(request),
+      store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory, costCentres, homeOverview: request => insights?.homeOverview(request),
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;
