@@ -2,6 +2,7 @@ import express from 'express';
 import { masterDefinition, MasterRecordError, recordMasters } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
 import { registerMasterDataRoutes } from '../master-data/routes.mjs';
+import { companyRecord, companyRecords } from '../company-records/company-records.mjs';
 
 const defaultMaster = 'item-master';
 const api = '/api/masters/:master/records';
@@ -15,11 +16,16 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
   registerMasterDataRoutes(app, {
     enabledMasters: recordMasters, getActor: signedInActor,
     async listRecords(actor, slugs, { offset, limit, search = '' }) {
-      if (slugs.length === 1) return store.list(actor, slugs[0], { search, offset, limit });
-      const groups = await Promise.all(slugs.map(slug => store.list(actor, slug, { search, offset: 0 })));
+      const groups = await Promise.all(slugs.map(slug => listWithCompany(actor, slug, search)));
       return groups.flat().slice(offset, limit === undefined ? undefined : offset + limit);
     },
   });
+  // A person's own submissions, then the company's ERP records for that master.
+  async function listWithCompany(actor, slug, search) {
+    const own = await store.list(actor, slug, { search, offset: 0 });
+    const ownCodes = new Set(own.map(record => record.code.trim().toLowerCase()));
+    return [...own, ...companyRecords(slug, search).filter(record => !ownCodes.has(record.code.trim().toLowerCase()))];
+  }
   function route(handler) {
     return async (request, response, next) => {
       try {
@@ -46,9 +52,9 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
       throw new MasterRecordError('Choose a valid search or page.');
     }
     const creating = !id && req.query.new === '1';
-    const record = id ? await store.get(actor, slug, id) : null;
+    const record = id ? companyRecord(slug, id) ?? await store.get(actor, slug, id) : null;
     const limit = 50;
-    const rows = record || creating ? [] : await store.list(actor, slug, { search, limit, offset });
+    const rows = record || creating ? [] : (await listWithCompany(actor, slug, search)).slice(offset, offset + limit);
     res.type('html').send(recordsPage({
       master, rows, actor, record, creating, search, status: '', offset, limit,
       editingAllowed: !record, masterSelected: true, submissionsOnly: true,
