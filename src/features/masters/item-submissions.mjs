@@ -21,30 +21,60 @@ export async function openItemSubmissions(directory) {
     return slug === legacyMaster ? owner : join(owner, slug);
   }
 
-  async function get(actor, slug, id) {
-    if (typeof id !== 'string' || !recordId.test(id)) throw new MasterRecordError('Master record not found.', 404);
+  // Every signed-in Diesel user sees every submission. Each stays in the folder of the person who saved it.
+  async function slugDirectories(actor, slug) {
+    const own = ownerDirectory(actor, slug);
+    let owners = [];
     try {
-      return JSON.parse(await readFile(join(ownerDirectory(actor, slug), id, 'record.json'), 'utf8'));
+      owners = (await readdir(directory, { withFileTypes: true }))
+        .filter(entry => entry.isDirectory() && recordId.test(entry.name)).map(entry => entry.name);
     } catch (error) {
-      if (error.code === 'ENOENT') throw new MasterRecordError('Master record not found.', 404);
-      throw error;
+      if (error.code !== 'ENOENT') throw error;
     }
+    const folders = owners.map(owner => slug === legacyMaster ? join(directory, owner) : join(directory, owner, slug));
+    return [own, ...folders.filter(folder => folder !== own)];
+  }
+
+  async function locate(actor, slug, id) {
+    if (typeof id !== 'string' || !recordId.test(id)) throw new MasterRecordError('Master record not found.', 404);
+    for (const folder of await slugDirectories(actor, slug)) {
+      try {
+        return { folder, record: JSON.parse(await readFile(join(folder, id, 'record.json'), 'utf8')) };
+      } catch (error) {
+        if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error;
+      }
+    }
+    throw new MasterRecordError('Master record not found.', 404);
+  }
+
+  async function get(actor, slug, id) {
+    return (await locate(actor, slug, id)).record;
   }
 
   async function list(actor, slug, { search, limit, offset }) {
-    let entries;
-    try {
-      entries = await readdir(ownerDirectory(actor, slug), { withFileTypes: true });
-    } catch (error) {
-      if (error.code === 'ENOENT') return [];
-      throw error;
-    }
     const query = normalize(search);
-    const records = [];
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !recordId.test(entry.name)) continue;
-      const record = await get(actor, slug, entry.name);
-      if (normalize(record.code).includes(query) || normalize(record.name).includes(query)) records.push(record);
+    const records = [], seen = new Set();
+    for (const folder of await slugDirectories(actor, slug)) {
+      let entries;
+      try {
+        entries = await readdir(folder, { withFileTypes: true });
+      } catch (error) {
+        if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
+        throw error;
+      }
+      for (const entry of entries) {
+        // The same code saved by two people before sharing began shows once: the viewer's own copy first.
+        if (!entry.isDirectory() || !recordId.test(entry.name) || seen.has(entry.name)) continue;
+        let record;
+        try {
+          record = JSON.parse(await readFile(join(folder, entry.name, 'record.json'), 'utf8'));
+        } catch (error) {
+          if (error.code === 'ENOENT') continue;
+          throw error;
+        }
+        seen.add(entry.name);
+        if (normalize(record.code).includes(query) || normalize(record.name).includes(query)) records.push(record);
+      }
     }
     return records.sort((a, b) => a.code.localeCompare(b.code)).slice(offset, limit === undefined ? undefined : offset + limit);
   }
@@ -66,6 +96,16 @@ export async function openItemSubmissions(directory) {
       record = { ...saved, id: digest(normalize(saved.code)) };
     } finally {
       db.close();
+    }
+    // A code already saved by anyone stays unique across Diesel.
+    for (const folder of (await slugDirectories(actor, slug)).slice(1)) {
+      try {
+        await access(join(folder, record.id, 'record.json'));
+        throw new MasterRecordError('This record code is already saved by another user.', 409);
+      } catch (error) {
+        if (error instanceof MasterRecordError) throw error;
+        if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error;
+      }
     }
     await mkdir(owner, { recursive: true, mode: 0o700 });
     const staged = await mkdtemp(join(owner, '.saving-'));
@@ -96,11 +136,11 @@ export async function openItemSubmissions(directory) {
   }
 
   async function attachment(actor, slug, id, fileId) {
-    const record = await get(actor, slug, id);
+    const { folder, record } = await locate(actor, slug, id);
     const file = Object.values(record.values).find(value => value?.id === fileId);
     if (!file || !attachmentId.test(fileId)) throw new MasterRecordError('Attachment not found.', 404);
     const filename = slug === legacyMaster ? 'attachment' : file.id;
-    return { name: file.name, bytes: await readFile(join(ownerDirectory(actor, slug), id, filename)) };
+    return { name: file.name, bytes: await readFile(join(folder, id, filename)) };
   }
 
   return { get, list, create, attachment };
