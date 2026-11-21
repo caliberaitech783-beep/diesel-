@@ -14,7 +14,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 function savedTable(master, rows, canSave, prefix, canEdit) {
   const records = rows.map(row => {
     const action = canEdit && row.canEdit !== false && !['pending deletion','pending deactivation','inactive','deleted'].includes(row.status) ? 'Edit' : 'View';
-    const href = prefix + '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
+    const href = row.recordPath ?? prefix + '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
     const values = new Map(row.fields);
     const cells = master.fields.map(({ key,type }) => {
       if (type==='attributes') {
