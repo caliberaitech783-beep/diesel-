@@ -2,15 +2,19 @@ import { masters } from './catalog.mjs';
 import { pulseMasters as pulseMasterList, pulseMastersPath } from '../pulse-masters/pulse-master-catalog.mjs';
 
 export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data', pulseMasters } = {}) {
-  // Pulse owns these masters; they lead the Master Data list and open read-only.
+  // Pulse-owned masters open read-only and sort alongside Diesel masters.
   const overviewLink = pulseMasters ? '<li data-fields="overview counts site checklist data checks duplicates"><a href="/master-insights">Overview and checks</a></li>\n' : '';
-  const pulseLinks = pulseMasters ? overviewLink + pulseMasterList.map(({ name, slug, columns }) =>
-    `<li data-fields="pulse ${columns.map(([, label]) => label).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ')}"><a href="${pulseMastersPath}?master=${slug}">${name} · Pulse</a></li>`).join('\n') : '';
+  const pulseLinks = pulseMasters ? pulseMasterList.map(({ name, slug, columns }) => ({
+    name: `${name} · Pulse`,
+    html: `<li data-fields="pulse ${columns.map(([, label]) => label).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ')}"><a href="${pulseMastersPath}?master=${slug}">${name} · Pulse</a></li>`,
+  })) : [];
   const masterLinks = link => masters.map(({ name, slug, sections }) => {
     const fields = sections.flatMap(section => section.fields.map(field => field.label))
       .join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
-    return `<li data-fields="${fields}"><a href="${link(slug)}">${name}</a></li>`;
-  }).join('\n');
+    return { name, html: `<li data-fields="${fields}"><a href="${link(slug)}">${name}</a></li>` };
+  });
+  const renderLinks = links => links.toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
+    .map(({ html }) => html).join('\n');
 
   return `<aside class="sidebar" id="masters-sidebar">
       <div class="sidebar-tools">
@@ -26,11 +30,11 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
         ${masterData ? `<details class="master-group" name="diesel-sidebar"><summary><span class="folder-icon" aria-hidden="true"></span>Entry</summary><ul aria-label="Entry subtabs"><li data-fields="indent purchase fuel"><a href="/entries">Entry workspace</a></li>${localIndentDrafts ? '<li data-fields="item"><a href="/entries/indents">Diesel Indent drafts</a></li>' : ''}</ul></details>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>
-          <ul id="master-data-list" aria-label="Master Data subtabs"${pulseMasters ? ' data-counts="/api/master-insights/counts"' : ''}>${pulseLinks}${masterLinks(slug => masterDataPath + '?master=' + slug)}</ul>
+          <ul id="master-data-list" aria-label="Master Data subtabs"${pulseMasters ? ' data-counts="/api/master-insights/counts"' : ''}>${overviewLink}${renderLinks([...masterLinks(slug => masterDataPath + '?master=' + slug), ...pulseLinks])}</ul>
         </details>` : ''}
         <details class="master-group" name="diesel-sidebar"${masterDataCurrent ? '' : ' open'}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master</summary>
-          <ul id="master-list" aria-label="Master subtabs">${masterLinks(slug => slug === 'item-master' && itemRecordsPath ? itemRecordsPath : '/?master=' + slug)}</ul>
+          <ul id="master-list" aria-label="Master subtabs">${renderLinks(masterLinks(slug => slug === 'item-master' && itemRecordsPath ? itemRecordsPath : '/?master=' + slug))}</ul>
         </details>
       </nav>
     </aside>`;
