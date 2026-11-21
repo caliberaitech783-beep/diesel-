@@ -82,6 +82,10 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.match(equipment, /T-202/);
   assert.match(equipment, /data-live-records/);
   assert.match(equipment, /live-records.js/);
+  assert.match(equipment, /data-export-source="\/pulse-masters\/records\?master=equipment"/);
+  assert.match(equipment, /<summary>Download<\/summary>/);
+  for (const format of ['CSV', 'Excel', 'PDF']) assert.match(equipment, new RegExp('aria-label="Download ' + format + '"'));
+  assert.doesNotMatch(equipment, /data-live-status|>Live</);
   assert.doesNotMatch(equipment, /From Pulse|Fetched|Refresh from Pulse|Make changes in Pulse/);
   assert.doesNotMatch(equipment, /Save for review|data-import-format/);
   assert.match(await page('/pulse-masters?master=site', 'a'), /Majri OC/);
@@ -97,6 +101,15 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.doesNotMatch(viewer, /Anita Rao/);
   assert.match(viewer, /Site · Sasti/);
   assert.match(await page('/pulse-masters?master=site', 'v'), /Majri OC/);
+
+  const exported = await req('/pulse-masters/records?master=employee', 'v', { headers: { Accept: 'application/json' } });
+  assert.equal(exported.headers.get('cache-control'), 'no-store');
+  const data = await exported.json();
+  assert.deepEqual(data.columns, pulseMaster('employee').columns.map(([, label]) => label));
+  assert.equal(data.records.length, 1);
+  assert.equal(new Map(data.records[0].fields).get('Employee name'), 'Ravi Kumar');
+  assert.doesNotMatch(JSON.stringify(data), /Anita Rao|passwordHash/);
+  assert.equal((await req('/pulse-masters/records?master=employee', 'x', { headers: { Accept: 'application/json' } })).status, 401);
 
   const csv = await req('/pulse-masters/download?master=driver', 'a');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
@@ -127,11 +140,12 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   const stale = await page('/pulse-masters?master=equipment', 'a');
   assert.match(stale, /Pulse could not be reached just now/);
   assert.match(stale, /T-101/, 'the last fetched copy stays available');
-  assert.match(stale, /Reconnecting/);
+  assert.doesNotMatch(stale, /data-live-status|>Live</);
   assert.equal(fetched, 4);
   await page('/pulse-masters?master=employee', 'v');
   assert.equal(fetched, 4, 'an outage retries at the next interval instead of on every user request');
   assert.equal((await req('/pulse-masters/download?master=driver', 'a')).status, 503, 'downloads do not silently export stale data');
+  assert.equal((await req('/pulse-masters/records?master=driver', 'a')).status, 503);
   pulseUp = true;
   clock += 30_000;
   const recovered = await page('/pulse-masters?master=equipment', 'a');

@@ -63,10 +63,12 @@ test('every saved master and review register updates live while record forms kee
     const page = masterDataPage({ actor, master, canSave: true, rows: [], offset: 0, pageSize: 50,
       prefix: '/masters-workspace' });
     assert.match(page, /live-records.js/);
+    assert.doesNotMatch(page, /data-live-status|>Live</);
     assert.match(page, /data-live-records data-live-scope="[a-f0-9]{64}"/);
     const register = recordsPage({ actor, master, rows: [], offset: 0, limit: 50, search: '', status: '',
       masterSelected: true, editingAllowed: true, prefix: '/masters-workspace' });
     assert.match(register, /live-records.js/);
+    assert.doesNotMatch(register, /data-live-status|>Live</);
     const form = recordsPage({ actor, master, rows: [], creating: true, editingAllowed: true, prefix: '/masters-workspace' });
     assert.doesNotMatch(form, /live-records.js|data-live-records/);
   }

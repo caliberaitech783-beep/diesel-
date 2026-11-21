@@ -3,6 +3,7 @@ import { pulseMaster, pulseMastersPath } from './pulse-master-catalog.mjs';
 import { pulseMasterPage } from './pulse-master-page.mjs';
 import { forSite, matching, readPulseMasters } from './pulse-master-rules.mjs';
 import { createPulseMasterStore } from './pulse-master-store.mjs';
+import { pulseMasterExport } from './pulse-master-export.mjs';
 
 const pageSize = 50;
 const staleAfter = 30_000;
@@ -70,6 +71,12 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
       syncedAt, site: master.siteColumn ? access.sites?.[0] : undefined, masterDataPath: access.masterDataPath,
       notice: refreshed ? '' : unavailable,
     }));
+  }));
+
+  app.get(pulseMastersPath + '/records', route(async (_request, response, access, master) => {
+    if (!await ensureFresh(master, access)) return response.status(503).json({ error: 'Download is temporarily unavailable. Try again shortly.' });
+    const { records } = visible(master, access);
+    response.json(pulseMasterExport(master, records));
   }));
 
   app.get(pulseMastersPath + '/download', route(async (_request, response, access, master) => {

@@ -1,8 +1,7 @@
 import { createLiveRefresh } from './live-refresh.mjs';
 
 const records = document.querySelector('[data-live-records]');
-const status = document.querySelector('[data-live-status]');
-if (records && status) {
+if (records) {
   const errorMessage = document.createElement('p');
   errorMessage.className = 'live-refresh-error';
   errorMessage.setAttribute('role', 'status');
@@ -24,7 +23,6 @@ if (records && status) {
       return updated;
     },
     apply(updated) {
-      const warning = updated.querySelector('[data-live-warning]');
       // Search, site selection, imports, file menus and drafts stay outside this region.
       // Preserve table scrolling and keyboard focus, and leave identical rows untouched.
       const tables = [...records.querySelectorAll('.master-data-table, .record-list')];
@@ -39,11 +37,9 @@ if (records && status) {
           if (index === focusedTable) table.focus({ preventScroll: true });
         });
       }
-      status.textContent = warning ? 'Reconnecting…' : 'Live';
       errorMessage.textContent = '';
     },
     onError(error) {
-      status.textContent = 'Reconnecting…';
       errorMessage.textContent = error.message;
     },
   });

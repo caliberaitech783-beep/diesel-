@@ -3,19 +3,11 @@ import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { recordDraftScope } from '../masters/records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from '../masters/master-site-menu.mjs';
+import { masterDataFileMenu } from './file-menu.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
-
-function fileMenu(label, importing = false) {
-  const attribute = importing ? 'data-import-format' : 'data-format';
-  return `<details class="master-data-menu" name="master-data-file-actions">
-    <summary>${label}</summary>
-    <div>${[['Excel', 'xlsx'], ['CSV', 'csv'], ['PDF', 'pdf']].map(([name, format]) =>
-      `<button type="button" ${attribute}="${format}" aria-label="${label} ${name}">${name}</button>`).join('')}</div>
-  </details>`;
-}
 
 function savedTable(master, rows, canSave, prefix) {
   const records = rows.map(row => {
@@ -78,10 +70,9 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
         <h1 id="workspace-title">${escape(heading)}</h1>
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
-          <span class="live-status" data-live-status role="status" title="Updates automatically every 30 seconds">Live</span>
-          ${fileMenu('Download')}
-          ${canImport ? fileMenu('Import', true) : ''}
-          ${fileMenu('Export')}
+          ${masterDataFileMenu('Download')}
+          ${canImport ? masterDataFileMenu('Import', true) : ''}
+          ${masterDataFileMenu('Export')}
         </div>` : ''}
       </header>
       ${masterSiteMenu(actor,prefix,'master-data',master?.slug)}

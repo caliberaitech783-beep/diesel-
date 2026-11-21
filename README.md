@@ -8,7 +8,7 @@ An Excel or CSV file with several records opens an import list on **Master Data*
 
 Diesel Rate works out the rate per kilolitre as basic rate plus excise duty, less an invoice discount, plus VAT. A post-sale discount stays out of the rate until its credit note. Use the three-line icon to return to the Master tab and the sidebar’s back arrow to open the Pulse sign-in screen.
 
-Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. **Download** and **Export** offer Excel, CSV, or PDF. **Import** fills one new record for review from an Excel or CSV row, a single-record Master Data PDF, or a fillable Diesel form PDF.
+Expand **Master Data** in the sidebar and open a master to see its saved records. Each table uses that master's form fields as columns. **Download** offers CSV, Excel, or PDF for every master, including the Pulse masters. Diesel masters also offer **Export**. **Import** fills one new record for review from an Excel or CSV row, a single-record Master Data PDF, or a fillable Diesel form PDF.
 
 CMLL, Account and Location masters support multiple **Dated attributes**, each with its own optional attachment. Active approved attributes appear in the expiry list starting 30 days before their end date. Import and export carry the attribute values and dates. Reattach supporting files when importing records.
 

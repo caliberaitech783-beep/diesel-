@@ -104,7 +104,6 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     <header class="workspace-heading master-data-heading">
       ${mastersMenuLink(prefix + '/master-data', 'Back to Master Data')}
       <h1 id="workspace-title">${escape(master.name)}</h1>
-      <span class="master-data-tools live-status" data-live-status role="status" title="Updates automatically every 30 seconds">Live</span>
     </header>
     ${masterSiteMenu(actor,prefix,'records',master.slug)}
     ${project ? `<p>Pulse 1 project · ${escape(project.name)} · ${escape(project.client)}</p>` : ''}

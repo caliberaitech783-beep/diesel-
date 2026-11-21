@@ -10,9 +10,6 @@
 .master-data-heading h1 { margin: 0; font-size: clamp(24px, 2vw, 30px); }
 .master-data-search { margin: 0 0 12px; }
 .master-data-search .record-meta { align-self: center; margin: 0; }
-.master-data-download { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--control-bg); text-decoration: none; font-size: 14px; }
-.live-status { color: var(--muted); font-size: 12px; white-space: nowrap; }
-.live-status::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-inline-end: 6px; border-radius: 50%; background: currentColor; }
 [data-live-records] { min-width: 0; }
 .live-refresh-error { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .live-refresh-error:empty { display: none; }
