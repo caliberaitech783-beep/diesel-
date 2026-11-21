@@ -2,7 +2,7 @@ const cacheName='local-diesel-entry-forms-v1';
 const offlinePage=()=>new Response('<!doctype html><html lang="en"><meta charset="utf-8"><title>Diesel offline</title><h1>Offline</h1><p>Reopen a previously visited new-entry form on this device, or reconnect to see the register.</p></html>',{headers:{'content-type':'text/html; charset=utf-8'}});
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(cacheName);
-  await cache.addAll(['/entries/assets/entry-form.js','/entries/assets/entry-language.js','/entries/assets/entries.css','/theme/assets/theme.css','/theme/assets/theme.js','/masters/assets/pulse.png']);
+  await cache.addAll(['/entries/assets/entry-form.js','/entries/assets/entry-language.js','/entries/assets/field-states.js','/entries/assets/entries.css','/theme/assets/theme.css','/theme/assets/theme.js','/masters/assets/pulse.png']);
   await self.skipWaiting();
 })()));
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));

@@ -50,6 +50,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
     <link rel="stylesheet" href="/entries/assets/entries.css"><script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
+    ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>
     ${active==='E11' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/fuel-issue-form.js"></script>' : ''}
     ${active==='E10A' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/home-tank.js"></script>' : ''}
     ${['E5','E6','E10A','E10B','E11','E12','E14'].includes(active) ? '<script defer src="/entries/assets/qr-decoder.js"></script><script defer src="/entries/assets/phone-capture.js"></script>' : ''}
