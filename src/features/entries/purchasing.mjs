@@ -54,11 +54,15 @@ export const purchasing = {
     const suggested = Math.max(0,round(tankCapacity-stock-inTransit));
     check(d.litres>0 && d.requiredBy>=c.doc.day,'Enter positive litres and a required-by date on or after the request.');
     check(d.litres<=suggested || d.reason,'Select a reason for requesting more than suggested.');
+    // An indent is open while it waits for approval or still has quantity without a purchase order.
+    const openIndents = c.reserved('E1').filter(r=>r.status!=='Posted'
+      || r.result.litres>c.sum(c.reserved('E2').filter(p=>p.data.indent===r.id),'litres'));
+    check(!openIndents.length || d.reason,'Indent '+(openIndents[0]?.number||'for this site')+' is still open. Select a reason to raise another.');
     const approvals = ['Project Manager','Head – Procurement'];
     if (d.litres>review.indentSlab) approvals.push('Director / CMD');
     const item = c.siteConfig?.item;
     return { item:item?item.code+' · '+item.name:review.item, litres:d.litres, stock, inTransit, averageDaily:round(average), daysOfStock:average?round(stock/average):null, suggested,
-      otherOpenIndents:c.posted('E1').filter(r=>r.result.litres>c.sum(c.reserved('E2').filter(p=>p.data.indent===r.id),'litres')).length, approvals };
+      otherOpenIndents:openIndents.length, ...(openIndents.length ? {openIndentNumbers:openIndents.map(r=>r.number).filter(Boolean).join(', ')} : {}), approvals };
   },
   E2(d,c) {
     const indent = c.linked('indent','E1'), litres=round(d.kl*1000);

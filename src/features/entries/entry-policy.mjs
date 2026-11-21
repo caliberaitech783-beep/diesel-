@@ -24,6 +24,7 @@ export const alertSettings = {
   'Calibration due': ['calibrationDays', 'days', 'Site In-charge', 'Project Manager'],
   'Storage below minimum level': ['minimumLevel', 'L', 'Site In-charge', 'Project Manager'],
   'Days of stock': ['daysOfStockLimit', 'days', 'Site In-charge', 'Project Manager'],
+  'Credit note pending': ['creditNoteDays', 'days', 'Accounts Executive', 'Head – Accounts'],
 };
 
 function amount(value) {
