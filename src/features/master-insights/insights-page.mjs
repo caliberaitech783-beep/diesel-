@@ -46,14 +46,15 @@ function checks({ findings }) {
 }
 
 // Site-wise equipment by category, then each site's drivers, shifts and storage locations.
-export function siteSummary({ categories, rows, total }) {
+export function siteSummary({ categories, rows, total, unplaced = 0 }) {
   const headings = ['Site', ...categories, 'Total equipment', 'Drivers', 'Active shifts', 'Storage locations'];
   const line = (name, row, link) => [link ? { html: `<a href="${escape('/pulse-masters?' + new URLSearchParams({ master: 'equipment', by: 'currentLocation', q: name }))}">${escape(name)}</a>${
     row.listed === false ? ' <small class="record-incomplete" title="Not in the Site Master">Not in Site Master</small>' : ''}` } : name,
     ...categories.map(category => row.counts[category] || ''), { html: `<strong>${row.total}</strong>` }, row.drivers || '', row.shifts || '', row.storage || ''];
   return `<h2>Equipment by site</h2>
     <p class="record-meta">Vehicles and equipment in the Pulse Equipment Master, counted by current location and equipment category.</p>
-    ${table('Equipment by site', headings, [...rows.map(row => line(row.site, row, row.site !== 'No location')), ...(rows.length ? [line('All sites', total, false)] : [])])}`;
+    ${table('Equipment by site', headings, [...rows.map(row => line(row.site, row, true)), ...(rows.length ? [line('All sites', total, false)] : [])])}
+    ${unplaced ? `<p class="record-meta">${unplaced} equipment with no location in Pulse ${unplaced === 1 ? 'is' : 'are'} not counted here.</p>` : ''}`;
 }
 
 export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {

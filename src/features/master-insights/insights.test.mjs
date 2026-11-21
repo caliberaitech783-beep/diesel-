@@ -48,11 +48,12 @@ test('the site checklist counts what each Pulse site has and names what is missi
 test('equipment is counted by site and category, including locations the Site Master lacks', () => {
   const summary = equipmentBySite({ sites, storage, drivers: [{ site: 'Sasti OC' }], shifts: [{ site: 'Sasti OC', status: 'Active' }], equipment: [
     { currentLocation: 'Sasti OC', category: 'Tipper' }, { currentLocation: 'sasti ob', category: 'Tipper' }, { currentLocation: 'Sasti OC', category: 'Excavator' },
-    { currentLocation: 'Workshop', category: 'Tipper' }, { currentLocation: '', category: '' }] });
-  assert.deepEqual(summary.categories, ['Tipper', 'Excavator', 'Uncategorised']);
-  assert.deepEqual(summary.rows.map(row => [row.site, row.total, row.listed]), [['Sasti OC', 3, true], ['No location', 1, false], ['Workshop', 1, false], ['Majri OC', 0, true]]);
+    { currentLocation: 'Workshop', category: 'Tipper' }, { currentLocation: '', category: '' }, { currentLocation: ' - ', category: 'Tipper' }] });
+  assert.deepEqual(summary.categories, ['Tipper', 'Excavator']);
+  assert.equal(summary.unplaced, 2, 'a blank or dash location gets no row');
+  assert.deepEqual(summary.rows.map(row => [row.site, row.total, row.listed]), [['Sasti OC', 3, true], ['Workshop', 1, false], ['Majri OC', 0, true]]);
   assert.deepEqual(summary.rows[0], { site: 'Sasti OC', listed: true, counts: { Tipper: 2, Excavator: 1 }, total: 3, drivers: 1, shifts: 1, storage: 1 });
-  assert.deepEqual(summary.total, { counts: { Tipper: 3, Excavator: 1, Uncategorised: 1 }, total: 5, drivers: 1, shifts: 1, storage: 1 });
+  assert.deepEqual(summary.total, { counts: { Tipper: 3, Excavator: 1 }, total: 4, drivers: 1, shifts: 1, storage: 1 });
   const many = equipmentBySite({ equipment: Array.from({ length: 20 }, (_, index) => ({ currentLocation: 'A', category: 'C' + index })) }, 4);
   assert.deepEqual(many.categories, ['C0', 'C1', 'C10', 'Other']);
   assert.equal(many.rows[0].counts.Other, 17);
