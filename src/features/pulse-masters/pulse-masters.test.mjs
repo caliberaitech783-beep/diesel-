@@ -24,6 +24,7 @@ const feed = () => ({ masters: {
     { empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', vehicle: 'T-101', lastDate: '2026-11-18', source: 'Vehicle logbook', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
   shift: [{ site: 'Sasti OC', shiftName: 'First', shiftCode: 'A', startTime: '06:00', endTime: '14:00', status: 'Active' },
     { site: 'Majri OC', shiftName: 'Night', shiftCode: 'C', startTime: '22:00', endTime: '06:00', status: 'Active' }],
+  company: [{ code: 'CMLL', name: 'Caliber Mining and Logistics Ltd', city: 'Chandrapur', bankAccountNo: 'never' }],
 }, erpDrivers });
 
 test('a Pulse master copy keeps only listed columns and rejects an incomplete reply', () => {
@@ -31,6 +32,8 @@ test('a Pulse master copy keeps only listed columns and rejects an incomplete re
   assert.equal(copy.employee[0].passwordHash, undefined);
   assert.equal(copy.employee[0].phone, '9000000001');
   assert.throws(() => readPulseMasters({ masters: { region: [] } }));
+  const { company, ...older } = feed().masters;
+  assert.deepEqual(readPulseMasters({ masters: older }).company, [], 'a Pulse reply from before the Company Master still loads');
   assert.throws(() => readPulseMasters({ profile: { login: 'maker' } }));
   const equipment = pulseMaster('equipment');
   assert.deepEqual(forSite(equipment, copy.equipment, ['Sasti']).map(row => row.door), ['T-101']);
@@ -111,6 +114,10 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.match(shifts, /Shift code/);
   assert.match(shifts, /22:00/);
   assert.doesNotMatch(await page('/pulse-masters?master=shift', 'v'), /22:00/);
+  const companies = await page('/pulse-masters?master=company', 'a');
+  assert.match(companies, /Caliber Mining and Logistics Ltd/);
+  assert.match(companies, /GST registration no\./);
+  assert.doesNotMatch(companies, /never/);
   assert.equal(fetched, 1, 'one Pulse read serves every master while the copy is fresh');
   const searched = await page('/pulse-masters?master=equipment&q=fmx+460', 'a');
   assert.match(searched, /T-202/);
