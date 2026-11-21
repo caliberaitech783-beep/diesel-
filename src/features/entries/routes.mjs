@@ -69,7 +69,15 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,actor)),null,req.query,sources));
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
-  function withAlerts(render) {
+  // Shift and stock for the role home screen. Stock waits until the site's opening stock is set up.
+  function siteToday(actor) {
+    let stock = null;
+    if (!opening || siteFor(actor.site)) {
+      try { stock = store.stockPicture(actor.site); } catch { stock = null; }
+    }
+    return { shift: store.currentShift(actor.site), stock };
+  }
+  function withAlerts(render, today = false) {
     return (req,res) => {
       const actor = req.dieselActor, rows = visibleRecords(actor);
       const policy = policyFor(actor.site,actor.businessDay);
@@ -81,11 +89,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       if (policy.alerts.has('Days of stock') && (!opening || siteFor(actor.site))) {
         policy.daysOfStock=store.stockPicture(actor.site)['Days of stock'];
       }
-      res.send(render(actor, rows, entryAlerts(rows, actor, policy)));
+      res.send(render(actor, rows, entryAlerts(rows, actor, policy), today ? siteToday(actor) : undefined));
     };
   }
   router.get('/alerts',withAlerts((actor, _rows, alerts) => alertsPage(actor, alerts)));
-  router.get('/home',withAlerts(roleHomePage));
+  router.get('/home',withAlerts(roleHomePage, true));
   router.get('/type/:type',(req,res)=>{
     if (!allowedType(req.params.type)) return res.sendStatus(404);
     const actor=req.dieselActor, sources=store.list(actor.site), rows=sources.filter(doc=>canRead(doc,actor));

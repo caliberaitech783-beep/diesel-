@@ -31,6 +31,7 @@ if (fuelForm?.elements.vehicle) {
     start.value = previous ?? '';
     if (previous !== undefined) start.dataset.prefilled = 'true';
     else delete start.dataset.prefilled;
+    start.dispatchEvent(new Event('change', { bubbles: true }));
     updateLitres();
   }
 

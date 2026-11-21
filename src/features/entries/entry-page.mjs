@@ -5,6 +5,7 @@ import { businessDay, money } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
+import { approvalCard } from './approval-inbox.mjs';
 import { filterRegister, registerFilters, traceEntries } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
@@ -29,7 +30,10 @@ function table(rows, sources = rows) {
     <td class="doc-number">${esc(r.number||'Draft')}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[r.status]??'draft'}">${esc(r.status)}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
-  return page('My approvals', actor, 'approvals', '/entries/approvals', table(rows.filter(doc => mayApproveEntry(doc, actor)), rows));
+  const waiting = rows.filter(doc => mayApproveEntry(doc, actor));
+  return page('My approvals', actor, 'approvals', '/entries/approvals', waiting.length
+    ? `<p class="inbox-count">${waiting.length} waiting for you as ${esc(entryRole(actor))}</p><div class="approval-list">${waiting.map(doc => approvalCard(doc, rows)).join('')}</div>`
+    : '<p class="empty">Nothing is waiting for your approval.</p>');
 }
 export function alertsPage(actor, alerts) {
   const list = alerts.map(alert => `<li><strong>${esc(alert.label)}</strong> · ${esc(alert.detail)}
@@ -37,7 +41,7 @@ export function alertsPage(actor, alerts) {
     ${alert.escalation ? `· Escalated to ${esc(alert.escalation)}` : ''}</li>`).join('');
   return page('My alerts', actor, 'alerts', '/entries/alerts', list ? `<section><ul>${list}</ul></section>` : '<p>No alerts for this role and site.</p>');
 }
-export function roleHomePage(actor, rows, alerts) {
+export function roleHomePage(actor, rows, alerts, today = {}) {
   const role = entryRole(actor);
   const tasks = entries.filter(entry => (entry.maker === role || (entry.id === 'E15' && role === 'Site Store'))
     && (actor.siteEntryTypes ? actor.siteEntryTypes.includes(entry.id) : !actor.assignments || pilotEntry(entry.id)));
@@ -48,8 +52,22 @@ export function roleHomePage(actor, rows, alerts) {
     ['My approvals (' + approvals + ')', '/entries/approvals'],
     ['My alerts (' + alerts.length + ')', '/entries/alerts'],
   ];
+  const day = actor.businessDay ?? businessDay();
+  const todays = rows.filter(doc => doc.site === actor.site && doc.day === day);
+  const litres = value => value === undefined || value === null ? '—' : Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' L';
+  const stock = today.stock;
+  const tiles = [
+    ['Shift', today.shift ?? 'No shift set', formatDay.format(new Date(day + 'T00:00:00Z'))],
+    ['Stock now', stock ? litres(stock['Tank and bowser stock (L)']) : 'Not set up',
+      stock ? (stock['Days of stock'] !== null && Number.isFinite(Number(stock['Days of stock'])) ? Number(stock['Days of stock']).toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' days of stock' : '')
+        + (Number(stock['In transit (L)']) > 0 ? ' · ' + litres(stock['In transit (L)']) + ' in transit' : '') : 'Opening stock pending'],
+    [esc(actor.site) + ' today', todays.length + (todays.length === 1 ? ' entry' : ' entries'),
+      todays.filter(doc => doc.status === 'Posted').length + ' posted · ' + todays.filter(doc => doc.status === 'Awaiting approval').length + ' awaiting approval'],
+  ];
+  const [lead, ...rest] = approvals ? [links.at(-2), ...links.filter(link => link !== links.at(-2))] : links;
   return page('My work', actor, 'home', '/entries/home',
-    `<div class="phone-tasks">${links.map(([label, href]) => `<a href="${href}">${esc(label)}</a>`).join('')}</div>`);
+    `<div class="today">${tiles.map(([label, main, note]) => `<div><span>${label}</span><strong>${esc(main)}</strong>${note ? `<small>${esc(note)}</small>` : ''}</div>`).join('')}</div>
+    <div class="phone-tasks">${lead ? `<a class="lead" href="${lead[1]}">${esc(lead[0])}</a>` : ''}${rest.map(([label, href]) => `<a href="${href}">${esc(label)}</a>`).join('')}</div>`);
 }
 
 export function registerPage(actor,rows,type,query={},sources=rows) {
@@ -86,7 +104,8 @@ function fieldControl(f,d,rows,actor) {
   const label=esc(f.label);
   const fuelIssues = d.type==='E11' && actor.siteEntryTypes && ['vehicle','bowser'].includes(f.key)
     ? rows.filter(row=>row.type==='E11'&&row.status==='Posted'&&row.day<=d.day) : [];
-  if (opts) return `<label>${label}<select name="${f.key}">${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>{
+  const required=f.optional?'':' data-required="true"';
+  if (opts) return `<label>${label}<select name="${f.key}"${required}>${option('','Select…',!value&&opts.length!==1)}${opts.map(([v,n])=>{
     const tag=f.optionTags?.get(v);
     const vehicle=f.vehicleDetails?.get(v);
     const reading=vehicle ? fuelIssues.find(row=>row.data.vehicle===v)?.data.reading??vehicle.firstReading : null;
@@ -98,7 +117,7 @@ function fieldControl(f,d,rows,actor) {
   }).join('')}</select>${f.vehicleDetails ? '<output data-vehicle-info aria-live="polite"></output>' : ''}</label>`;
   if (f.type==='file') return `<label>${label}<input type="file" name="${f.key}" accept="image/png,image/jpeg,application/pdf" multiple data-saved="${esc(JSON.stringify(Array.isArray(value)?value:[]))}">${Array.isArray(value)?value.map(file=>esc(file.name)).join(', '):''}</label>
     ${f.key==='billPhoto' ? '<button type="button" id="read-invoice">Read invoice photo</button>' : ''}`;
-  return `<label>${label}<input name="${f.key}" type="${f.type}" ${f.type==='number'?'step="any"':''} value="${esc(value)}">${d.type==='E11'&&actor.siteEntryTypes&&f.key==='end'
+  return `<label>${label}<input name="${f.key}" type="${f.type}"${required} ${f.type==='number'?'step="any"':''} value="${esc(value)}">${d.type==='E11'&&actor.siteEntryTypes&&f.key==='end'
     ? '<output data-fuel-preview aria-live="polite"></output>' : ''}</label>`;
 }
 function display(value) {

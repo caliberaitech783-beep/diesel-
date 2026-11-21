@@ -305,7 +305,8 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     return (config?.storage??[]).map(location=>({code:location.code,
       litres:round(booked.filter(move=>move.storage===location.code).reduce((total,move)=>total+move.litres,location.opening))}));
   }
-  return {read,write,fresh,definition,stockPicture,storageBalances,dayFor,list:site=>all().filter(r=>visible(r,site)),history:id=>
+  return {read,write,fresh,definition,stockPicture,storageBalances,dayFor,
+    currentShift:(site,now=new Date())=>calendarFor?.(site).shift(now)?.name,list:site=>all().filter(r=>visible(r,site)),history:id=>
     db.prepare('SELECT actor,action,stamp,snapshot FROM entry_review_history WHERE doc=? ORDER BY seq').all(id)
       .map(({snapshot,...row})=>{
         const {lastAction,shift}=JSON.parse(snapshot);

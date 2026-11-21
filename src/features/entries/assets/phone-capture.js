@@ -61,7 +61,7 @@ document.querySelector('#read-invoice')?.addEventListener('click', async event =
     for (const [key,value] of Object.entries(result.fields)) {
       if (!['invoice','invoiceDate','eway','litres','truck'].includes(key)) continue;
       const input = entryForm.elements[key];
-      if (input && !input.value) { input.value = value; filled++; }
+      if (input && !input.value) { input.value = value; input.dispatchEvent(new Event('change', { bubbles: true })); filled++; }
     }
     status.textContent = filled ? 'Check the suggested values against the invoice before saving.' : 'No blank fields could be filled. Check the invoice and enter the remaining details.';
   } catch (error) {
