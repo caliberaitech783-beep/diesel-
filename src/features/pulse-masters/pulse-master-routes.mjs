@@ -8,6 +8,7 @@ import { pulseMasterExport } from './pulse-master-export.mjs';
 const pageSize = 50;
 const staleAfter = 30_000;
 const unavailable = 'Pulse could not be reached just now. Showing the last fetched copy.';
+const driversPartial = 'Pulse could not read the ERP driver list just now, so only directory drivers are shown. Retrying automatically.';
 // Spreadsheet programs run cells that begin with these characters as formulas.
 const cell = value => /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
 
@@ -15,14 +16,17 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
   const store = createPulseMasterStore(db);
   let refreshing;
   let retryAt = 0;
+  // Keep Pulse's ERP availability notice while automatically retrying the feed.
+  let withoutErpDrivers = false;
 
   // One fetch at a time, shared by everyone who opens a Pulse master while the copy is stale.
   function refresh(grant) {
     if (now() < retryAt) return false;
     refreshing ??= (async () => {
       try {
-        const copy = readPulseMasters(await fetchMasters(grant));
-        store.replace(copy, new Date(now()).toISOString());
+        const reply = await fetchMasters(grant);
+        store.replace(readPulseMasters(reply), new Date(now()).toISOString());
+        withoutErpDrivers = reply.erpDrivers === false;
         retryAt = 0;
         return true;
       } catch {
@@ -69,7 +73,7 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
     response.type('html').send(pulseMasterPage({
       actor: access.actor, master, rows: found.slice(offset, offset + pageSize), total: found.length, offset, pageSize, search,
       syncedAt, site: master.siteColumn ? access.sites?.[0] : undefined, masterDataPath: access.masterDataPath,
-      notice: refreshed ? '' : unavailable,
+      notice: !refreshed ? unavailable : master.slug === 'driver' && withoutErpDrivers ? driversPartial : '',
     }));
   }));
 

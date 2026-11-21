@@ -11,6 +11,7 @@ import { forSite, readPulseMasters } from './pulse-master-rules.mjs';
 import { pulseMaster } from './pulse-master-catalog.mjs';
 
 const origin = 'https://diesel.test';
+let erpDrivers = true;
 const feed = () => ({ masters: {
   region: [{ id: '1', name: 'Western Coalfields Limited', code: 'WCL', state: 'MH / MP', sites: 'Sasti OC | Majri OC' }],
   site: [{ name: 'Sasti OC', region: 'Western Coalfields Limited', regionCode: 'WCL', state: 'MH / MP' },
@@ -19,8 +20,9 @@ const feed = () => ({ masters: {
     { door: 'T-202', reg: 'MH34CD5678', currentLocation: 'Majri OC', make: 'Volvo', model: 'FMX 460' }],
   employee: [{ empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', designation: 'TIPPER DRIVER', phone: '9000000001', passwordHash: 'never' },
     { empId: 'E002', name: 'Anita Rao', site: 'Majri OC', designation: 'Store Keeper' }],
-  driver: [{ empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
-} });
+  driver: [{ empId: 'D200', name: 'Mahesh Patel', site: 'Majri OC', vehicle: 'EX-7', lastDate: '2026-11-20', source: 'Equipment logbook' },
+    { empId: 'E001', name: 'Ravi Kumar', site: 'Sasti OC', vehicle: 'T-101', lastDate: '2026-11-18', source: 'Vehicle logbook', designation: 'TIPPER DRIVER', phone: '=9000000001' }],
+}, erpDrivers });
 
 test('a Pulse master copy keeps only listed columns and rejects an incomplete reply', () => {
   const copy = readPulseMasters(feed());
@@ -90,7 +92,15 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.doesNotMatch(equipment, /Save for review|data-import-format/);
   assert.match(await page('/pulse-masters?master=site', 'a'), /Majri OC/);
   assert.match(await page('/pulse-masters?master=region', 'a'), /Western Coalfields Limited/);
-  assert.match(await page('/pulse-masters?master=driver', 'a'), /TIPPER DRIVER/);
+  const drivers = await page('/pulse-masters?master=driver', 'a');
+  assert.match(drivers, /Mahesh Patel/);
+  assert.match(drivers, /Last vehicle/);
+  assert.match(drivers, /EX-7/);
+  assert.match(drivers, /2026-11-20/);
+  assert.match(drivers, /TIPPER DRIVER/);
+  assert.doesNotMatch(drivers, /only directory drivers/);
+  assert.match(await page('/pulse-masters?master=driver', 'v'), /Ravi Kumar/);
+  assert.doesNotMatch(await page('/pulse-masters?master=driver', 'v'), /Mahesh Patel/);
   assert.equal(fetched, 1, 'one Pulse read serves every master while the copy is fresh');
   const searched = await page('/pulse-masters?master=equipment&q=fmx+460', 'a');
   assert.match(searched, /T-202/);
@@ -114,7 +124,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   const csv = await req('/pulse-masters/download?master=driver', 'a');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
   const text = await csv.text();
-  assert.match(text, /Emp ID,Employee name/);
+  assert.match(text, /Emp code,Driver name,Last site,Last vehicle,Last logbook date,Source/);
   assert.match(text, /'=9000000001/);
 
   assert.equal((await req('/pulse-masters/refresh', 'a', { method: 'POST' })).status, 404);
@@ -135,15 +145,27 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   assert.match(await (await req('/pulse-masters/download?master=driver', 'a')).text(), /Updated driver/);
   assert.equal(fetched, 3, 'downloads fetch current data too');
 
+  // The ERP availability notice is preserved while automatic retries continue.
+  erpDrivers = false;
+  t.after(() => { erpDrivers = true; });
+  clock += 30_000;
+  assert.match(await page('/pulse-masters?master=driver', 'a'), /only directory drivers are shown/);
+  assert.doesNotMatch(await page('/pulse-masters?master=site', 'a'), /only directory drivers/);
+  assert.equal(fetched, 4);
+  clock += 30_000;
+  erpDrivers = true;
+  assert.doesNotMatch(await page('/pulse-masters?master=driver', 'a'), /only directory drivers/);
+  assert.equal(fetched, 5);
+
   pulseUp = false;
   clock += 30_000;
   const stale = await page('/pulse-masters?master=equipment', 'a');
   assert.match(stale, /Pulse could not be reached just now/);
   assert.match(stale, /T-101/, 'the last fetched copy stays available');
   assert.doesNotMatch(stale, /data-live-status|>Live</);
-  assert.equal(fetched, 4);
+  assert.equal(fetched, 6);
   await page('/pulse-masters?master=employee', 'v');
-  assert.equal(fetched, 4, 'an outage retries at the next interval instead of on every user request');
+  assert.equal(fetched, 6, 'an outage retries at the next interval instead of on every user request');
   assert.equal((await req('/pulse-masters/download?master=driver', 'a')).status, 503, 'downloads do not silently export stale data');
   assert.equal((await req('/pulse-masters/records?master=driver', 'a')).status, 503);
   pulseUp = true;
@@ -151,5 +173,5 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   const recovered = await page('/pulse-masters?master=equipment', 'a');
   assert.doesNotMatch(recovered, /could not be reached|Reconnecting/);
   assert.match(recovered, /FMX Live/);
-  assert.equal(fetched, 5, 'automatically recovers without a manual refresh');
+  assert.equal(fetched, 7, 'automatically recovers without a manual refresh');
 });
