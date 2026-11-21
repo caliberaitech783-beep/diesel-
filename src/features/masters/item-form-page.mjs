@@ -3,20 +3,15 @@ import { itemFileMenu } from './item-file-menu.mjs';
 import { deleteConfirmation } from './record-dialog.mjs';
 import { recordDraftScope } from './records-fields.mjs';
 import { formSections, displayValue } from './item-form-layout.mjs';
-import { itemSiteGroups } from './item-site-options.mjs';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
 
 export function itemFormContent({ master, actor, record, comparison, revisions, home, endpoint, mastersHome, editable,
   editingAllowed, mayReview, creating, historical, submissionsOnly, prefix, dialog, actions, renderField, history }) {
   const sections = formSections(master);
-  const scope = record?.site || '';
-  const siteChoices = submissionsOnly ? itemSiteGroups : [{ name: 'Assigned workspace', sites: [record?.site || actor.site] }];
-  const choices = siteChoices.map(group => `<optgroup label="${esc(group.name)}">${group.sites.filter(Boolean).map(site => `<option value="${esc(site)}"${site === scope ? ' selected' : ''}>${esc(site)}</option>`).join('')}</optgroup>`).join('');
-  const retained = scope && !siteChoices.some(group => group.sites.includes(scope)) ? `<option selected value="${esc(scope)}">${esc(scope)}</option>` : '';
-  const site = `<div class="master-field" data-compare-value="${esc(comparison?.site)}" data-label="Site"><label for="item-site">Site <span class="required-mark" aria-hidden="true">*</span></label><select id="item-site" name="Site" data-record-site required${!editable ? ' disabled' : ''} aria-describedby="item-site-error"><option value="">Select site</option>${choices}${retained}</select><small class="field-error" id="item-site-error" hidden></small></div>`;
-  const groups = sections.map((section, index) => `<section class="field-group" id="section-${index}" aria-labelledby="section-heading-${index}"><h2 class="field-group-heading" id="section-heading-${index}"><span class="section-number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>${esc(section.name)}<span class="section-completion" data-section-completion></span></h2><div class="field-grid">${index === 0 ? site : ''}${section.fields.map(renderField).join('')}</div></section>`).join('');
-  const outline = `<aside class="form-outline"><p class="outline-heading">IN THIS FORM</p><nav aria-label="Form sections">${sections.map((section, index) => `<a href="#section-${index}"><span>${String(index + 1).padStart(2, '0')}</span>${esc(section.name)}</a>`).join('')}<a href="#form-review"><span>✓</span>Review details</a></nav><div class="outline-note"><strong>Make it ready for review</strong><p>Choose a site, complete the required fields and check your details before saving.</p><p><span class="required-mark">*</span> Required field</p></div></aside>`;
+  const scope = record?.site || actor.site || '';
+  const groups = sections.map((section, index) => `<section class="field-group" id="section-${index}" aria-labelledby="section-heading-${index}"><h2 class="field-group-heading" id="section-heading-${index}"><span class="section-number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>${esc(section.name)}<span class="section-completion" data-section-completion></span></h2><div class="field-grid">${section.fields.map(renderField).join('')}</div></section>`).join('');
+  const outline = `<aside class="form-outline"><p class="outline-heading">IN THIS FORM</p><nav aria-label="Form sections">${sections.map((section, index) => `<a href="#section-${index}"><span>${String(index + 1).padStart(2, '0')}</span>${esc(section.name)}</a>`).join('')}<a href="#form-review"><span>✓</span>Review details</a></nav><div class="outline-note"><strong>Make it ready for review</strong><p>Complete the required fields and check your details before saving.</p><p><span class="required-mark">*</span> Required field</p></div></aside>`;
   const rows = master.fields.filter(field => displayValue(record?.values[field.key]) !== displayValue(comparison?.values[field.key])).map(field => `<tr><th scope="row">${esc(field.label)}</th><td>${esc(displayValue(comparison?.values[field.key])) || '—'}</td><td>${esc(displayValue(record?.values[field.key])) || '—'}</td></tr>`).join('');
   const lifecycle = actions.filter(action => /data-delete-record|data-action="(?:deactivate|reactivate)"/.test(action));
   const primary = actions.filter(action => !lifecycle.includes(action));

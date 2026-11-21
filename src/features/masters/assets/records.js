@@ -34,11 +34,10 @@ async function save(action) {
   try {
     const { api, record, revision, writeScope, recordHome } = form.dataset;
     const payload = { revision: Number(revision), reason: reason?.value, scope:writeScope };
-    if (editor && !action) payload.site = form.querySelector('[data-record-site]').value;
     if (!action) {
       payload.values = {};
       for (const control of form.querySelectorAll('[name]')) {
-        if (control.disabled || control.matches('[data-attribute-import], [data-record-site]')) continue;
+        if (control.disabled || control.matches('[data-attribute-import]')) continue;
         if (control.type === 'file') {
           if (control.files.length) payload.values[control.name] = await readFile(control.files[0]);
           else if (control.dataset.fileId && !form.querySelector(`[data-remove-for="${control.id}"]`)?.checked) {
