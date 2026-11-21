@@ -289,6 +289,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       if (body.position && Number.isFinite(body.position.latitude) && Math.abs(body.position.latitude)<=90
         && Number.isFinite(body.position.longitude) && Math.abs(body.position.longitude)<=180) {
         doc.lastAction.position={latitude:body.position.latitude,longitude:body.position.longitude};
+        if (Number.isFinite(body.position.accuracy) && body.position.accuracy>=0) doc.lastAction.position.accuracy=Math.round(body.position.accuracy);
       }
       persist(doc,actor.id,log);
       if (body.token) db.prepare('INSERT INTO entry_review_requests VALUES(?,?,?)').run(body.token,id,actor.id);
