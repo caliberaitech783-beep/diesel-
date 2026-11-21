@@ -1,8 +1,10 @@
+import { canonicalSite } from '../pulse-masters/site-names.mjs';
+
 // Read-only views over the masters: what each record still lacks, what each site has, and what does not agree.
 const text = value => String(value ?? '').trim();
 const lower = value => text(value).normalize('NFKC').toLowerCase();
-// "SASTI OB", "Sasti OC" and "sasti-oc" are one site. Pulse shows overburden sites as "OC".
-export const siteKey = value => text(value).toUpperCase().replace(/\bOB\b/g, 'OC').replace(/[^\p{L}\p{N}]/gu, '');
+// Every spelling of a site that Pulse recognises is one site.
+export const siteKey = canonicalSite;
 
 // Required fields of a master form that a record leaves empty.
 export function missingFields(definition, values = {}) {
@@ -108,7 +110,7 @@ export function equipmentBySite({ sites = [], equipment = [], drivers = [], shif
     : [row.group, row.category, row.itemName, row.equipmentName].some(value => dgWord.test(text(value))) ? 'DG set'
     : text(row.category) || 'Uncategorised';
   const totals = new Map();
-  const noSite = row => { const key = siteKey(row.currentLocation); return !key || ['NA', 'NIL', 'NONE', 'NULL'].includes(key); };
+  const noSite = row => { const key = siteKey(row.currentLocation); return !key || ['na', 'nil', 'none', 'null'].includes(key); };
   const placed = equipment.filter(row => !noSite(row));
   for (const row of placed) totals.set(label(row), (totals.get(label(row)) ?? 0) + 1);
   const ranked = [...totals].sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0])).map(([name]) => name);

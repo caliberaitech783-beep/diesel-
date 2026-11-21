@@ -24,6 +24,8 @@ CMLL, Account and Location masters support multiple **Dated attributes**, each w
 
 **Overview and checks** (first link under Master Data, `src/features/master-insights/`) gives three read-only views: record counts for every master with the Pulse fetch time and how many records still miss required fields; a site checklist showing the equipment, drivers, active shifts and storage locations each Pulse site has; and data checks for duplicates and records at sites the Site Master does not list. The sidebar shows the same counts beside each master. In any master list, the search bar can search one column and sort by any column, records with empty required fields carry an "Incomplete" mark, and on a phone each record is shown as a card.
 
+Site names are matched by Pulse's own spelling rules (`src/features/pulse-masters/site-names.mjs`): "OB" and "OC" are the same pit, and known ERP spellings such as "Gouri Pouni" or "Dudhichua West OB" mean the Pulse sites "Gauri Pauni OC (2nd)" and "Dudhichua OC". Add a new spelling there, matching Pulse's `site-location.mjs`, when one appears under Data checks.
+
 ## Run locally
 
 **Entry → Entry workspace** opens the register for all 18 Diesel entry types. On the local preview, start with **Buy → Diesel indent**. Forms and business rules are under `src/features/entries/`.
