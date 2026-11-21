@@ -1,4 +1,5 @@
 import { pulseMasters } from './pulse-master-catalog.mjs';
+import { canonicalSite } from './site-names.mjs';
 
 const maximumRecords = 50_000;
 const text = value => (typeof value === 'string' || typeof value === 'number' ? String(value) : '')
@@ -16,13 +17,11 @@ export function readPulseMasters(payload) {
   return copy;
 }
 
-const siteKey = value => String(value ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-
-// A site-assigned Master Data role sees its own site's equipment and people. "Sasti" matches Pulse's "Sasti OC".
+// A site-assigned Master Data role sees its own site's equipment and people, however the site is spelt.
 export function forSite(master, records, sites) {
-  const keys = new Set((sites ?? []).map(siteKey).filter(Boolean).flatMap(key => [key, key + 'oc']));
+  const keys = new Set((sites ?? []).map(canonicalSite).filter(Boolean));
   if (!master.siteColumn || !keys.size) return records;
-  return records.filter(record => keys.has(siteKey(record[master.siteColumn])));
+  return records.filter(record => keys.has(canonicalSite(record[master.siteColumn])));
 }
 
 export function matching(master, records, search) {
