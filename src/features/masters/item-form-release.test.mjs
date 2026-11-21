@@ -6,7 +6,6 @@ import { dirname, join, resolve } from 'node:path';
 import { masterDefinition, recordMasters } from './records-fields.mjs';
 import { recordsPage } from './records-page.mjs';
 import { openItemSubmissions } from './item-submissions.mjs';
-import { itemSiteGroups } from './item-site-options.mjs';
 import { draftKey, readDraft } from './assets/record-drafts.mjs';
 
 const actor = { id: 'layout-maker', name: 'Layout maker', site: 'Jayant' };
@@ -20,9 +19,7 @@ test('the new editor is limited to Item Master and preserves production file and
   assert.match(item, /data-private-submission="true"/);
   assert.match(item, /data-write-scope="[a-f0-9]{64}"/);
   assert.match(item, /data-import-scope="[a-f0-9]{64}"/);
-  assert.match(item, /data-record-site required[^>]*><option value="">Select site<\/option>/);
-  assert.doesNotMatch(item, /editor-context|Site · Jayant/);
-  for (const site of itemSiteGroups.flatMap(group => group.sites)) assert.ok(item.includes('>' + site + '</option>'), site);
+  assert.doesNotMatch(item, /data-record-site|id="item-site"|name="Site"|Select site|Choose a site|editor-context|Site · Jayant/);
   for (const slug of recordMasters.filter(slug => slug !== 'item-master')) {
     assert.doesNotMatch(page(slug), /item-records\.css|class="master-editor"|data-record-site|Save local draft/, slug);
   }
@@ -45,6 +42,10 @@ test('the selected Item Master site survives saving, editing, history and reopen
   assert.equal(edited.site, 'Majri OC');
   assert.equal(edited.changes[0].snapshot.site, 'Dudhichua East OC');
   assert.equal(edited.changes[1].snapshot.site, 'Majri OC');
+  const withoutSite = await store.update(actor, 'item-master', created.id, { revision: 2, values, reason: 'Edit without a Site control' });
+  assert.equal(withoutSite.site, 'Majri OC', 'removing the input must preserve an older record’s site');
+  const newItem = await store.create(actor, 'item-master', { ...values, 'Item Code': 'NO-SITE-INPUT' });
+  assert.equal(newItem.site, '', 'new items can be saved without choosing a site');
   await assert.rejects(store.update({ ...actor, id: 'other-login' }, 'item-master', created.id, { revision: 2, values, site: 'Sasti OC', reason: 'Not the owner' }), /Only the person who saved/);
 });
 

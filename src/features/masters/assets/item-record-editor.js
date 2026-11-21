@@ -2,20 +2,19 @@ import { draftKey, readDraft } from './record-drafts.mjs';
 
 export function setupRecordEditor(form) {
   const editable = form.dataset.editable === 'true';
-  const controls = [...form.querySelectorAll('[name], #change-reason, [data-record-site]')];
-  const siteControl = form.querySelector('[data-record-site]');
+  const controls = [...form.querySelectorAll('[name], #change-reason')];
   const state = form.querySelector('[data-save-state]');
   const summary = form.querySelector('#error-summary');
   const status = form.querySelector('output');
   const notice = form.querySelector('#draft-notice');
   const message = notice.querySelector('p');
   const restore = notice.querySelector('[data-restore-draft]');
-  let key = draftKey(form.dataset);
+  const key = draftKey(form.dataset);
   let draft;
   let submitting = false;
   let validated = false;
   const values = () => Object.fromEntries([
-    ...controls.filter(control => !control.disabled && control.type !== 'file' && !control.hasAttribute('data-record-site')).map(control => [control.name || control.id, control.value]),
+    ...controls.filter(control => !control.disabled && control.type !== 'file').map(control => [control.name || control.id, control.value]),
     ...[...form.querySelectorAll('[data-remove-for]')].map(control => ['remove:' + control.dataset.removeFor, String(control.checked)]),
   ]);
   const fingerprint = () => JSON.stringify({ site: form.dataset.site, values: values(), files: controls.filter(control => control.type === 'file').map(control => [...control.files].map(file => [file.name, file.size, file.lastModified])), remove: [...form.querySelectorAll('[data-remove-for]')].map(control => control.checked) });
@@ -66,7 +65,7 @@ export function setupRecordEditor(form) {
     const body = form.querySelector('[data-review-rows]');
     body.replaceChildren();
     for (const group of form.querySelectorAll('[data-compare-value]')) {
-      const control = group.querySelector('[name], [data-record-site]');
+      const control = group.querySelector('[name]');
       let value = control.type === 'file' ? control.files[0]?.name || control.dataset.savedName || '' : control.value;
       if (control.type === 'file' && group.querySelector('[data-remove-for]')?.checked) value = '';
       const before = group.dataset.compareValue;
@@ -97,7 +96,6 @@ export function setupRecordEditor(form) {
   function offerDraft() {
     draft = null;
     notice.hidden = true;
-    if (!form.dataset.site) return;
     try {
       draft = readDraft(localStorage.getItem(key), form.dataset.revision);
       if (draft) {
@@ -111,14 +109,7 @@ export function setupRecordEditor(form) {
 
   if (editable) {
     offerDraft();
-    siteControl.addEventListener('input', () => {
-      form.dataset.site = siteControl.value;
-      key = draftKey(form.dataset);
-      offerDraft();
-      updated();
-    });
     form.querySelector('[data-save-draft]').addEventListener('click', () => {
-      if (!siteControl.value) { showErrors([siteControl], true); return; }
       try {
         draft = { version: 1, revision: form.dataset.revision, values: values(), files: controls.filter(control => control.type === 'file').flatMap(control => [...control.files].map(file => file.name)), savedAt: new Date().toISOString() };
         localStorage.setItem(key, JSON.stringify(draft));
