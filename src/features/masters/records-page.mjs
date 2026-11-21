@@ -33,7 +33,7 @@ function recordField(field, value, index, base, editable) {
     if (list) control += `<datalist id="${id}-options">${field.suggestions.map(option => `<option value="${escape(option)}"></option>`).join('')}</datalist>`;
   }
   const hint = field.hint ? `<small class="field-hint" id="${id}-hint">${escape(field.hint)}</small>` : '';
-  return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
+  return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
 export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly }) {

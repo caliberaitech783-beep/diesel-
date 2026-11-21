@@ -1,85 +1,135 @@
+/* Master record forms.
+   Every section shares one column grid, so boxes line up from section to section.
+   Each field is a three-row subgrid (label, box, hint), so boxes in a row line up
+   even when one label wraps onto two lines. */
 .master-form {
+  --control-height: 36px;
+  --heading-width: 10.5rem;
   width: min(100%, 920px);
   container-type: inline-size;
 }
 .layout .master-form { width: 100%; }
 .required-key { margin: 0; color: var(--muted); font-size: 13px; }
 .required-mark { color: var(--danger); }
+
 .field-group { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); margin: 0 0 8px; }
-.field-group-heading { margin: 0; padding: 10px 14px; font-size: 15px; font-weight: 650; }
-.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding: 10px 14px 14px; border-top: 1px solid var(--border); }
-.master-field { min-width: 0; }
-.master-field label { display: block; margin: 0 0 4px; font-size: 14px; font-weight: 550; }
-.field-hint { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
-.master-field :is(input,select,textarea) { width: 100%; min-width: 0; height: 40px; box-sizing: border-box; border: 1px solid var(--control-border); border-radius: 5px; padding: 6px 10px; background: var(--control-bg); color: inherit; font: inherit; }
-.master-field textarea { height: auto; min-height: 4.5em; resize: vertical; }
-.master-field input[type="file"] { height: auto; min-height: 40px; }
+.field-group-heading { margin: 0; padding: 10px 14px; font-size: 15px; font-weight: 650; line-height: 1.3; }
+.master-form > * { --form-cols: 1; }
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--form-cols), minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 12px 14px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.master-field {
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  min-width: 0;
+}
+.master-field > label { align-self: end; margin: 0 0 4px; font-size: 13.5px; font-weight: 550; line-height: 1.25; }
+.master-field > :is(input, select, textarea) { align-self: start; }
+.field-hint { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.master-field > .field-hint, .master-field > a, .master-field > label:has(> [data-remove-for]) { grid-row: 3; }
+
+.master-field :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  box-sizing: border-box;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: var(--control-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 14.5px;
+}
+/* Remarks and addresses start one line high and grow as the user types or drags. */
+.master-field textarea { min-height: var(--control-height); padding-block: 7px; line-height: 1.35; resize: vertical; max-height: 12em; }
+@supports (field-sizing: content) { .master-field textarea { height: auto; field-sizing: content; } }
+.master-field input[type="file"] { padding: 3px 4px; font-size: 13px; line-height: calc(var(--control-height) - 10px); }
+.master-field input[type="file"]::file-selector-button,
+[data-attribute-row] input[type="file"]::file-selector-button {
+  margin-right: 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.master-field input[type="checkbox"] { width: auto; height: auto; }
 .master-field input[readonly] { background: var(--readonly-bg); }
 .master-field [aria-invalid="true"] { border-color: var(--danger); }
-.master-field :is(input,select,textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.master-field :is(input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+
 .form-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0 0; }
-.form-footer button { border: 0; border-radius: 6px; padding: 11px 18px; background: var(--primary-bg); color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.form-footer button { border: 0; border-radius: 6px; padding: 9px 18px; background: var(--primary-bg); color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.form-footer button + button { background: var(--surface); color: var(--ink); border: 1px solid var(--control-border); }
 .form-footer output { font-size: 14px; }
-@container (max-width: 499px) {
-  .field-grid { grid-template-columns: minmax(0, 1fr); }
+
+/* Dated attributes: each attribute is a row of the same grid. */
+[data-attributes] .attribute-body { display: grid; gap: 10px; padding: 10px 14px 12px; border-top: 1px solid var(--border); min-width: 0; }
+[data-attribute-list] { display: grid; gap: 10px; }
+[data-attribute-list]:empty { display: none; }
+[data-attribute-row] { margin: 0; border: 1px solid var(--border); border-radius: 8px; padding: 0; min-width: 0; }
+[data-attribute-row] > legend { margin-left: 10px; padding: 0 6px; font-size: 13px; font-weight: 650; }
+[data-attribute-row] > .field-grid { border-top: 0; padding: 4px 12px 10px; }
+[data-attribute-row] > .field-grid > :is(label, div) { display: grid; align-content: end; gap: 4px; min-width: 0; font-size: 13.5px; font-weight: 550; }
+[data-attribute-row] > .field-grid > div > label { display: grid; gap: 4px; }
+[data-attribute-row] :is(input:not([type="checkbox"]), select) {
+  width: 100%; min-width: 0; height: var(--control-height); box-sizing: border-box;
+  border: 1px solid var(--control-border); border-radius: 6px; padding: 5px 10px;
+  background: var(--control-bg); color: inherit; font: inherit; font-size: 14.5px; font-weight: 400;
+}
+[data-attribute-row] input[type="file"] { padding: 3px 4px; font-size: 13px; }
+[data-attribute-row] > :is(p, button) { margin: 0 12px 10px; }
+:is([data-add-attribute], [data-remove-attribute]) {
+  justify-self: start;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Column count follows the form's own width, so every section uses the same columns. */
+@container (min-width: 480px) {
+  .master-form > * { --form-cols: 2; }
+  /* Remarks, addresses and attachments take two columns. */
+  .master-field:is(:has(> textarea), :has(> input[type="file"])) { grid-column: span 2; }
 }
 @container (min-width: 760px) {
-  .field-group {
-    display: grid;
-    grid-template-columns: clamp(8rem, 12%, 10rem) minmax(0, 1fr);
-  }
-  .field-group-heading { padding: 10px 12px; }
-  .field-group .field-grid {
-    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-    gap: 8px 12px;
-    padding: 8px 12px;
-    border-top: 0;
-    border-left: 1px solid var(--border);
-  }
-  .field-group .master-field label { margin-bottom: 3px; line-height: 1.25; }
-  .field-group .master-field :is(input,select):not([type="file"]) { height: 34px; }
-  .field-group .master-field:has(textarea) { grid-column: span 2; }
+  .master-form > * { --form-cols: 3; }
+  .field-group { display: grid; grid-template-columns: var(--heading-width) minmax(0, 1fr); align-items: stretch; }
+  .field-group-heading { padding: 12px 14px; align-self: start; }
+  .field-group > :is(.field-grid, .attribute-body) { border-top: 0; border-left: 1px solid var(--border); }
+  .field-group > .field-grid { padding: 10px 14px 12px; }
 }
+@container (min-width: 1000px) { .master-form > * { --form-cols: 4; } }
+@container (min-width: 1180px) { .master-form > * { --form-cols: 6; } }
+@container (min-width: 1600px) { .master-form > * { --form-cols: 8; } }
 
-.field-grid[data-columns="5"] > .master-field { display: flex; flex-direction: column; }
-.field-grid[data-columns="5"] > .master-field > label { flex: 1; }
-@container (760px <= width < 880px) {
-  .field-group .field-grid[data-columns="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container (min-width: 880px) {
-  .field-group .field-grid[data-columns="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-}
-
+/* In the workspace the sections sit in one card, sized to their content. */
 @media (min-width: 800px) {
   .layout > main > .master-form {
-    display: flex;
-    flex: 1 0 auto;
-    flex-direction: column;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--surface);
+    overflow: hidden;
   }
-  .layout .master-form > .field-group {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-  .layout .master-form > .field-group + .field-group { border-top: 1px solid var(--border); }
-  .layout .master-form:has(> .field-group + .field-group + .field-group) > .field-group {
-    flex: 1 0 auto;
-    align-items: center;
-  }
-  .layout .master-form > .field-group .field-grid {
-    align-self: stretch;
-    align-content: center;
-  }
-  .layout .master-form > .form-footer {
-    margin: auto 0 0;
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
-  }
-  .layout .master-form > .field-group :is(input,select):not([type="file"], [type="checkbox"]) {
-    height: clamp(34px, 4.5dvh, 42px);
-  }
+  .layout .master-form > .field-group { margin: 0; border: 0; border-radius: 0; background: transparent; }
+  .layout .master-form > :is(.field-group, .change-reason, .form-footer) + :is(.field-group, .change-reason, .form-footer),
+  .layout .master-form > .record-meta + .field-group { border-top: 1px solid var(--border); }
+  .layout .master-form > .form-footer { margin: 0; padding: 10px 14px; background: var(--page-bg); }
 }
