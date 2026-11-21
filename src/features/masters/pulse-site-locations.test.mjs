@@ -17,7 +17,7 @@ const pulseSites = [
   { name: 'Twin', region: 'Client A', regionCode: 'A', state: 'MH' }, { name: 'Twin OC', region: 'Client B', regionCode: 'B', state: 'MH' },
 ];
 
-test('a site named in a Pulse role gets an approved Location Master record from the Pulse Site Master', t => {
+test('a site named in a Pulse role gets an approved Location Master record from the Pulse Location Master', t => {
   const db = openDieselDatabase(':memory:');
   t.after(() => db.close());
   const masters = createMasterStore(db, ['location-master','storage-location-master']);
@@ -37,7 +37,7 @@ test('a site named in a Pulse role gets an approved Location Master record from 
     sasti.values['Business day cut-off']], ['SASTI-OC','Sasti OC','Western Coalfields Limited','Sasti','Both','06:00']);
   assert.deepEqual(sasti.attributes.map(row => [row.name, row.value]), [['State','MH / MP']]);
   assert.deepEqual(masters.history('location-master', sasti.id).map(event => event.actorName).sort(),
-    ['Pulse Site Master','Pulse Site Master (automatic)']);
+    ['Pulse Location Master','Pulse Location Master (automatic)']);
 
   // A maker can replace the generated code with the company's own until storage records use it.
   const maker = { id: 'maker', site: 'Sasti' };

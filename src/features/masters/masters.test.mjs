@@ -13,7 +13,7 @@ test('the landing page lists all masters in the sidebar and waits for a selectio
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
   assert.equal(summary.replace(/<[^>]*>/g, ''), 'Master');
   const links = Array.from(list.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g), ([, href, name]) => [href, name]);
-  assert.deepEqual(links, masters.toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
+  assert.deepEqual(links, masters.filter(({ slug }) => slug !== 'location-master').toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(({ slug, name }) => [`/?master=${slug}`, name]));
 });
 

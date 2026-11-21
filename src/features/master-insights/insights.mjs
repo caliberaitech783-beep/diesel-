@@ -79,11 +79,11 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
     { title: 'Storage locations that share a short name', help: 'Two tanks or bowsers under one short name are easy to confuse at issue time.',
       items: repeated(storage, row => row.values?.['Short Name']).map(group =>
         group[0].values['Short Name'] + ': ' + group.map(row => row.name + ' (' + text(row.values.Location) + ')').join(', ')) },
-    { title: 'Storage locations at a site that is not in the Site Master', help: 'Add the site in Pulse, or correct the Location on the storage record.',
+    { title: 'Storage locations at a site that is not in the Location Master', help: 'Add the site in Pulse, or correct the Location on the storage record.',
       items: storage.filter(row => unknownSite(row.values?.Location)).map(row => row.code + ' · ' + row.name + ' — ' + text(row.values.Location)) },
     { title: 'Storage locations with no capacity', help: 'Stock limits cannot be checked without a capacity.',
       items: storage.filter(row => !(Number(row.values?.['Capacity (L)']) > 0)).map(row => row.code + ' · ' + row.name) },
-    { title: 'Equipment with no site, or a site that is not in the Site Master', help: 'Correct the current location in Pulse.',
+    { title: 'Equipment with no site, or a site that is not in the Location Master', help: 'Correct the current location in Pulse.',
       items: equipment.filter(row => !text(row.currentLocation) || unknownSite(row.currentLocation))
         .map(row => (row.door || row.reg || row.equipmentName) + ' — ' + (text(row.currentLocation) || 'no location')) },
     { title: 'Equipment that shares a registration number', help: 'One vehicle should appear once in the Equipment Master.',
@@ -92,7 +92,7 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
     { title: 'Drivers listed under more than one employee code', help: 'The same name with two ERP codes is usually one person entered twice.',
       items: repeated(drivers, row => row.name).filter(group => new Set(group.map(row => lower(row.empId))).size > 1)
         .map(group => group[0].name + ': ' + group.map(row => row.empId + (row.site ? ' (' + row.site + ')' : '')).join(', ')) },
-    { title: 'Shifts for a site that is not in the Site Master', help: 'Correct the site on the shift in Pulse.',
+    { title: 'Shifts for a site that is not in the Location Master', help: 'Correct the site on the shift in Pulse.',
       items: shifts.filter(row => unknownSite(row.site)).map(row => row.shiftName + ' — ' + row.site) },
     { title: 'Accounts that share a GST registration number', help: 'One supplier under two account codes splits its purchases and payments.',
       items: repeated(accounts, row => row.values?.['Registration No.']).map(group =>
@@ -102,7 +102,7 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
 }
 
 // Equipment counted by site and equipment category, with each site's drivers, shifts and storage alongside.
-// Sites come from the Site Master first; a location equipment uses that the Site Master lacks still gets a row.
+// Sites come from the Location Master first; a location equipment uses that the Location Master lacks still gets a row.
 export function equipmentBySite({ sites = [], equipment = [], drivers = [], shifts = [], storage = [] }, maximumCategories = 12) {
   // LMVs and DG sets are counted under their own headings, whatever category the ERP files them in.
   const dgWord = /(^|[^a-z])(dg|d\.g\.?|genset|gen set|generator)([^a-z]|$)/i;

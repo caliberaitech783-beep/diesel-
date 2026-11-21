@@ -44,7 +44,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
   const cookie = (secure ? '__Host-' : '') + (siteStock ? 'diesel_stock_assignment' : assigned ? 'diesel_entry_assignment' : 'diesel_review_context');
-  // Each site named in a verified Pulse role starts with a Location Master record taken from Pulse's own Site Master.
+  // Each site named in a verified Pulse role starts with a Location Master record taken from Pulse's own Location Master.
   // Returns what happened, so a person left in the trial is told exactly why.
   const seen = new Map();
   function locationsFromPulse(profile) {
@@ -59,7 +59,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       outcome.pulseSites = copy.length;
       const { created, missing } = createLocationsFromPulseSites(siteMasterDb, grants, copy);
       Object.assign(outcome, { created: created.length, missing });
-      // A site Pulse has not listed yet is tried again once the Site Master copy has been fetched.
+      // A site Pulse has not listed yet is tried again once the Location Master copy has been fetched.
       if (!missing.length) seen.set(mark, outcome);
     } catch (error) { outcome.error = String(error?.message ?? error).slice(0, 200); }
     // Counts only: the health check shows this without naming a site or a person.
@@ -72,7 +72,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
     const entrySites = (Array.isArray(profile.dieselEntryAccess) ? profile.dieselEntryAccess : []).map(grant => grant?.site).filter(site => typeof site === 'string');
     if (outcome?.error) return 'Diesel could not create the location: ' + outcome.error;
     if (!outcome?.roleSites.length) return 'Pulse sent no Diesel site role for your login, so Diesel does not know your site or post. Ask the Pulse administrator to give your login a Diesel Entry role at a site.';
-    if (outcome.missing.length) return (outcome.pulseSites ? 'The Pulse Site Master has no site matching your role site: ' : 'Diesel has no copy of the Pulse Site Master yet (open Master Data, Site Master) for your role site: ') + outcome.missing.join(', ') + '.';
+    if (outcome.missing.length) return (outcome.pulseSites ? 'The Pulse Location Master has no site matching your role site: ' : 'Diesel has no copy of the Pulse Location Master yet (open Master Data, Location Master) for your role site: ') + outcome.missing.join(', ') + '.';
     if (!entrySites.length) return 'Your login has a Master Data role at ' + outcome.roleSites.join(', ') + ' but no Diesel Entry role. Ask the Pulse administrator to give your login a post such as Site In-charge at that site.';
     return 'Your Diesel Entry role sites (' + entrySites.join(', ') + ') do not match an approved location (' + locations.map(location => location.site).join(', ') + ').';
   }

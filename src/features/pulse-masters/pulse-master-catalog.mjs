@@ -7,7 +7,7 @@ const employeeColumns = [
 ];
 
 export const pulseMasters = [
-  { slug: 'site', name: 'Site Master', columns: [['name', 'Site'], ['region', 'Region'], ['regionCode', 'Region short name'], ['state', 'State code']] },
+  { slug: 'site', name: 'Location Master', columns: [['name', 'Location'], ['region', 'Region'], ['regionCode', 'Region short name'], ['state', 'State code']] },
   { slug: 'region', name: 'Region Master', columns: [['name', 'Region name'], ['code', 'Short name'], ['state', 'State code'], ['sites', 'Sites']] },
   { slug: 'equipment', name: 'Equipment Master', siteColumn: 'currentLocation', columns: [
     ['door', 'Door / registration'], ['reg', 'Registration no.'], ['currentLocation', 'Current location'],

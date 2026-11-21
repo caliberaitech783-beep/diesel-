@@ -66,7 +66,7 @@ test('Pulse master downloads write CSV, Excel and PDF with the listed fields', a
   const master = pulseMaster('site');
   const data = pulseMasterExport(master, [{ name: '00123 डीज़ल', region: '=1+1', regionCode: 'WR', state: 'MH' }]);
   const table = exportTable(data.records, data.showSite, data.columns);
-  assert.deepEqual(table.columns, ['Site', 'Region', 'Region short name', 'State code']);
+  assert.deepEqual(table.columns, ['Location', 'Region', 'Region short name', 'State code']);
   const csv = parse(writeCsvTable(table.columns, table.rows, { stringify }), { bom: true });
   assert.deepEqual(csv[1], ['00123 डीज़ल', "'=1+1", 'WR', 'MH']);
   const workbook = xlsx.read(writeExcelTable('Master Data', table.columns, table.rows, xlsx));

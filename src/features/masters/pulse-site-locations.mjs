@@ -2,8 +2,8 @@ import { createMasterStore } from './records.mjs';
 import { pulseProject } from './pulse-projects.mjs';
 
 // Pulse owns the site and its region. A site's Location Master record starts from them, so Entry does not wait for retyping.
-const creator = { id: 'pulse-site-master', name: 'Pulse Site Master' };
-const approver = { id: 'pulse-site-master-approval', name: 'Pulse Site Master (automatic)' };
+const creator = { id: 'pulse-site-master', name: 'Pulse Location Master' };
+const approver = { id: 'pulse-site-master-approval', name: 'Pulse Location Master (automatic)' };
 const letters = value => String(value ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 const stores = new WeakMap();
 
@@ -17,7 +17,7 @@ export function pulseSiteFor(site, siteRecords) {
 export const locationCode = name => String(name).normalize('NFKC').toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 30);
 
 // grants: [{ site, project?: { name, client } }] from a verified Pulse profile.
-// Returns the sites that gained a record and the sites Pulse's Site Master could not identify yet.
+// Returns the sites that gained a record and the sites Pulse's Location Master could not identify yet.
 export function createLocationsFromPulseSites(db, grants, siteRecords) {
   const created = [], missing = [];
   for (const grant of grants) {
@@ -36,8 +36,8 @@ export function createLocationsFromPulseSites(db, grants, siteRecords) {
       'Location Code': locationCode(project.name), ...(site !== project.name ? { 'Short Name': site } : {}),
       'Business day cut-off': '06:00', 'Site In-charge': 'As assigned in Pulse', 'Project Manager': 'As assigned in Pulse',
       'Receipt scenario allowed': 'Both',
-      'Location details / Remark': 'Created from the Pulse Site Master' + (details?.regionCode ? ' · region ' + details.regionCode : '') + '. Review the cut-off and receipt scenario.',
-    }, attributes: details?.state ? [{ name: 'State', value: details.state, reference: 'Pulse Site Master' }] : undefined },
+      'Location details / Remark': 'Created from the Pulse Location Master' + (details?.regionCode ? ' · region ' + details.regionCode : '') + '. Review the cut-off and receipt scenario.',
+    }, attributes: details?.state ? [{ name: 'State', value: details.state, reference: 'Pulse Location Master' }] : undefined },
     { ...creator, site, project });
     store.changeStatus('location-master', record.id, record.revision, 'approve', approver);
     created.push(site);
