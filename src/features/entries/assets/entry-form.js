@@ -23,13 +23,17 @@ if(!hosted && offlineEnabled && 'serviceWorker' in navigator) {
     navigator.serviceWorker.controller?.postMessage('clear-role');
   }));
 }
-document.querySelector('#record-position')?.addEventListener('click',()=>{
-  if(!navigator.geolocation) {syncStatus.textContent='Location is unavailable on this device.';return;}
+// Field entries stamp GPS on their own when the form opens; Refresh GPS takes a new reading.
+const gpsStatus=document.querySelector('#gps-status');
+function capturePosition() {
+  if(!navigator.geolocation) {gpsStatus.textContent='Location is unavailable on this device.';return;}
+  gpsStatus.textContent='Finding your location…';
   navigator.geolocation.getCurrentPosition(({coords})=>{
-    form.dataset.position=JSON.stringify({latitude:coords.latitude,longitude:coords.longitude});
-    syncStatus.textContent='GPS captured.';
-  },()=>{syncStatus.textContent='Location was unavailable.';},{timeout:10000});
-});
+    form.dataset.position=JSON.stringify({latitude:coords.latitude,longitude:coords.longitude,accuracy:Math.round(coords.accuracy)});
+    gpsStatus.textContent='GPS stamped · '+coords.latitude.toFixed(5)+', '+coords.longitude.toFixed(5)+' · ±'+Math.round(coords.accuracy)+' m';
+  },()=>{gpsStatus.textContent='Location was unavailable. Allow location for this site and choose Refresh GPS.';},{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+}
+if(gpsStatus){document.querySelector('#record-position').addEventListener('click',capturePosition);capturePosition();}
 function useTag() {
   const raw=document.getElementById('tag-input').value.trim().toLowerCase();
   const matches=[];

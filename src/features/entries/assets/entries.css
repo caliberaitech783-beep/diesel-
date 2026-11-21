@@ -93,6 +93,8 @@ section,.inbox { background: var(--surface); padding: clamp(16px,2vw,26px); bord
 .check.ok { color: #176953; background: #e1f4eb; }.check.warn { color: #85540a; background: #fff1d7; }.check.alert { color: #a3273f; background: #fde7ed; }
 .photos { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }.photos img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
 .approval-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; margin-top: 12px; }.approval-actions .actions { margin: 0; }.approval-actions output { grid-column: 1 / -1; }
+.camera-scan { display: grid; gap: 10px; margin: 10px 0; }.camera-scan video { width: min(100%, 420px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: #000; }
+.camera-scan video[hidden] { display: none; }.gps { align-items: center; }.gps output { margin: 0; font-weight: 500; color: var(--muted); font-size: 13px; }
 .approval-done { margin: 0; font-weight: 600; color: var(--link); }
 label[data-state] :is(input, select) { border-width: 1.5px; }
 label[data-state="prefilled"] :is(input, select) { background: #f1eafc; border-color: #9a82c4; }
