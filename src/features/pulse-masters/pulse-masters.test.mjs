@@ -48,7 +48,7 @@ test('Master Data lists the Pulse Site, Region, Equipment, Employee and Driver m
   };
   let pulseUp = true, fetched = 0, clock = Date.parse('2026-11-19T10:00:00Z');
   const app = createApp({
-    env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43), DIESEL_ALLOWED_PULSE_LOGINS: 'admin' },
+    env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43), DIESEL_ALLOWED_PULSE_LOGINS: 'admin', DIESEL_PULSE_ACCESS: 'listed' },
     itemSubmissions, sharedMasterDb: db, pulseMasterClock: () => clock,
     fetcher: async (url, options) => {
       const { grant } = JSON.parse(options.body);

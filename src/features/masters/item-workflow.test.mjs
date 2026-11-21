@@ -47,7 +47,7 @@ test('Azure Item Master saves to app storage and only the submitting Pulse accou
     WEBSITE_SITE_NAME: 'diesel-test',
     DIESEL_PUBLIC_ORIGIN: 'https://diesel.test',
     DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43),
-    DIESEL_ALLOWED_PULSE_LOGINS: 'maker, other',
+    DIESEL_ALLOWED_PULSE_LOGINS: 'maker, other', DIESEL_PULSE_ACCESS: 'listed',
   };
   const maker = 'm'.repeat(43);
   const other = 'o'.repeat(43);
