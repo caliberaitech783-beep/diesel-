@@ -6,7 +6,7 @@
 - Use one package manager and commit its lockfile. Keep secrets, local databases, uploads, and generated builds out of Git. Add an `.env.example` with placeholder values when configuration is needed.
 - Keep the README short. Document the actual entry points, where to add a feature, and the commands to run, test, and build. When deployment is set up, use the documented production build from a clean checkout and record the deploy steps and required configuration. Update the README with any change to those instructions and verify the affected commands.
 - Keep changes focused. Run relevant checks for the affected workflows and business rules before finishing.
-- Cost Centre Master means vehicles + equipment. Its Master Data must include all visible Pulse Equipment Master assets, including vehicles and non-road equipment, with site access preserved. Keep Diesel-specific fuel, ownership and meter settings separate from the source data; do not invent or auto-approve them.
+- Use the display name **Cost Centre Master**. Vehicles + equipment describes its data only; do not add Vehicle or Equipment to the master name. Its Master Data must include all visible Pulse Equipment Master assets, including vehicles and non-road equipment, with site access preserved. Keep Diesel-specific fuel, ownership and meter settings separate from the source data; do not invent or auto-approve them.
 
 ## Deploying Diesel
 
