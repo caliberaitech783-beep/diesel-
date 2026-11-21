@@ -6,10 +6,10 @@ import { masterForm } from './master-form.mjs';
 
 const css = await readFile(new URL('./assets/master-form.css', import.meta.url), 'utf8');
 
-test('master forms share one column grid and line boxes up across a row', () => {
-  assert.match(css, /\.field-grid \{[^}]*grid-template-columns: repeat\(var\(--form-cols\), minmax\(0, 1fr\)\)/);
+test('master forms fill each section and line boxes up across a row', () => {
+  assert.match(css, /\.field-grid \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 15rem\), 1fr\)\)/);
   assert.match(css, /\.master-field \{[^}]*grid-row: span 3;[^}]*grid-template-rows: subgrid;/);
-  assert.doesNotMatch(css, /auto-fit|data-columns|flex: 1 0 auto/, 'sections neither size their own columns nor stretch to fill the screen');
+  assert.doesNotMatch(css, /--heading-width|--form-cols|flex: 1 0 auto/, 'section titles and empty fixed columns do not reserve unused space');
   const form = masterForm({ slug: 'sample', sections: [{ name: 'Details', fields: [{ label: 'Long required label', required: true }] }] });
   assert.match(form, /Long required label <span class="required-mark"/, 'the required star stays on the label’s last line');
 });
