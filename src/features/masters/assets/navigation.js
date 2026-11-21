@@ -53,3 +53,24 @@ search.addEventListener('keydown', event => {
     activeSection().list.querySelector('li:not([hidden]) a')?.click();
   }
 });
+
+// Record counts beside each Master Data link, where the signed-in workspace provides them.
+const counted = document.querySelector('#master-data-list[data-counts]');
+if (counted) {
+  fetch(counted.dataset.counts, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+    .then(response => response.ok ? response.json() : null)
+    .then(counts => {
+      if (!counts) return;
+      for (const link of counted.querySelectorAll('a[href*="master="]')) {
+        const url = new URL(link.href);
+        const count = (url.pathname === '/pulse-masters' ? counts.pulse : counts.masters)?.[url.searchParams.get('master')];
+        if (!Number.isInteger(count)) continue;
+        const badge = document.createElement('span');
+        badge.className = 'master-count';
+        badge.textContent = count;
+        badge.setAttribute('aria-label', count + (count === 1 ? ' record' : ' records'));
+        link.append(' ', badge);
+      }
+    })
+    .catch(() => {});
+}
