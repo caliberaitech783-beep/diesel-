@@ -13,7 +13,8 @@ test('the landing page lists all masters in the sidebar and waits for a selectio
   const [, summary, list] = group[1].match(/<summary>([\s\S]*?)<\/summary>\s*<ul\b[^>]*>([\s\S]*?)<\/ul>/);
   assert.equal(summary.replace(/<[^>]*>/g, ''), 'Master');
   const links = Array.from(list.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g), ([, href, name]) => [href, name]);
-  assert.deepEqual(links, masters.map(({ slug, name }) => [`/?master=${slug}`, name]));
+  assert.deepEqual(links, masters.toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
+    .map(({ slug, name }) => [`/?master=${slug}`, name]));
 });
 
 test('all 20 masters open exactly one form with a link back to the catalog', () => {
@@ -52,7 +53,7 @@ test('the final template additions keep their labels and required markers', () =
   ]);
 });
 
-// Total and mandatory fields in the current forms, in sidebar order.
+// Total and mandatory fields in the current forms, in catalog order.
 const templateCounts = [
   ['item-master', 23, 16],
   ['account-master', 60, 28],
