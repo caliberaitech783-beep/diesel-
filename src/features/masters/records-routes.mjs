@@ -19,7 +19,7 @@ function scoped(record, actor) {
 }
 
 export function registerMasterRecords(app, { db, getActor = request => request.dieselActor, enabledMasters = ['item-master'],
-  prefix = '', publicOrigin }) {
+  prefix = '', publicOrigin, itemDirectory }) {
   const store = createMasterStore(db, enabledMasters);
   async function workspaceActor(request) {
     const actor = await getActor(request);
@@ -30,7 +30,14 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
   }
   registerMasterDataRoutes(app, {
     enabledMasters, local: !prefix, prefix, getActor: workspaceActor,
-    listRecords: (actor, slugs, page) => store.listSaved(slugs, { ...page, site: actor.site }),
+    async listRecords(actor, slugs, page) {
+      if (!itemDirectory || !slugs.includes('item-master')) return store.listSaved(slugs,{...page,site:actor.site});
+      const otherSlugs = slugs.filter(slug=>slug!=='item-master');
+      const others = otherSlugs.length ? store.listSaved(otherSlugs,{site:actor.site,search:page.search}) : [];
+      const items = await itemDirectory.list(actor,{search:page.search});
+      return [...items,...others].sort((a,b)=>a.master.localeCompare(b.master)||a.code.localeCompare(b.code,'en',{numeric:true})||a.id.localeCompare(b.id))
+        .slice(page.offset,page.limit===undefined ? undefined : page.offset+page.limit);
+    },
     attributeWarnings(actor,slug) {
       if (!attributeMasters.has(slug)) return [];
       return readActiveMasters(db,actor.site,[slug])[slug].flatMap(record=>
@@ -79,7 +86,7 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     }
   }
   const pagination = query => ({ search: query.q ?? '', status: query.status ?? '', limit: 50, offset: Number(query.offset ?? 0) });
-  app.get('/records', route((req, res, actor, slug) => {
+  app.get('/records', route(async (req, res, actor, slug) => {
     const page = pagination(req.query);
     const current = req.query.id ? scoped(store.get(slug, req.query.id), actor) : null;
     const historical = Boolean(current && req.query.revision !== undefined);
@@ -89,7 +96,8 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     if (prefix && !current && req.query.new === '1' && existingLocation) {
       return res.redirect(303,prefix+'/records?master=location-master&id='+existingLocation.id);
     }
-    const rows = !record && req.query.new !== '1' ? store.list(slug, { ...page, site: actor.site }) : [];
+    const rows = !record && req.query.new !== '1' ? (slug==='item-master' && itemDirectory
+      ? await itemDirectory.list(actor,page) : store.list(slug, { ...page, site: actor.site })) : [];
     res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; form-action 'self'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'`);
     const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];

@@ -13,6 +13,8 @@ import { registerHostedMasters, masterWorkspacePath } from '../masters/hosted-ma
 import { masterAssignments } from '../masters/master-access.mjs';
 import { registerPulseMasters } from '../pulse-masters/pulse-master-routes.mjs';
 import { registerMasterInsights } from '../master-insights/insights-routes.mjs';
+import { createItemDirectory } from '../masters/item-directory.mjs';
+import { registerItemDirectoryRoutes } from '../masters/item-directory-routes.mjs';
 import { pulseProject } from '../masters/pulse-projects.mjs';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -98,9 +100,17 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     return configured && isProof(grant) ? pulse.request('validate', { grant }) : null;
   }
 
-  const hostedMasters = sharedMasterDb && registerHostedMasters(app,{db:sharedMasterDb,publicOrigin:publicUrl.origin,startSignIn,
+  const itemDirectory = createItemDirectory({db:sharedMasterDb,submissions:itemSubmissions});
+  const hostedMasters = sharedMasterDb && registerHostedMasters(app,{db:sharedMasterDb,publicOrigin:publicUrl.origin,startSignIn,itemDirectory,
     hasSubmissions:profile=>Boolean(itemSubmissions && allowed(profile)),
     async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
+  });
+
+  if (itemSubmissions || sharedMasterDb) registerItemDirectoryRoutes(app,{directory:itemDirectory,startSignIn,
+    async getActor(request) {
+      const profile = (await verifySession(request))?.profile;
+      return canOpenMasters(profile) ? {id:profile.login.trim().toLowerCase(),name:profile.name || profile.login} : null;
+    },
   });
 
   let pulseMasterCopies, pulseMasterAccess;
@@ -122,15 +132,16 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   }
 
   if (itemSubmissions) {
+    let insights;
     const submissions = registerItemSubmissions(app, {
-      store: itemSubmissions, publicOrigin: publicUrl.origin,
+      store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory, homeOverview: request => insights?.homeOverview(request),
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;
       },
     });
     // Counts, the site checklist and data checks over the Pulse masters and a person's visible records.
-    registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords,
+    insights = registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords,
       async getAccess(request) {
         const access = await pulseMasterAccess(request);
         return access && access.masterDataPath === '/master-data' ? access : null;

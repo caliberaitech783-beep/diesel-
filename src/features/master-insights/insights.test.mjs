@@ -108,6 +108,11 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(checks, /Storage locations that share a short name <span class="record-incomplete">3<\/span>/);
 
   const sidebar = await page('/master-data');
+  assert.match(sidebar, /<h2>From Pulse<\/h2>/, 'the Master Data home shows the overview instead of an empty page');
+  assert.match(sidebar, /<a href="\/pulse-masters\?master=equipment">Equipment Master<\/a><\/th><td data-label="Records">3<\/td>/);
+  assert.match(sidebar, /Storage Location Master<\/a><\/th><td data-label="Records">71<\/td>/);
+  assert.match(sidebar, /<a href="\/master-insights\?view=sites">Site checklist<\/a>/);
+  assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   assert.match(sidebar, /data-counts="\/api\/master-insights\/counts"/);
   assert.match(sidebar, /<a href="\/master-insights">Overview and checks<\/a>/);
 

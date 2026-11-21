@@ -14,7 +14,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 function savedTable(master, rows, canSave, prefix, canEdit) {
   const records = rows.map(row => {
     const action = canEdit && row.canEdit !== false && !['pending deletion','pending deactivation','inactive','deleted'].includes(row.status) ? 'Edit' : 'View';
-    const href = prefix + '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
+    const href = row.recordPath ?? prefix + '/records?' + new URLSearchParams({ master: master.slug, id: row.id });
     const values = new Map(row.fields);
     const cells = master.fields.map(({ key,type }) => {
       if (type==='attributes') {
@@ -37,7 +37,7 @@ function savedTable(master, rows, canSave, prefix, canEdit) {
   </div>`;
 }
 
-export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '', by = '', sort = '', dir = 'asc' }) {
+export function masterDataPage({ actor, master, canSave, rows, offset, pageSize, hasMore, local, prefix = '', warnings = [], search = '', by = '', sort = '', dir = 'asc', overview }) {
   const heading = master?.name ?? 'Master Data';
   const home = prefix + '/master-data';
   const selection = master ? '?master=' + master.slug : '';
@@ -56,6 +56,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   ${themeHead}${recordDialogAssets}
   <link rel="stylesheet" href="/masters/assets/workspace.css">
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
+  ${overview ? '<link rel="stylesheet" href="/masters/assets/records.css"><link rel="stylesheet" href="/master-insights/assets/insights.css">' : ''}
   ${prefix ? '<link rel="stylesheet" href="/masters/assets/records.css">' : ''}
   ${master ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
   ${canSave ? '<script type="module" src="/master-data/assets/download.js"></script>' : ''}
@@ -107,7 +108,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         return `<li><a href="${escape(url)}">${escape(warning.code)}</a> · ${escape(warning.name)}
           ${warning.reference ? ' · '+escape(warning.reference) : ''} · ${escape(warning.due)} · ${escape(warning.status)}</li>`;
       }).join('')}</ul></details>` : ''}
-      ${master ? savedTable(master, rows, canSave, prefix, canImport) : `<p>Choose a master from the sidebar to view its saved records.${local || prefix ? '' : ' <a href="/master-insights">Overview and checks</a> shows record counts, the site checklist and data checks.'}</p>`}
+      ${master ? savedTable(master, rows, canSave, prefix, canImport) : (overview ?? '<p>Choose a master from the sidebar to view its saved records.</p>')}
       ${master && (offset || hasMore) ? `<nav class="master-data-pager" aria-label="Master Data pages">
         ${offset ? `<a href="${escape(pageLink(Math.max(0, offset - pageSize)))}">Previous</a>` : ''}
         ${hasMore ? `<a href="${escape(pageLink(offset + pageSize))}">Next</a>` : ''}

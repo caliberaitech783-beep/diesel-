@@ -148,10 +148,10 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   assert.equal(rejected.status,409);
   assert.equal((await req(root+'/site','o',{body:new URLSearchParams({site})})).status,403);
   const exports = root+'/api/master-data/records?master=item-master';
-  assert.deepEqual((await (await req(exports,'o')).json()).records,[]);
+  assert.deepEqual((await (await req(exports,'o')).json()).records.map(row=>row.code),['HSD','OLD']);
   assert.deepEqual((await (await req(exports+'&q=hsd','c')).json()).records.map(row=>row.code),['HSD']);
   assert.deepEqual((await (await req(exports+'&q=missing','c')).json()).records,[]);
-  assert.deepEqual((await (await req(exports+'&q=HSD','o')).json()).records,[]);
+  assert.deepEqual((await (await req(exports+'&q=HSD','o')).json()).records.map(row=>row.code),['HSD']);
   assert.equal((await req(exports+'&q='+ 'x'.repeat(257),'c')).status,400);
   const filtered = await (await req(root+'/master-data?master=item-master&q=missing','c')).text();
   assert.match(filtered,/No saved records for this master/);
