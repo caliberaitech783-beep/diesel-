@@ -346,7 +346,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
   }
 
   return { get, list, listSaved, history, snapshot, attachment, changeStatus,
-    createPrivateSubmission: (slug, values, actor) => atomically(db, () => save(slug, null, { values }, actor, true)),
+    createPrivateSubmission: (slug, values, actor, site) => atomically(db, () => save(slug, null, { values, site }, actor, true)),
     create: (slug, payload, actor) => atomically(db, () => save(slug, null, payload, actor)),
     update: (slug, id, payload, actor) => atomically(db, () => save(slug, id, payload, actor)),
   };

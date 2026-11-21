@@ -1,10 +1,12 @@
 import { restoreImportedRecord } from './import-draft.mjs';
 import { collectAttributes, setupAttributeInputs } from './attribute-fields.js';
+import { setupRecordEditor } from './item-record-editor.js';
 
 const form = document.querySelector('#record-form');
 const embedded = document.body.classList.contains('record-dialog-page') && window.parent !== window;
 const notify = data => { if (embedded) window.parent.postMessage(data,location.origin); };
 const deletion = document.querySelector('.record-delete-confirm');
+const editor = form?.dataset.slug === 'item-master' ? setupRecordEditor(form) : null;
 
 function readFile(file) {
   if (file.size > 5 * 1024 * 1024) throw new Error('Choose a file up to 5 MiB.');
@@ -21,18 +23,22 @@ async function save(action) {
   const status = action === 'delete' ? deletion.querySelector('output') : form.querySelector('output');
   const buttons = [...form.elements].filter(control => control.tagName === 'BUTTON');
   const reason = action === 'delete' ? deletion.querySelector('textarea') : form.querySelector('#change-reason');
-  if (reason && action !== 'approve' && !reason.reportValidity()) return;
-  if (!action && !form.reportValidity()) return;
+  if (editor && action !== 'delete') { if (!editor.validate(action)) return; }
+  else {
+    if (reason && action !== 'approve' && !reason.reportValidity()) return;
+    if (!action && !form.reportValidity()) return;
+  }
   for (const button of buttons) button.disabled = true;
   status.textContent = action === 'delete' ? 'Submitting deletion…' : 'Saving…';
   notify({type:'master-record-busy',busy:true});
   try {
     const { api, record, revision, writeScope, recordHome } = form.dataset;
     const payload = { revision: Number(revision), reason: reason?.value, scope:writeScope };
+    if (editor && !action) payload.site = form.querySelector('[data-record-site]').value;
     if (!action) {
       payload.values = {};
       for (const control of form.querySelectorAll('[name]')) {
-        if (control.disabled || control.matches('[data-attribute-import]')) continue;
+        if (control.disabled || control.matches('[data-attribute-import], [data-record-site]')) continue;
         if (control.type === 'file') {
           if (control.files.length) payload.values[control.name] = await readFile(control.files[0]);
           else if (control.dataset.fileId && !form.querySelector(`[data-remove-for="${control.id}"]`)?.checked) {
@@ -48,6 +54,7 @@ async function save(action) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The record could not be saved.');
+    editor?.saved();
     const target = new URL(recordHome,location.origin);
     target.searchParams.set('id',result.id);
     notify({type:'master-record-busy',busy:false});

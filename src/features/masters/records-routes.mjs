@@ -90,14 +90,17 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
       return res.redirect(303,prefix+'/records?master=location-master&id='+existingLocation.id);
     }
     const rows = !record && req.query.new !== '1' ? store.list(slug, { ...page, site: actor.site }) : [];
-    res.set('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'");
+    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; form-action 'self'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'`);
     const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];
     const hasLocation = Boolean(existingLocation);
     const references = referenceChoices(slug, readActiveMasters(db, actor.site, referencedMasters(slug)));
-    res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, references, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
+    const revisions = record ? store.history(slug,record.id) : [];
+    const baseline = slug === 'item-master' && record ? revisions.find(event => event.revision < record.revision && (historical || record.status !== 'pending' || event.action === 'approve')) : null;
+    const comparison = baseline ? store.snapshot(slug,record.id,baseline.revision) : record?.status === 'approved' ? record : null;
+    res.type('html').send(recordsPage({ prefix, project, locations, hasLocation, references, comparison, master: masterDefinition(slug), rows, actor, record, ...page, masterSelected: req.query.master !== undefined,
       dialog: req.query.dialog === '1', creating: req.query.new === '1', historical, editingAllowed: !historical && actor.canEditMasters === true,
-      approvingAllowed: !historical && actor.canApproveMasters === true, revisions: record ? store.history(slug, record.id) : [],
+      approvingAllowed: !historical && actor.canApproveMasters === true, revisions: slug === 'item-master' && historical ? revisions.filter(event => event.revision <= record.revision) : revisions,
     }));
   }));
   app.get(api, route((req, res, actor, slug) => res.json(store.list(slug, { ...pagination(req.query), site: actor.site }))));
