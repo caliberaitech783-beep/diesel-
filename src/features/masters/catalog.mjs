@@ -22,7 +22,7 @@ import { documentNumberingMaster } from './document-numbering-master.mjs';
 const catalog = [
   ['Item Master', itemMaster],
   ['Account Master', accountMaster],
-  ['CMLL Master', cmllMaster],
+  ['Company Master', cmllMaster, 'cmll-master'],
   ['Cost Centre-Vehicle Master', costCentreVehicleMaster],
   ['Storage Location Master', storageLocationMaster],
   ['Route Wise Diesel Master', routeWiseDieselMaster],
@@ -42,8 +42,8 @@ const catalog = [
   ['Document Numbering Master', documentNumberingMaster],
 ];
 
-export const masters = catalog.map(([name, sections]) => ({
+export const masters = catalog.map(([name, sections, slug]) => ({
   name,
-  slug: name.toLowerCase().replace(/[()]/g, '').replaceAll(' ', '-'),
+  slug: slug ?? name.toLowerCase().replace(/[()]/g, '').replaceAll(' ', '-'),
   sections,
 }));
