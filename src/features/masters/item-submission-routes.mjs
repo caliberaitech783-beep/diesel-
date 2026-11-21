@@ -8,7 +8,7 @@ const defaultMaster = 'item-master';
 const api = '/api/masters/:master/records';
 const requiredOrigin = 'Open Diesel to make changes.';
 
-export function registerItemSubmissions(app, { store, getProfile, publicOrigin }) {
+export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory }) {
   async function signedInActor(request) {
     const profile = await getProfile(request);
     return profile ? { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login } : null;
@@ -22,6 +22,7 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin }
   });
   // A person's own submissions, then the company's ERP records for that master.
   async function listWithCompany(actor, slug, search) {
+    if (slug==='item-master' && itemDirectory) return itemDirectory.list(actor,{search});
     const saved = await store.list(actor,slug,{search:'',offset:0,includeDeleted:true});
     const query = search.trim().normalize('NFKC').toLowerCase();
     const visible = saved.filter(record=>record.status!=='deleted' && [record.code,record.name].some(value=>value.normalize('NFKC').toLowerCase().includes(query)));

@@ -40,6 +40,7 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
               id: record.id, slug: record.master, master: definition.name, code: record.code, name: record.name,
               status: record.status.replaceAll('_', ' '), site: record.site, revision: record.revision, updatedAt: record.updatedAt,
               canEdit: record.canEdit,
+              recordPath: record.recordPath,
               missing: missingFields(definition, record.values).length,
               fields: definition.fields.map(field => {
                 const value = record.values[field.key];
