@@ -90,10 +90,12 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.doesNotMatch(saved,/HSN code/);
   assert.doesNotMatch(saved,/Awaiting approval|value="Approve"|Review as|Review via Telegram/);
   assert.doesNotMatch(saved,/<summary>History<\/summary>|<h2>History<\/h2>/);
+  assert.doesNotMatch(saved,/Stock calculations|<h2>Calculated and carried forward/);
   assert.match(saved,/<details class="indent-secondary" open><summary>Site stock<\/summary>/);
   assert.equal(createEntryStore(db).history(id).length,1);
   const register=await (await fetch(origin+'/entries/type/E1?status=Saved',{headers})).text();
   assert.match(register,/CMLL\/DEOC\/IND\/\d{2}-\d{2}\/001/);
+  assert.doesNotMatch(register,/<th>Truck \/ vehicle<\/th>|Search document, truck or vehicle/);
   const approvals=await (await fetch(origin+'/entries/approvals',{headers})).text();
   assert.doesNotMatch(approvals,new RegExp(id));
 });
