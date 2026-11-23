@@ -122,7 +122,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   assert.equal(rows.length,1);
   assert.match(rows[0].Document,/^cmll\/MN\/\d{2}-\d{2}\/001$/);
   assert.equal(rows[0].Site,site);
-  assert.match(await (await request(record,'r',null,reviewerSite)).text(),/Review via Telegram/);
+  assert.doesNotMatch(await (await request(record,'r',null,reviewerSite)).text(),/Review via Telegram/);
   assert.doesNotMatch(await (await request(record,'i')).text(),/Review via Telegram/);
   const invite = record + '/telegram';
   assert.equal((await request(invite,'i',{actor:context('i'),rev:1},await assign('i','Project Manager'))).status,422);

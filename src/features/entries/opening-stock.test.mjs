@@ -145,7 +145,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.match(approvedIndent.number,/^cmll\/JOC\/\d{2}-\d{2}\/001$/);
   assert.equal(approvedIndent.indentItem.hsn,'00123456');
   assert.equal(approvedIndent.indentItem.unit,'L');
-  assert.match(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/<dt>HSN code<\/dt><dd>00123456<\/dd>/);
+  assert.match(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/<span>HSN code<\/span><strong>00123456<\/strong>/);
   const order=await approve(await submit('E2','Procurement Executive',{indent:approvedIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Advance',kl:0.2}));
   assert.equal(order.result.value,19750);

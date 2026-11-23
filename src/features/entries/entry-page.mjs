@@ -11,13 +11,14 @@ import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
-import { indentFields, indentSiteForm, indentReadDetails } from './indent-fields.mjs';
+import { indentFields, indentReadDetails } from './indent-fields.mjs';
+import { indentStatus } from './indent-details.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
   return `<form method="post" action="/workspace/role"><input type="hidden" name="role" value="${esc(role)}"><input type="hidden" name="site" value="${esc(site)}"><input type="hidden" name="returnTo" value="${esc(path)}"><button>${esc(label)}</button></form>`;
 }
-const tones = {Posted:'posted', 'Awaiting approval':'waiting', 'Awaiting Treasury':'waiting', 'Receipt review':'waiting', Returned:'returned', 'In transit':'transit'};
+const tones = {Saved:'posted',Posted:'posted', 'Awaiting approval':'waiting', 'Awaiting Treasury':'waiting', 'Receipt review':'waiting', Returned:'returned', 'In transit':'transit'};
 const formatDay = new Intl.DateTimeFormat('en-GB', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'});
 function traceLinks({truck, vehicle}) {
   return Object.entries({truck, vehicle}).filter(([, value]) => value).map(([key, value]) =>
@@ -28,10 +29,10 @@ function table(rows, sources = rows) {
   const trace = traceEntries(sources);
   return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th><th>Truck / vehicle</th><th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
-    <td class="doc-number">${esc(r.number||'Draft')}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[r.status]??'draft'}">${esc(r.status)}</span></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="doc-number">${esc(r.number||'Draft')}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
-  const waiting = rows.filter(doc => mayApproveEntry(doc, actor));
+  const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
   return page('My approvals', actor, 'approvals', '/entries/approvals', waiting.length
     ? `<p class="inbox-count">${waiting.length} waiting for you as ${esc(entryRole(actor))}</p><div class="approval-list">${waiting.map(doc => approvalCard(doc, rows)).join('')}</div>`
     : '<p class="empty">Nothing is waiting for your approval.</p>');
@@ -47,7 +48,7 @@ export function roleHomePage(actor, rows, alerts, today = {}) {
   const tasks = entries.filter(entry => (entry.maker === role || (entry.id === 'E15' && role === 'Site Store'))
     && (actor.siteEntryTypes ? actor.siteEntryTypes.includes(entry.id) : !actor.assignments || pilotEntry(entry.id)));
   if (role === 'Bowser operator') tasks.sort((a, b) => Number(b.id === 'E11') - Number(a.id === 'E11'));
-  const approvals = rows.filter(doc => mayApproveEntry(doc, actor)).length;
+  const approvals = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor)).length;
   const links = [
     ...tasks.map(entry => [entry.name, '/entries/new/' + entry.id]),
     ['My approvals (' + approvals + ')', '/entries/approvals'],
@@ -92,7 +93,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
     <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a></div></div>
-    <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${['','Draft','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded'].map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
+    <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${(type==='E1'?['','Draft','Saved','Returned','Superseded']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
@@ -139,15 +140,17 @@ function editableFields(meta, doc, rows, actor) {
     + '<div class="actions" id="phone-step-navigation" hidden><button type="button" data-step-back>Back</button><span aria-live="polite" data-step-count></span><button type="button" data-step-next>Next</button></div>';
 }
 export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remoteApproval=false) {
+  const indent=d.type==='E1';
+  if (indent) remoteApproval=false;
   const role=entryRole(actor);
-  const editable=['Draft','Returned'].includes(d.status)&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
-  const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=d.result.approvals?.[d.stage];
-  const reviewable=mayApproveEntry(d,actor);
+  const editable=(['Draft','Returned'].includes(d.status)||(indent&&['Saved','Awaiting approval'].includes(d.status)))&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
+  const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=indent?undefined:d.result.approvals?.[d.stage];
+  const reviewable=!indent&&mayApproveEntry(d,actor);
   const receipt=d.type==='E12'&&actor.site===d.result.destination;
   const pending=d.type==='E8'&&d.status==='Posted' ? Number(d.result.expectedPostSaleDiscount??0)-Number(d.result.creditReceived??0) : 0;
   const creditOpen=pending>0.004 && d.site===actor.site && ['Accounts Executive','Head – Accounts'].includes(role);
   let switchForm='';
-  if (d.status==='Awaiting approval'&&!reviewable) {
+  if (!indent&&d.status==='Awaiting approval'&&!reviewable) {
     const profile=next==='Site In-charge'&&d.maker===d.site+'-'+roleKey(next)?'entry-deputy':roleKey(next);
     if ((!actor.assignments || d.maker!==actor.id) && canChooseRole(actor,d.site,profile)) {
       switchForm=switchTo(profile,d.site,back,'Review as '+(profile==='entry-deputy'?'Deputy Site In-charge':next));
@@ -170,20 +173,27 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     const label = actor.siteEntryTypes&&d.type==='E12'&&f.key==='to'
       ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination)
       : f.key==='routeStandard' ? f.optionLabels?.get(value)??d.result.routeStandard??value : value;
-    return `<dt>${esc(d.type==='E1'&&f.key==='requiredBy'&&typeof value==='string'&&value.includes('-')?'Required by (date)':f.label)}</dt><dd>${displayValue(label)}</dd>`;
+    const fieldLabel=d.type==='E1'&&f.key==='requiredBy'&&typeof value==='string'&&value.includes('-')?'Required by (date)':f.label;
+    return indent?`<div><span>${esc(fieldLabel)}</span><strong>${displayValue(label)}</strong></div>`:`<dt>${esc(fieldLabel)}</dt><dd>${displayValue(label)}</dd>`;
   }).join('');
   const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN','telegramAllowed'].includes(k)).map(([k,v])=>
     `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(v)}</dd>`).join('');
-  return page(meta.name,actor,d.type,back,`<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
-    <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>
-    ${editable&&d.type==='E1'?indentSiteForm(actor):''}
+  const state=indentStatus(d);
+  const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
+  const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
+  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← E1 register</a>
+    <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(state)}</strong><span>${esc(d.day)}</span></div></div>`
+    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
+      <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
+  return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
-    ${picture?`<section><h2>Site stock</h2><dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl></section>`:''}
+    ${picture&&!indent?`<section><h2>Site stock</h2>${stock}</section>`:''}
     ${editable?`<section><h2>Entry details</h2>${editableFields(meta,d,rows,actor)}
     ${d.type==='E12'&&!actor.siteEntryTypes?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions gps"><output id="gps-status" aria-live="polite">GPS is stamped automatically when location is allowed.</output><button type="button" id="record-position">Refresh GPS</button></div>':''}
-    ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:inputRows?`<section><h2>Entry details</h2><dl>${inputRows}</dl></section>`:''}
-    ${resultRows?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
+    ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
+    ${indent&&stock?`<details class="indent-secondary"><summary>Site stock</summary>${stock}</details>`:''}
+    ${resultRows?indent?`<details class="indent-secondary"><summary>Stock calculations</summary><dl>${resultRows}</dl></details>`:`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
     ${d.type==='E17'&&d.status==='Posted'&&['Head – Accounts','CFO'].includes(role)?`<p><a href="/entries/accounting/${d.id}.csv">Download month-end journal</a></p>`:''}
     ${next&&d.status==='Awaiting approval'?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
@@ -191,11 +201,11 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${creditOpen?`<section><h2>Post-sale discount credit note</h2><p>₹${esc(money(pending))} of ₹${esc(money(d.result.expectedPostSaleDiscount))} is still awaiting a credit note.</p>
       <div class="fields"><label>Credit note number<input name="creditNote" autocomplete="off"></label><label>Amount (₹)<input type="number" step="0.01" min="0.01" name="creditAmount"></label><label>Credit note date<input type="date" name="creditDate"></label></div></section>`:''}
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
-    <div class="actions">${editable?submitButton('Save draft')+submitButton('Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
+    <div class="actions">${editable?(['Draft','Returned'].includes(d.status)?submitButton('Save draft'):'')+submitButton(indent?'Save indent':'Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
+    ${history.length?`${indent?'<details class="indent-secondary"><summary>History</summary>':'<section><h2>History</h2>'}<ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
-      </li>`).join('')}</ol></section>`:''}`, undefined, remoteApproval);
+      </li>`).join('')}</ol>${indent?'</details>':'</section>'}`:''}`, undefined, remoteApproval);
 }

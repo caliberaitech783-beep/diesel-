@@ -73,7 +73,7 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   const indentPath = '/entries/record/' + indent;
   assert.equal((await request(indentPath, 'o')).status, 404);
   assert.doesNotMatch(await (await request('/entries/export.csv', 'o')).text(), /E1-JAY/);
-  assert.match(await (await request('/entries/approvals', 'm')).text(), new RegExp(indentPath));
+  assert.doesNotMatch(await (await request('/entries/approvals', 'm')).text(), new RegExp(indentPath));
   assert.doesNotMatch(await (await request('/entries/approvals', 'h')).text(), new RegExp(indentPath));
   assert.equal((await write(indent, 'h', 'Jayant', 'Head – Procurement', { action: 'Approve', rev: 1 })).status, 422);
 
@@ -86,7 +86,7 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   assert.doesNotMatch(await (await request('/entries/approvals', 'i', { context: manager })).text(), new RegExp(indentPath));
   assert.equal((await write(indent, 'i', 'Jayant', 'Project Manager', { action: 'Approve', rev: 1 }, manager)).status, 422);
   assert.equal((await write(indent, 'm', 'Jayant', 'Project Manager', { action: 'Approve', rev: 1 })).status, 200);
-  assert.match(await (await request('/entries/approvals', 'h')).text(), new RegExp(indentPath));
+  assert.doesNotMatch(await (await request('/entries/approvals', 'h')).text(), new RegExp(indentPath));
   const approvedIndent = await write(indent, 'h', 'Jayant', 'Head – Procurement', { action: 'Approve', rev: 2 });
   assert.equal((await approvedIndent.json()).status, 'Posted');
 

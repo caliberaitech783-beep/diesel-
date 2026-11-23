@@ -1,6 +1,7 @@
 import { byId } from './catalog.mjs';
 import { validDate } from './entry-rules.mjs';
 import { utils, write } from 'xlsx';
+import { indentStatus } from './indent-details.mjs';
 
 const text = value => typeof value === 'string' ? value.trim().slice(0, 100) : '';
 const date = value => validDate(value) ? value : '';
@@ -21,7 +22,7 @@ export function traceEntries(rows) {
 export function filterRegister(rows, type, filters, sources=rows) {
   const trace = traceEntries(sources), q = filters.q.toLowerCase();
   return rows.filter(row => {
-    if ((type && row.type !== type) || (filters.status && row.status !== filters.status)
+    if ((type && row.type !== type) || (filters.status && (filters.status==='Saved'?indentStatus(row):row.status) !== filters.status)
       || (filters.from && row.day < filters.from) || (filters.to && row.day > filters.to)) return false;
     const { truck, vehicle } = trace(row);
     if ((filters.truck && filters.truck.toLowerCase() !== truck?.toLowerCase())
