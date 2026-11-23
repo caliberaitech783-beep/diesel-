@@ -230,7 +230,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         check(!saveIndent || doc.type==='E1','Save indent is only available for Diesel indent.');
         checkMaker(doc,actor);
         if (doc.type==='E1' && !doc.requester) {
-          check(action==='Submit' || !actor.hosted || actor.employee,'Link your Pulse account to an Employee Master record before saving this indent.');
+          check(action==='Submit' || !actor.hosted || actor.employee,'Could not read your employee details from Pulse. Refresh the page and try again.');
           if (actor.employee) doc.requester={empId:actor.employee.empId,name:actor.employee.name};
         }
         check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status),'This entry is already submitted.');

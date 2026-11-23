@@ -68,7 +68,7 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.match(html,/value="Dudhichua East OC" selected/);
   assert.match(html,/value="Save indent"/);
   assert.doesNotMatch(html,/Use site|value="Submit"|Review role|My approvals/);
-  assert.match(html,/<details class="indent-secondary"><summary>Site stock<\/summary>/);
+  assert.match(html,/<details class="indent-secondary" open><summary>Site stock<\/summary>/);
   const id=html.match(/id="entry-form" data-id="([a-f0-9-]+)"/)[1];
   assert.match(html,/Indent number<input type="text" readonly value=""/);
   assert.equal(createEntryStore(db).list(site).length,0);
@@ -90,6 +90,7 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.doesNotMatch(saved,/HSN code/);
   assert.doesNotMatch(saved,/Awaiting approval|value="Approve"|Review as|Review via Telegram/);
   assert.doesNotMatch(saved,/<summary>History<\/summary>|<h2>History<\/h2>/);
+  assert.match(saved,/<details class="indent-secondary" open><summary>Site stock<\/summary>/);
   assert.equal(createEntryStore(db).history(id).length,1);
   const register=await (await fetch(origin+'/entries/type/E1?status=Saved',{headers})).text();
   assert.match(register,/CMLL\/DEOC\/IND\/\d{2}-\d{2}\/001/);

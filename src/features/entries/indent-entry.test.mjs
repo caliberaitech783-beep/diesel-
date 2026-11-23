@@ -60,6 +60,7 @@ test('opening or refreshing a new indent keeps location and number blank without
   for(const html of pages) {
     assert.match(html,/Indent number<input type="text" readonly value="" placeholder="Generated after saving"/);
     assert.match(html,/<option value="" selected>Select a location<\/option>/);
+    assert.match(html,/<details class="indent-secondary" open><summary>Site stock<\/summary><p>Select a location to see its stock\.<\/p>/);
     assert.doesNotMatch(html,/value="Jayant" selected|HSN code|CMLL\/JOC\/IND/);
   }
   const html=pages[0];
