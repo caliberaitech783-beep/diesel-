@@ -168,8 +168,8 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     return actor.siteEntryTypes && actor.assignments && !mayViewEntry(source,actor) ? esc(source.number)
       : `<a href="/entries/record/${source.id}">${esc(source.number)}</a>`;
   };
-  const inputRows=(d.type==='E1'?indentReadDetails(d,meta,actor):'')+meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>{
-    const value = d.data[f.key];
+  const inputRows=(d.type==='E1'?indentReadDetails(d,meta,actor):'')+meta.fields.filter(f=>d.data[f.key]!==undefined||(indent&&f.default!==undefined)).map(f=>{
+    const value = d.data[f.key]??f.default;
     const label = actor.siteEntryTypes&&d.type==='E12'&&f.key==='to'
       ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination)
       : f.key==='routeStandard' ? f.optionLabels?.get(value)??d.result.routeStandard??value : value;

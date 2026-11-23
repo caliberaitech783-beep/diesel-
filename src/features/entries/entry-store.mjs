@@ -107,6 +107,22 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     check(doc.site===actor.site && doc.maker===actor.id,'Only the original maker can edit this entry.');
     check(byId[doc.type].maker && (doc.type==='E16'||byId[doc.type].maker===role||(doc.type==='E15'&&role==='Site Store')),'Switch to the entry’s initiator role.');
   }
+  function openIndent(actor) {
+    const nested=db.isTransaction;
+    db.exec(nested?'SAVEPOINT indent_open':'BEGIN IMMEDIATE');
+    try {
+      const doc=fresh('E1',actor);
+      checkMaker(doc,actor);checkLocks(doc);
+      doc.data={unit:'Litre',priority:'Normal'};
+      assignNumber(doc);
+      persist(doc,actor.id,'Opened indent');
+      db.exec(nested?'RELEASE indent_open':'COMMIT');
+      return doc;
+    } catch(error) {
+      db.exec(nested?'ROLLBACK TO indent_open; RELEASE indent_open':'ROLLBACK');
+      throw error;
+    }
+  }
   function files(doc,field,raw) {
     check(Array.isArray(raw) && raw.length<=16,'Choose up to 16 files per field.');
     return raw.map(f=>{
@@ -129,7 +145,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     check(input && typeof input==='object','Supply the entry fields.');
     const data={};
     for (const field of definition(doc.type,doc.site).fields) {
-      const value=input[field.key];
+      const value=input[field.key] ?? field.default;
       if (value===undefined || value==='') continue;
       if (field.type==='file') data[field.key]=files(doc,field.key,value);
       else { check(['string','number'].includes(typeof value) && String(value).length<=2000,'Invalid value for '+field.label); data[field.key]=value; }
@@ -322,7 +338,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     return (config?.storage??[]).map(location=>({code:location.code,
       litres:round(booked.filter(move=>move.storage===location.code).reduce((total,move)=>total+move.litres,location.opening))}));
   }
-  return {read,write,fresh,definition,stockPicture,storageBalances,dayFor,
+  return {read,write,fresh,openIndent,definition,stockPicture,storageBalances,dayFor,
     currentShift:(site,now=new Date())=>calendarFor?.(site).shift(now)?.name,list:site=>all().filter(r=>visible(r,site)),history:id=>
     db.prepare('SELECT actor,action,stamp,snapshot FROM entry_review_history WHERE doc=? ORDER BY seq').all(id)
       .map(({snapshot,...row})=>{
