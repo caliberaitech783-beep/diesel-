@@ -61,7 +61,7 @@ test('indent details show all site names while retaining assignment restrictions
   assert.equal(entrySiteDirectory(assigned).filter(row=>row.allowed).length,1);
   assert.match(detailPage(assigned,doc,[],[],null,meta),/value="Sasti" disabled>Sasti OC/);
   const posted={...doc,status:'Awaiting approval',rev:1,number:'cmll/JOC/26-27/001',indentItem:meta.indentItem};
-  assert.match(detailPage(maker,posted,[],[],null,byId.E1),/<dt>HSN code<\/dt><dd>00123456<\/dd>/);
+  assert.match(detailPage(maker,posted,[],[],null,byId.E1),/HSN code<input type="text" readonly value="00123456"/);
 });
 
 test('legacy date indents retain their number and can still be approved',t=>{

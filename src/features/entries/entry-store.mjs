@@ -218,15 +218,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       const action=body.action,role=entryRole(actor);
       const now = new Date();
       let log=action;
-      if (action==='Save draft' || action==='Submit') {
+      if (action==='Save draft' || action==='Submit' || action==='Save indent') {
+        const saveIndent=action==='Save indent';
+        check(!saveIndent || doc.type==='E1','Save indent is only available for Diesel indent.');
         checkMaker(doc,actor);
-        check(['Draft','Returned'].includes(doc.status),'This entry is already submitted.');
+        check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status),'This entry is already submitted.');
         check(validDate(body.day) && body.day<=dayFor(doc.site,now),'Choose today’s business date or an earlier date.');
         const config=siteConfig(doc.type,doc.site,body.day);
         doc.day=body.day;checkLocks(doc);doc.data=collect(doc,body.data);
         stampReading(doc,body,now);
         doc.status='Draft';
-        if (action==='Submit') {
+        if (action==='Submit' || saveIndent) {
           doc.data=validateFields(definition(doc.type,doc.site),doc.data);
           if (config) {
             const problem=reasonError(doc,config.reasons);
@@ -236,7 +238,10 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           if (siteFor && doc.type==='E8') doc.billChecksVersion=1;
           if (doc.type==='E1' && config && !doc.indentItem) doc.indentItem={...config.item};
           doc.result=calculate(doc);assignNumber(doc);doc.stage=0;
-          if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
+          if (saveIndent) {
+            doc.result={...doc.result,approvals:[],telegramAllowed:false};
+            doc.status='Saved';
+          } else if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
       } else if (action==='Approve' || action==='Return') {
         check(mayApproveEntry(doc,actor),'This action belongs to another reviewer or stage.');

@@ -12,8 +12,13 @@ function updateIndentDue() {
 if(indentDue){form.addEventListener('input',updateIndentDue);updateIndentDue();}
 let indentEdited=false;
 if(form?.dataset.type==='E1') form.addEventListener('input',event=>{if(event.target.form===form)indentEdited=true;});
-document.querySelector('#indent-site-switch')?.addEventListener('submit',event=>{
-  if(indentEdited&&!confirm('Switch site and discard the unsaved changes to this indent?')) event.preventDefault();
+const indentSiteSwitch=document.querySelector('#indent-site-switch');
+indentSiteSwitch?.querySelector('select')?.addEventListener('change',()=>indentSiteSwitch.requestSubmit());
+indentSiteSwitch?.addEventListener('submit',event=>{
+  if(indentEdited&&!confirm('Switch site and discard the unsaved changes to this indent?')) {
+    event.preventDefault();
+    indentSiteSwitch.querySelector('select').value=form.dataset.site;
+  }
 });
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
@@ -162,7 +167,7 @@ form?.addEventListener('submit',async event=>{
   const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
   try {
     const selectedSite=document.querySelector('select[form="indent-site-switch"]');
-    if(selectedSite&&selectedSite.value!==form.dataset.site) throw Error('Select Use site before saving this indent for another site.');
+    if(selectedSite&&selectedSite.value!==form.dataset.site) throw Error('Wait for the selected site to open before saving this indent.');
     const values={};
     for(const input of form.querySelectorAll('[name]')) {
       if(input.form!==form) continue;
@@ -175,7 +180,7 @@ form?.addEventListener('submit',async event=>{
     if(form.dataset.position) record.position=JSON.parse(form.dataset.position);
     try { const path=await transmit(record);location.assign(path); }
     catch(e) {
-      if(!offlineEnabled||!(e instanceof TypeError)||!['Submit','Save draft'].includes(action))throw e;
+      if(!offlineEnabled||!(e instanceof TypeError)||!['Submit','Save draft','Save indent'].includes(action))throw e;
       await outbox('put',record);status.textContent='Saved on this device. Reconnect with this account, site and role to sync.';
       runSync();
     }

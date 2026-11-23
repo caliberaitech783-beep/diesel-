@@ -35,7 +35,7 @@
       paint(control);
     }
     entryForm.addEventListener('click', event => {
-      if (event.target.closest('button')?.value !== 'Submit') return;
+      if (!['Submit','Save indent'].includes(event.target.closest('button')?.value)) return;
       for (const control of controls) { touched.add(control); paint(control); }
     });
   }

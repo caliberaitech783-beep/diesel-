@@ -1,5 +1,9 @@
 import { siteInitials } from './entry-sites.mjs';
 
+export function indentStatus(doc) {
+  return doc.type==='E1'&&['Awaiting approval','Posted'].includes(doc.status)?'Saved':doc.status;
+}
+
 export function indentFinancialYear(day) {
   const start=Number(day.slice(0,4))-(day.slice(5,7)<'04'?1:0);
   return String(start).slice(-2)+'-'+String(start+1).slice(-2);
