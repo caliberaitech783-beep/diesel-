@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
-import { roles, roleKey } from '../entries/review-masters.mjs';
+import { roles, roleKey, sites } from '../entries/review-masters.mjs';
 
 const profiles = {
   maker: { name: 'Item maker', canEditMasters: true, canApproveMasters: false },
@@ -9,7 +9,6 @@ const profiles = {
   ...Object.fromEntries(roles.map(role => [roleKey(role), {name:role,canEditMasters:false,canApproveMasters:false}])),
   'entry-deputy': {name:'Deputy Site In-charge',canEditMasters:false,canApproveMasters:false},
 };
-const sites = ['Jayant', 'Sasti'];
 
 export function registerLocalSession(app) {
   const secret = randomBytes(32);
@@ -31,7 +30,9 @@ export function registerLocalSession(app) {
       'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
     });
     const cookie = (request.get('cookie') || '').split(';').map(value => value.trim()).find(value => value.startsWith('diesel_local='));
-    const [role, site, mac] = (cookie?.slice('diesel_local='.length) || '').split('.');
+    let context='';
+    try { context=decodeURIComponent(cookie?.slice('diesel_local='.length) || ''); } catch { /* Ignore a damaged cookie. */ }
+    const [role, site, mac] = context.split('.');
     const expected = signature(role + '.' + site);
     const valid = Object.hasOwn(profiles, role) && sites.includes(site) && mac?.length === expected.length
       && /^[a-zA-Z0-9_-]+$/.test(mac) && timingSafeEqual(Buffer.from(expected), Buffer.from(mac));

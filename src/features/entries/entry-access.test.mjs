@@ -68,7 +68,7 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   assert.doesNotMatch(initial, /Sasti|Review role/);
 
   const indent = randomUUID(), day = businessDay();
-  const submit = { type: 'E1', action: 'Submit', rev: 0, day, data: { litres: 1500, requiredBy: day } };
+  const submit = { type: 'E1', action: 'Submit', rev: 0, day, data: { litres: 1500, requiredBy:0 } };
   assert.equal((await write(indent, 'i', 'Jayant', 'Site In-charge', submit)).status, 200);
   const indentPath = '/entries/record/' + indent;
   assert.equal((await request(indentPath, 'o')).status, 404);

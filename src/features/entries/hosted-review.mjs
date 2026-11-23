@@ -16,6 +16,7 @@ import { approvedLocationDirectory } from '../masters/records.mjs';
 import { masterAssignments } from '../masters/master-access.mjs';
 import { createLocationsFromPulseSites } from '../masters/pulse-site-locations.mjs';
 import { createPulseMasterStore } from '../pulse-masters/pulse-master-store.mjs';
+import { readEntrySiteDirectory } from './entry-site-directory.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -29,7 +30,7 @@ function seedWalkthrough(db) {
     if (!db.prepare('SELECT 1 FROM entry_review_docs LIMIT 1').get()) {
       const day = businessDay();
       const actor = role => reviewActor('Jayant',roleKey(role));
-      let indent = store.write(randomUUID(), actor('Site In-charge'), {type:'E1',action:'Submit',rev:0,day,data:{litres:1500,requiredBy:day,remarks:'Sample Jayant indent'}});
+      let indent = store.write(randomUUID(), actor('Site In-charge'), {type:'E1',action:'Submit',rev:0,day,data:{litres:1500,requiredBy:0,remarks:'Sample Jayant indent'}});
       for (const role of ['Project Manager','Head – Procurement']) indent = store.write(indent.id,actor(role),{action:'Approve',rev:indent.rev});
       store.write(randomUUID(),actor('Procurement Executive'),{type:'E2',action:'Submit',rev:0,day,data:{
         indent:indent.id,type:'Bulk',supplier:review.supplier,depot:review.depot,basis:'Delivered',kl:1,terms:'Advance',
@@ -105,6 +106,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
+      req.dieselActor.entrySites=readEntrySiteDirectory(siteMasterDb,locations);
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);

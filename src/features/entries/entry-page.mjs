@@ -11,6 +11,7 @@ import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
+import { indentFields, indentSiteForm, indentReadDetails } from './indent-fields.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -117,7 +118,7 @@ function fieldControl(f,d,rows,actor) {
   }).join('')}</select>${f.vehicleDetails ? '<output data-vehicle-info aria-live="polite"></output>' : ''}</label>`;
   if (f.type==='file') return `<label>${label}<input type="file" name="${f.key}" accept="image/png,image/jpeg,application/pdf" multiple data-saved="${esc(JSON.stringify(Array.isArray(value)?value:[]))}">${Array.isArray(value)?value.map(file=>esc(file.name)).join(', '):''}</label>
     ${f.key==='billPhoto' ? '<button type="button" id="read-invoice">Read invoice photo</button>' : ''}`;
-  return `<label>${label}<input name="${f.key}" type="${f.type}"${required} ${f.type==='number'?'step="any"':''} value="${esc(value)}">${d.type==='E11'&&actor.siteEntryTypes&&f.key==='end'
+  return `<label>${label}<input name="${f.key}" type="${f.type}"${required} ${f.type==='number'?`step="${f.step??'any'}"${f.min===undefined?'':` min="${f.min}"`}${f.max===undefined?'':` max="${f.max}"`}`:''} value="${esc(value)}">${d.type==='E11'&&actor.siteEntryTypes&&f.key==='end'
     ? '<output data-fuel-preview aria-live="polite"></output>' : ''}</label>`;
 }
 function display(value) {
@@ -126,6 +127,7 @@ function display(value) {
   return typeof value==='number'?esc(value.toLocaleString('en-IN',{maximumFractionDigits:4})):esc(value??'—');
 }
 function editableFields(meta, doc, rows, actor) {
+  if (doc.type==='E1') return indentFields(actor,doc,meta,(fields,d)=>fields.map(field=>fieldControl(field,d,rows,actor)).join(''));
   const readingControl = actor.siteEntryTypes && ['E11','E15'].includes(doc.type)
     ? `<label>Reading time (IST)<input name="readingTime" type="datetime-local" value="${localReadingTime(doc.readingAt)}"></label>` : '';
   const dateControl = `<label>Business day<input name="day" type="date" max="${actor.businessDay??businessDay()}" value="${doc.day}"></label>`+readingControl;
@@ -163,17 +165,18 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     return actor.siteEntryTypes && actor.assignments && !mayViewEntry(source,actor) ? esc(source.number)
       : `<a href="/entries/record/${source.id}">${esc(source.number)}</a>`;
   };
-  const inputRows=meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>{
+  const inputRows=(d.type==='E1'?indentReadDetails(d,meta,actor):'')+meta.fields.filter(f=>d.data[f.key]!==undefined).map(f=>{
     const value = d.data[f.key];
     const label = actor.siteEntryTypes&&d.type==='E12'&&f.key==='to'
       ? f.optionLabels?.get(value) ?? transferLabel(value, d.result.destination)
       : f.key==='routeStandard' ? f.optionLabels?.get(value)??d.result.routeStandard??value : value;
-    return `<dt>${esc(f.label)}</dt><dd>${displayValue(label)}</dd>`;
+    return `<dt>${esc(d.type==='E1'&&f.key==='requiredBy'&&typeof value==='string'&&value.includes('-')?'Required by (date)':f.label)}</dt><dd>${displayValue(label)}</dd>`;
   }).join('');
   const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN','telegramAllowed'].includes(k)).map(([k,v])=>
     `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(v)}</dd>`).join('');
   return page(meta.name,actor,d.type,back,`<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
     <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>
+    ${editable&&d.type==='E1'?indentSiteForm(actor):''}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture?`<section><h2>Site stock</h2><dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl></section>`:''}
     ${editable?`<section><h2>Entry details</h2>${editableFields(meta,d,rows,actor)}

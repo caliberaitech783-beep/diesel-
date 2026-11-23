@@ -35,7 +35,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     const record=masters.create(kind,{site,values:{...defaults,...fields}},{id:'master-maker'});
     if(approve) masters.changeStatus(kind,record.id,record.revision,'approve',{id:'master-checker'});
   }
-  master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'});
+  master('item-master',{'Item Code':'HSD-A','Item Name':'Site diesel','HSN Code':'00123456','Measuring Unit':'L','Density minimum (kg/m³)':'815','Density maximum (kg/m³)':'845'});
   master('location-master',{'Location Code':'J-01','Receipt scenario allowed':'Both'});
   master('shift-master',{Site:'Jayant','Shift name':'Day shift','Start time':'06:00','End time':'18:00','Business day cut-off':'06:00'});
   master('shift-master',{Site:'Jayant','Shift name':'Night shift','Start time':'18:00','End time':'06:00','Business day cut-off':'06:00'});
@@ -141,8 +141,11 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     while (doc.status==='Awaiting approval') doc=await action(doc,doc.result.approvals[doc.stage]);
     return doc;
   }
-  const approvedIndent=await approve(await submit('E1','Site In-charge',{litres:200,requiredBy:last}));
-  assert.match(approvedIndent.number,/^SITE-E1\/J-01\/\d{4}-\d{2}\/0007$/);
+  const approvedIndent=await approve(await submit('E1','Site In-charge',{litres:200,requiredBy:0}));
+  assert.match(approvedIndent.number,/^cmll\/JOC\/\d{2}-\d{2}\/001$/);
+  assert.equal(approvedIndent.indentItem.hsn,'00123456');
+  assert.equal(approvedIndent.indentItem.unit,'L');
+  assert.match(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/<dt>HSN code<\/dt><dd>00123456<\/dd>/);
   const order=await approve(await submit('E2','Procurement Executive',{indent:approvedIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Advance',kl:0.2}));
   assert.equal(order.result.value,19750);
@@ -162,7 +165,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.equal(match.result.match,'Matched');
   const freight=await approve(await submit('E9','Accounts Executive',{grn:grn.id,bill:'FR201',billDate:last,gst:'FREIGHT'}));
   assert.equal(freight.result.net,354);
-  const directIndent=await approve(await submit('E1','Site In-charge',{litres:120,requiredBy:last}));
+  const directIndent=await approve(await submit('E1','Site In-charge',{litres:120,requiredBy:0}));
   const directOrder=await approve(await submit('E2','Procurement Executive',{indent:directIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Credit',kl:0.12}));
   const directGate=await submit('E5','Site Store',{...gate.data,po:directOrder.id,scenario:'Direct to bowsers',
@@ -198,7 +201,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   const recovery=await approve(await submit('E13','Accounts Executive',{party:'HIRE',method:'Deduct from hire bill',fromDate:last,toDate:last}));
   assert.equal(recovery.result.litres,30);
   assert.equal(recovery.result.amount,3000);
-  const unusedIndent=await approve(await submit('E1','Site In-charge',{litres:50,requiredBy:last}));
+  const unusedIndent=await approve(await submit('E1','Site In-charge',{litres:50,requiredBy:0}));
   const revised=await action(await submit('E16','Site In-charge',{target:unusedIndent.id,field:'remarks',value:'Updated note',reason:'REV',evidence:[proof]}),
     'Deputy Site In-charge');
   assert.equal(revised.status,'Posted');

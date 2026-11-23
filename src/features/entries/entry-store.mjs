@@ -6,6 +6,7 @@ import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 import { siteDocumentSeries } from './site-document-number.mjs';
+import { indentSeries, requiredDays } from './indent-details.mjs';
 import { transferTarget } from './transfer-destination.mjs';
 import { readingMoment } from './entry-calendar.mjs';
 import { entryReasons, reasonError } from './entry-reasons.mjs';
@@ -49,6 +50,14 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   }
   function assignNumber(doc) {
     if (doc.number) return;
+    if (doc.type==='E1') {
+      const series=indentSeries(doc);
+      const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n')
+        .get(series.scope,'E1',series.year);
+      doc.number=series.label+'/'+String(n).padStart(3,'0');
+      check(!all().some(row=>row.number===doc.number),'This indent number already exists.');
+      return;
+    }
     if (siteFor) {
       const series=siteDocumentSeries(doc,siteConfig(doc.type,doc.site,doc.day));
       const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,?) ON CONFLICT(site,type,year) DO UPDATE SET n=MAX(n+1,excluded.n) RETURNING n')
@@ -174,6 +183,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       && (Object.values(r.data).includes(original.id) || r.result.sources?.includes(original.id)));
     check(!dependent,'A downstream entry already uses this version. Resolve it before correcting.');
     const replacement={...original,id:randomUUID(),rev:0,number:'',data:{...original.data,[doc.data.field]:doc.data.value},replaces:original.id};
+    if (replacement.type==='E1') replacement.data.requiredBy=requiredDays(replacement.data.requiredBy,replacement.day);
     if (replacement.type==='E14' && ['rate','litres'].includes(doc.data.field)) replacement.data.total=money(Number(replacement.data.rate)*Number(replacement.data.litres));
     replacement.data=validateFields(definition(replacement.type,replacement.site),replacement.data);
     original.status='Superseded'; persist(original,doc.maker,'Reversed by '+doc.number);
@@ -224,6 +234,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           }
           if (siteFor && doc.type==='E11') doc.vehicleChecksVersion=1;
           if (siteFor && doc.type==='E8') doc.billChecksVersion=1;
+          if (doc.type==='E1' && config && !doc.indentItem) doc.indentItem={...config.item};
           doc.result=calculate(doc);assignNumber(doc);doc.stage=0;
           if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
@@ -297,7 +308,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     } catch(e) { db.exec(nested ? 'ROLLBACK TO entry_write; RELEASE entry_write' : 'ROLLBACK');throw e; }
   }
   function stockPicture(site,day=dayFor(site)) {
-    const summary=calculate({id:'preview',type:'E1',site,day,data:{litres:1,reason:review.reasons[0],requiredBy:day}});
+    const summary=calculate({id:'preview',type:'E1',site,day,data:{litres:1,reason:review.reasons[0],requiredBy:0}});
     return {Project:site,Item:summary.item,'Tank and bowser stock (L)':summary.stock,'In transit (L)':summary.inTransit,
       'Average daily issue (L)':summary.averageDaily,'Days of stock':summary.daysOfStock,'Suggested request (L)':summary.suggested};
   }

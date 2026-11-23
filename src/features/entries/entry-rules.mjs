@@ -32,6 +32,8 @@ export function validateFields(type,input) {
     if (field.type === 'number') {
       requireValue(/^-?\d+(\.\d+)?$/.test(value) && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1e12,'Enter a valid number for ' + field.label + '.');
       requireValue(field.key === 'temperature' || Number(value) >= 0,field.label + ' cannot be negative.');
+      if (field.step===1) requireValue(Number.isSafeInteger(Number(value)),field.label+' must be a whole number.');
+      if (field.max!==undefined) requireValue(Number(value)<=field.max,field.label+' must be at most '+field.max+'.');
       data[field.key] = Number(value);
     } else {
       const selected = field.oldOptions?.get(value) ?? value;

@@ -1,6 +1,20 @@
 const actor=document.body.dataset.actor;
 const offlineScope=document.body.dataset.offlineScope || undefined;
 const form=document.querySelector('#entry-form');
+const indentDue=document.querySelector('[data-indent-due]');
+function updateIndentDue() {
+  if (!indentDue) return;
+  const day=form.elements.namedItem('day').value, raw=form.elements.namedItem('requiredBy').value;
+  const days=Number(raw), stamp=Date.parse(day);
+  indentDue.textContent=raw!==''&&Number.isInteger(days)&&days>=0&&days<=3650&&Number.isFinite(stamp)
+    ? new Date(stamp+days*86400000).toISOString().slice(0,10) : 'Enter required days';
+}
+if(indentDue){form.addEventListener('input',updateIndentDue);updateIndentDue();}
+let indentEdited=false;
+if(form?.dataset.type==='E1') form.addEventListener('input',event=>{if(event.target.form===form)indentEdited=true;});
+document.querySelector('#indent-site-switch')?.addEventListener('submit',event=>{
+  if(indentEdited&&!confirm('Switch site and discard the unsaved changes to this indent?')) event.preventDefault();
+});
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
 const navigationToggle = document.querySelector('#nav-toggle');
@@ -147,8 +161,11 @@ form?.addEventListener('submit',async event=>{
   if (!action) return;
   const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
   try {
+    const selectedSite=document.querySelector('select[form="indent-site-switch"]');
+    if(selectedSite&&selectedSite.value!==form.dataset.site) throw Error('Select Use site before saving this indent for another site.');
     const values={};
     for(const input of form.querySelectorAll('[name]')) {
+      if(input.form!==form) continue;
       if(input.type==='file') {
         const saved=JSON.parse(input.dataset.saved||'[]');
         values[input.name]=input.files.length?await Promise.all([...input.files].map(fileData)):saved;
