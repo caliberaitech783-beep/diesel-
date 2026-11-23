@@ -17,6 +17,7 @@ test('Diesel opens as a guest without issuing a session or contacting Pulse', as
     const base = 'http://127.0.0.1:' + server.address().port;
     const page = await fetch(base, { headers: { Cookie: 'diesel_session=' + 'g'.repeat(43) } });
     assert.equal(page.status, 200);
+    assert.equal(page.headers.get('referrer-policy'),'same-origin');
     const guestPage = await page.text();
     assert.match(guestPage, /data-access-mode="guest"/);
     assert.match(guestPage, /<h1[^>]*>Choose a master<\/h1>/);

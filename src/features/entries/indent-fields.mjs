@@ -28,7 +28,7 @@ export function indentFields(actor,doc,meta,render) {
   const take=(...keys)=>render(meta.fields.filter(field=>keys.includes(field.key)),converted);
   const extra=meta.fields.filter(field=>!['litres','unit','priority','requiredBy','reason','remarks'].includes(field.key));
   const requester=doc.requester??(doc.maker===actor.id?actor.employee:undefined);
-  const requestedBy=requester?`${requester.name} · ${requester.empId}`:doc.requestedBy??'Employee not linked in Employee Master';
+  const requestedBy=requester?`${requester.name} · ${requester.empId}`:doc.requestedBy??(doc.maker===actor.id?actor.requestedBy:undefined)??'Employee details unavailable';
   return `<fieldset class="indent-card"><legend>Request details</legend><div class="indent-details-grid">
     <label>Indent number<input type="text" readonly value="${esc(formatIndentNumber(doc.number)||'')}" placeholder="Generated after saving"></label>
     <label>Indent date<input name="day" type="date" data-required="true" max="${esc(actor.businessDay??doc.day)}" value="${esc(doc.day)}"></label>
@@ -49,7 +49,7 @@ export function indentFields(actor,doc,meta,render) {
 export function indentReadDetails(doc,meta,actor) {
   const item=doc.indentItem??meta.indentItem;
   return [['Location',doc.site],['Indent number',formatIndentNumber(doc.number)],['Date',doc.day],
-    ['Requested by',doc.requester?`${doc.requester.name} · ${doc.requester.empId}`:doc.requestedBy??'Employee not linked in Employee Master'],
+    ['Requested by',doc.requester?`${doc.requester.name} · ${doc.requester.empId}`:doc.requestedBy??'Employee details unavailable'],
     ['Item name',item?.name??doc.result.item??review.item],['Sanction quantity','—'],
     ['Required date',formatIndentDate(indentDueDate(doc))]]
     .map(([label,value])=>`<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('');

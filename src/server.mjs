@@ -17,7 +17,7 @@ export function createApp({ env = process.env, fetcher = fetch, itemSubmissions,
     response.set({
       'Cache-Control': 'no-store',
       'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-      'Referrer-Policy': 'no-referrer',
+      'Referrer-Policy': 'same-origin',
       'X-Content-Type-Options': 'nosniff',
     });
     next();

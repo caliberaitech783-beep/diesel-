@@ -39,6 +39,7 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   assert.equal((await request('/entries/offline-worker.js','a')).status,404);
   const role={method:'POST',headers:{Origin:origin},body:new URLSearchParams({role:'entry-2',site:'Jayant',returnTo:path})};
   assert.equal((await request('/workspace/role','a',{...role,headers:{Origin:'https://other.test'}})).status,403);
+  assert.equal((await request('/workspace/role','a',{...role,headers:{Origin:'null','Sec-Fetch-Site':'same-origin'}})).status,403);
   const switched=await request('/workspace/role','a',role);assert.equal(switched.status,303);
   const roleCookie=switched.headers.get('set-cookie').split(';')[0];
   const otherHeaders={Origin:origin,'Content-Type':'application/json',cookie:'__Host-diesel_session='+'b'.repeat(43)+'; '+roleCookie};

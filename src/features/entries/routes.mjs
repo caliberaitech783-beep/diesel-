@@ -125,7 +125,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       try {
         const doc=store.openIndent(a);
         doc.selectedSite=req.query.site===a.site?a.site:'';
-        return res.send(detailPage(a,doc,store.list(a.site),[],doc.selectedSite?store.stockPicture(a.site,doc.day):null,store.definition(t.id,a.site)));
+        return res.send(detailPage(a,doc,store.list(a.site),[],doc.selectedSite?store.stockPicture(a.site,doc.day):{},store.definition(t.id,a.site)));
       }
       catch(error) { return res.status(422).send(error.message); }
     }
@@ -136,7 +136,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     try {
       const doc = store.read(req.params.id,a.site);
       if (!canRead(doc,a)) return res.sendStatus(404);
-      const picture = doc.type==='E1'&&['Draft','Returned'].includes(doc.status) ? store.stockPicture(a.site,doc.day) : null;
+      let picture=null;
+      if(doc.type==='E1') {
+        // Historical records remain readable if their date predates the site's opening stock.
+        try {picture=store.stockPicture(a.site,doc.day);} catch { /* Show the stock availability message. */ }
+      }
       res.send(detailPage(a,doc,store.list(a.site),store.history(doc.id),picture,store.definition(doc.type,a.site),
         remoteApproval?.enabled(doc,a)));
     }
