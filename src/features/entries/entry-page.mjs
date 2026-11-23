@@ -11,7 +11,7 @@ import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
-import { indentFields, indentReadDetails } from './indent-fields.mjs';
+import { indentFields, indentReadDetails, indentHeading } from './indent-fields.mjs';
 import { indentStatus, formatIndentNumber } from './indent-details.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
@@ -161,7 +161,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     const needed=d.status==='In transit'?'Site Store':'Project Manager';
     if(!receipt||role!==needed) switchForm=switchTo(roleKey(needed),d.result.destination,back,'Open at '+d.result.destination+' as '+needed);
   }
-  const submitButton=name=>`<button class="primary" type="submit" value="${name}">${name}</button>`;
+  const submitButton=name=>`<button class="${indent&&name==='Save draft'?'secondary':'primary'}" type="submit" value="${name}">${name}</button>`;
   const displayValue=v=>{
     const source = typeof v==='string' && rows.find(row=>row.id===v);
     if (!source) return display(v);
@@ -181,14 +181,13 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const state=indentStatus(d);
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
-  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← E1 register</a>
-    <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(state)}</strong><span>${esc(d.day)}</span></div></div>`
+  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span></div>`
     : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent?`<section><h2>Site stock</h2>${stock}</section>`:''}
-    ${editable?`<section><h2>Entry details</h2>${editableFields(meta,d,rows,actor)}
+    ${editable?`<section${indent?' class="indent-form-panel"':''}><h2${indent?' class="sr-only"':''}>Entry details</h2>${editableFields(meta,d,rows,actor)}
     ${d.type==='E12'&&!actor.siteEntryTypes?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions gps"><output id="gps-status" aria-live="polite">GPS is stamped automatically when location is allowed.</output><button type="button" id="record-position">Refresh GPS</button></div>':''}
     ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
@@ -207,5 +206,5 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${history.length?`${indent?'<details class="indent-secondary"><summary>History</summary>':'<section><h2>History</h2>'}<ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
-      </li>`).join('')}</ol>${indent?'</details>':'</section>'}`:''}`, undefined, remoteApproval);
+      </li>`).join('')}</ol>${indent?'</details>':'</section>'}`:''}`, indent?indentHeading(d):undefined, remoteApproval,indent&&editable);
 }

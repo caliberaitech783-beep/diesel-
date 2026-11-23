@@ -6,7 +6,7 @@ import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 import { siteDocumentSeries } from './site-document-number.mjs';
-import { indentSeries, requiredDays } from './indent-details.mjs';
+import { indentSeries, requiredDays, formatIndentNumber } from './indent-details.mjs';
 import { transferTarget } from './transfer-destination.mjs';
 import { readingMoment } from './entry-calendar.mjs';
 import { entryReasons, reasonError } from './entry-reasons.mjs';
@@ -55,7 +55,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n')
         .get(series.scope,'E1',series.year);
       doc.number=series.label+'/'+String(n).padStart(3,'0');
-      check(!all().some(row=>row.number?.toUpperCase()===doc.number),'This indent number already exists.');
+      check(!all().some(row=>formatIndentNumber(row.number)===doc.number),'This indent number already exists.');
       return;
     }
     if (siteFor) {
@@ -114,6 +114,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       const doc=fresh('E1',actor);
       checkMaker(doc,actor);checkLocks(doc);
       doc.data={unit:'Litre',priority:'Normal'};
+      if (actor.requestedBy) doc.requestedBy=actor.requestedBy;
       assignNumber(doc);
       persist(doc,actor.id,'Opened indent');
       db.exec(nested?'RELEASE indent_open':'COMMIT');

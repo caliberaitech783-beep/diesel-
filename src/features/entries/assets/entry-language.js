@@ -17,6 +17,8 @@ const labels={
   'Scan storage or vehicle tag':'भंडारण या वाहन टैग स्कैन करें','Use scanned tag':'स्कैन किया टैग चुनें','Select…':'चुनें…','Remarks':'टिप्पणी','Reason code':'कारण कोड','Required by':'आवश्यक तिथि',
   'Required by (days)':'कितने दिनों में आवश्यक है','Entry date':'प्रविष्टि तिथि','Item name':'वस्तु का नाम','HSN code':'एचएसएन कोड','Unit':'इकाई','Use site':'साइट चुनें',
   'Location':'स्थान','Indent number':'इंडेंट संख्या','Date':'तिथि','Quantity':'मात्रा','Priority':'प्राथमिकता','Normal':'सामान्य','Urgent':'तत्काल','Litre':'लीटर','KL':'किलोलीटर',
+  'Create diesel indent':'डीजल इंडेंट बनाएँ','Raise a request for diesel purchase':'डीजल खरीदने के लिए अनुरोध दर्ज करें','Indent date':'इंडेंट तिथि','Site / Location':'साइट / स्थान',
+  'Request details':'अनुरोध विवरण','Requested by':'अनुरोधकर्ता','Fuel item':'ईंधन सामग्री','Quantity & delivery':'मात्रा और आपूर्ति','Required date':'आवश्यक तिथि','Reason & remarks':'कारण और टिप्पणी',
   'Diesel indent':'डीज़ल मांग','Purchase order':'खरीद आदेश','Payment advice and UTR':'भुगतान सलाह और UTR','Gate entry':'गेट प्रविष्टि','Inspection':'निरीक्षण','Goods receipt note':'माल प्राप्ति नोट',
   'Supplier bill match':'आपूर्तिकर्ता बिल मिलान','Debit note and freight bill':'डेबिट नोट और भाड़ा बिल','UG tank to bowser':'भूमिगत टैंक से बाउज़र','Tank truck to bowser':'टैंक ट्रक से बाउज़र','Tank truck empty confirmation':'टैंक ट्रक खाली होने की पुष्टि',
   'Vehicle fuel issue':'वाहन ईंधन निर्गम','Inter-site transfer':'अंतर-साइट स्थानांतरण','Contractor recovery':'ठेकेदार वसूली','Retail pump purchase':'पेट्रोल पंप से खरीद','Daily count and reconciliation':'दैनिक गिनती और मिलान','Correction request':'सुधार अनुरोध','Month-end close':'माह समाप्ति',

@@ -1,0 +1,96 @@
+.indent-workspace {
+  --indent-accent:#225de0;
+  --indent-soft:#edf3ff;
+  --indent-readonly:#eef1f6;
+  --primary-bg:var(--indent-accent);
+  background:#f7f9fc;
+}
+.indent-workspace main { max-width:1320px; padding-bottom:32px; }
+.indent-workspace .context-bar { min-height:48px; }
+.indent-heading { display:flex; align-items:center; gap:12px; margin:8px 0 14px; }
+.indent-heading-icon { display:grid; place-items:center; flex:0 0 44px; width:44px; height:44px; border-radius:12px; background:var(--indent-accent); color:white; box-shadow:0 3px 8px #225de024; }
+.indent-heading-icon svg { width:25px; height:25px; overflow:visible; }
+.indent-heading h1 { font-size:clamp(24px,2.4vw,32px); line-height:1.15; letter-spacing:-.045em; margin:0 0 4px; }
+.indent-heading p { font-size:13px; color:var(--muted); margin:0; }
+.indent-workspace .entry-record-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; }
+.indent-workspace .entry-record-heading>a { font-size:12px; color:var(--muted); text-decoration:none; }
+.indent-workspace .entry-record-heading>a:hover { color:var(--indent-accent); text-decoration:underline; }
+.indent-state { padding:4px 10px; background:var(--indent-soft); color:var(--indent-accent); border-radius:20px; font-size:11px; font-weight:650; }
+.indent-state.is-saved { background:#e3f3eb; color:#1a7050; }
+.indent-site-switch { display:flex; align-items:end; gap:8px; max-width:100%; margin:0; }
+.indent-site-switch[hidden] { display:none; }
+.indent-site-switch select { width:min(270px,65vw); }
+.indent-workspace #entry-form>.indent-form-panel { padding:0; border:0; background:transparent; box-shadow:none; margin:0; }
+.indent-workspace .indent-card { min-width:0; margin:0 0 14px; padding:15px 18px 17px; border:1px solid var(--border); border-radius:12px; background:var(--surface); box-shadow:0 2px 6px #10234c03; }
+.indent-card legend { padding:0 6px; margin-left:-6px; font-size:11px; font-weight:650; letter-spacing:.025em; color:var(--muted); }
+.indent-details-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr); gap:14px 18px; }
+.indent-details-grid label:first-child input { font-family:ui-monospace,"Segoe UI",monospace; font-size:12px; letter-spacing:-.025em; }
+.indent-requester { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+.indent-requester strong { color:var(--ink); font-weight:550; }
+.indent-item-grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:14px 18px; }
+.indent-delivery-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px 22px; align-items:start; }
+.indent-quantity-block { display:grid; gap:14px; align-content:start; }
+.indent-quantity-controls,.indent-date-controls { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(100px,1fr); gap:10px; align-items:start; align-content:start; }
+.indent-date-controls { grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); }
+.indent-priority { max-width:260px; }
+.indent-reason-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:16px 22px; align-items:start; }
+.indent-workspace .indent-card label { min-width:0; position:relative; gap:6px; font-size:12px; font-weight:600; }
+.indent-workspace .indent-card :is(input,select,textarea) { width:100%; min-height:40px; padding:8px 10px; font-size:13px; font-weight:450; border:1px solid var(--control-border); background:var(--surface); border-radius:7px; box-shadow:0 1px 2px #10234c03; }
+.indent-workspace .indent-card input[readonly] { color:var(--muted); background:var(--indent-readonly); box-shadow:none; }
+.indent-workspace .indent-card textarea { min-height:66px; resize:vertical; }
+.indent-workspace .indent-card :is(input,select,textarea):focus-visible { border-color:var(--indent-accent); outline:3px solid #225de020; outline-offset:0; }
+.indent-workspace .indent-card label[data-state="missing"] :is(input,select,textarea) { background:#fff2f4; border-color:#cf4659; }
+.indent-workspace .indent-card label[data-state="changed"]::after { content:none; }
+.indent-workspace .indent-card label:has([name="priority"] option[value="Urgent"]:checked) select { color:#984d12; background:#fff7e9; border-color:#e5ba75; }
+.indent-card [data-indent-due] { display:flex; align-items:center; min-height:40px; margin:0; padding:8px 10px; border:1px solid #c3d5fb; border-radius:7px; font-size:13px; font-weight:550; background:var(--indent-soft); color:var(--indent-accent); }
+.indent-character-count { justify-self:end; color:var(--muted); font-size:10px; font-weight:450; }
+.indent-extra { margin-top:12px; }
+.indent-extra input[type=file] { padding:8px; }
+.indent-secondary { border:1px solid var(--border); border-radius:9px; background:var(--surface); padding:10px 14px; margin:9px 0; font-size:12px; }
+.indent-secondary>summary { font-weight:550; color:var(--muted); }
+.indent-secondary[open]>summary { margin-bottom:8px; color:var(--ink); }
+.indent-workspace #entry-form>.actions { justify-content:flex-end; gap:10px; margin:14px 0 8px; }
+.indent-workspace #entry-form .actions button { min-height:42px; padding-inline:20px; }
+.indent-workspace button.secondary { color:var(--indent-accent); background:var(--surface); border-color:var(--control-border); }
+.indent-workspace button.primary:hover { background:#174fc9; }
+.indent-record-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 16px; }
+.indent-record-fields>div { display:grid; align-content:start; gap:4px; padding:4px 0 8px; border-bottom:1px solid var(--border); min-width:0; }
+.indent-record-fields span { color:var(--muted); font-size:12px; }
+.indent-record-fields strong { font-size:14px; font-weight:550; overflow-wrap:anywhere; }
+@media(max-width:1000px) {
+  .indent-details-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .indent-details-grid label:first-child { grid-column:1/-1; }
+  .indent-delivery-grid { grid-template-columns:minmax(0,1fr); gap:14px; }
+}
+@media(max-width:700px) {
+  .indent-workspace main { padding-inline:14px; }
+  .indent-heading { margin:6px 0 12px; }
+  .indent-heading h1 { font-size:25px; }
+  .indent-workspace .indent-card { padding:12px 14px 14px; margin-bottom:12px; }
+  .indent-delivery-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .indent-details-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .indent-details-grid label:first-child { grid-column:auto; }
+  .indent-item-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .indent-item-grid label:last-child { max-width:55%; }
+  .indent-quantity-controls { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:8px; }
+  .indent-date-controls { grid-template-columns:minmax(0,1fr); }
+  .indent-workspace .indent-card :is(input,select,textarea),.indent-card [data-indent-due] { min-height:44px; }
+  .indent-reason-grid { gap:12px; }
+  .indent-record-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:520px) {
+  .indent-details-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .indent-details-grid label:first-child { grid-column:1/-1; }
+  .indent-delivery-grid,.indent-reason-grid { grid-template-columns:minmax(0,1fr); }
+  .indent-date-controls { grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); }
+  .indent-priority { max-width:100%; }
+  .indent-workspace #entry-form>.actions { flex-wrap:nowrap; }
+  .indent-workspace #entry-form .actions button { flex:1; padding-inline:12px; }
+  .indent-requester { font-size:11px; }
+}
+:root[data-theme="dark"] .indent-workspace { background:var(--page-bg); --indent-accent:#94b6ff; --indent-soft:#202e4b; --indent-readonly:#222936; --primary-bg:#376ee4; }
+:root[data-theme="dark"] .indent-heading-icon { background:#376ee4; }
+:root[data-theme="dark"] .indent-state.is-saved { background:#203b32; color:#8bd8b5; }
+:root[data-theme="dark"] .indent-workspace .indent-card label[data-state="missing"] :is(input,select,textarea) { background:#412b38; border-color:#e08a9f; }
+:root[data-theme="dark"] .indent-workspace .indent-card label:has([name="priority"] option[value="Urgent"]:checked) select { color:#f0ca91; background:#3a3024; border-color:#a57c44; }
+:root[data-theme="dark"] .indent-card [data-indent-due] { border-color:#405981; }

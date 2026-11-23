@@ -117,33 +117,6 @@ input, select { min-height: 39px; font-size: 14px; }.fields input,.fields select
 dl { display: grid; grid-template-columns: minmax(110px,1fr) 2fr; gap: 0 20px; margin: 0; }dt, dd { padding-block: 8px; border-bottom: 1px solid var(--border); }dt { color: var(--muted); text-transform: capitalize; }dd { margin: 0; overflow-wrap: anywhere; }
 output { display: block; font-weight: 600; color: var(--link); }output:not(:empty) { margin: 12px 0; }li { margin: 8px 0; }
 #nav-toggle { display: none; }
-.indent-site-switch { display:flex; align-items:center; gap:8px; max-width:100%; margin:0; }
-.indent-site-switch label { font-size:12px; color:var(--muted); }
-.indent-site-switch select { width:min(270px,65vw); min-height:38px; }
-.indent-workspace h1 { font-size:clamp(26px,2.6vw,34px); margin-bottom:8px; }
-.indent-workspace .context-bar { min-height:56px; }
-.indent-workspace .entry-record-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 14px; margin-bottom:10px; }
-.indent-workspace .entry-record-heading>a { font-size:12px; }
-.indent-workspace .entry-record-heading .bar { gap:6px 12px; margin:0; font-size:14px; }
-.indent-workspace #entry-form>section { padding:14px 16px; margin:8px 0; }
-.indent-workspace #entry-form h2 { font-size:17px; margin-bottom:10px; }
-.indent-workspace .indent-fields,.indent-record-fields { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px 12px; }
-.indent-fields label:first-child { grid-column:span 2; }
-.indent-fields label:has([name="remarks"]) { grid-column:1/-1; }
-.indent-workspace .indent-fields label { gap:4px; font-size:12px; }
-.indent-workspace .indent-fields input,.indent-workspace .indent-fields select { padding:7px 9px; min-height:36px; font-size:13px; }
-.indent-notes { display:flex; flex-wrap:wrap; gap:4px 20px; margin-top:10px; color:var(--muted); font-size:12px; }
-.indent-notes output { display:inline; margin:0; font-weight:600; }
-.indent-record-fields>div { display:grid; align-content:start; gap:4px; padding:4px 0 8px; border-bottom:1px solid var(--border); min-width:0; }
-.indent-record-fields span { color:var(--muted); font-size:12px; }
-.indent-record-fields strong { font-size:14px; font-weight:550; overflow-wrap:anywhere; }
-.indent-secondary { border:1px solid var(--border); border-radius:8px; background:var(--surface); padding:10px 14px; margin:8px 0; font-size:13px; }
-.indent-secondary>summary { font-weight:600; }
-.indent-secondary[open]>summary { margin-bottom:8px; }
-.indent-workspace .actions { margin:10px 0; }
-@media(max-width:1000px) { .indent-workspace .indent-fields,.indent-record-fields { grid-template-columns:repeat(3,minmax(0,1fr)); } }
-@media(max-width:700px) { .indent-workspace .indent-fields,.indent-record-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:360px) { .indent-workspace .indent-fields,.indent-record-fields { grid-template-columns:minmax(0,1fr); }.indent-fields label:first-child { grid-column:auto; } }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 202px minmax(0,1fr); }main { padding-inline: 18px; }
   .counts { gap: 8px; }.counts a { padding: 14px; }.metric-symbol { right: 9px; top: auto; bottom: 12px; transform: scale(.85); }

@@ -106,6 +106,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
+      req.dieselActor.requestedBy=profile.name||profile.login;
       req.dieselActor.entrySites=readEntrySiteDirectory(siteMasterDb,locations);
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;

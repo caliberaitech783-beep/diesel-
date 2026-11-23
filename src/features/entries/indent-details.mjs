@@ -1,7 +1,8 @@
 import { siteInitials } from './entry-sites.mjs';
 
 export const formatIndentNumber = value => typeof value==='string'
-  ? value.replace(/\bcmll\/[^/\s]+\/\d{2}-\d{2}\/\d+/gi,number=>number.toUpperCase()) : value;
+  ? value.replace(/\bcmll\/([^/\s]+)\/(?:ind\/)?(\d{2}-\d{2})\/(\d+)/gi,
+    (_number,site,year,sequence)=>`CMLL/${site.toUpperCase()}/IND/${year}/${sequence}`) : value;
 
 export function indentStatus(doc) {
   return doc.type==='E1'&&['Awaiting approval','Posted'].includes(doc.status)?'Saved':doc.status;
@@ -25,7 +26,7 @@ export function indentSeries(doc) {
   const initials=siteInitials(doc.site);
   if (!initials) throw Error('Choose a site with valid initials.');
   const year=indentFinancialYear(doc.day);
-  return {scope:initials,year,label:'CMLL/'+initials+'/'+year};
+  return {scope:initials,year,label:'CMLL/'+initials+'/IND/'+year};
 }
 
 export function requiredDays(value, day) {
