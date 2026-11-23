@@ -2,7 +2,7 @@
   font-family: "DM Sans", "Segoe UI", sans-serif;
   color: var(--ink);
   background: var(--page-bg);
-  --masthead-height: 66px;
+  --masthead-height: 58px;
   --brand-accent: #8b287e;
   --sidebar-bg: var(--surface);
   --folder-bg: #f6f1fa;
@@ -31,7 +31,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 28px;
+  padding: 0 18px;
   border-top: 3px solid transparent;
   border-image: linear-gradient(95deg, #512b85, #9e2f89 60%, #ce4479) 1;
   background: var(--surface);
@@ -112,8 +112,8 @@ nav a:hover { background: var(--nav-hover); color: var(--folder-ink); }
 .master-group[open] summary::after { transform: rotate(135deg); }
 main { padding: clamp(24px, 3.3vw, 52px); display: flex; flex-direction: column; outline: none; }
 h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; letter-spacing: -.04em; font-weight: 650; }
-.layout > main { min-width: 0; padding: 10px clamp(16px, 2.2vw, 32px) 24px; }
-.layout h1 { margin-bottom: 12px; font-size: clamp(24px, 2.5vw, 34px); }
+.layout > main { min-width: 0; padding: 12px 16px 20px; }
+.layout h1 { margin-bottom: 10px; font-size: clamp(21px, 2vw, 28px); }
 .workspace-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; }
 .workspace-heading h1 { margin: 0; }
 .masters-back { align-self: flex-start; margin-bottom: 12px; color: var(--link); font-size: 14px; padding-block: 4px; }

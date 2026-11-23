@@ -137,7 +137,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.match(masterData, /href="\/master-data" aria-label="Back to Master Data"/);
     assert.doesNotMatch(masterData, /id="masters-sidebar"/);
     const expectedColumns = masterDefinition('item-master').fields.map(field => field.key);
-    const columnNames = page => [...page.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map(([, name]) => name);
+    const columnNames = page => [...page.matchAll(/<th scope="col"[^>]*>([^<]+)<\/th>/g)].map(([, name]) => name);
     assert.deepEqual(columnNames(masterData), [...expectedColumns,'Actions']);
     assert.match(masterData, /<th scope="row"><a data-record-dialog href="[^"]+">TEST-001<\/a><\/th>/);
     assert.match(masterData, /<td[^>]*>00123456<\/td>/);

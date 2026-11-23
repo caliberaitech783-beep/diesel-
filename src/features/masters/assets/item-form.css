@@ -16,7 +16,7 @@
 .master-field :is(input[readonly],input:disabled,select:disabled,textarea:disabled) { background: var(--readonly-bg); opacity: 1; color: var(--muted); }
 .master-field [aria-invalid="true"] { border-color: var(--danger); }
 .master-field :is(input,select,textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.field-grid > .master-field:is(:has(textarea), :has(input[type="file"]), .field-wide) { grid-column: span 2; }
+.field-grid > .master-field:is(:has(textarea), .field-wide) { grid-column: span 2; }
 .master-field[hidden], .field-group[hidden] { display: none; }
 .form-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
 .form-footer button { border: 0; border-radius: 4px; padding: 7px 12px; background: var(--primary-bg); color: white; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -27,7 +27,8 @@
 @container (min-width: 1120px) { .field-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @container (max-width: 439px) {
   .field-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .field-grid > .master-field:is(:has(textarea), :has(input[type="file"]), .field-wide) { grid-column: auto; }
-  .master-field :is(input,select) { height: 40px; font-size: 14px; }
+  .field-grid > .master-field:is(:has(textarea), .field-wide) { grid-column: auto; }
+  .master-field :is(input,select) { height: 44px; font-size: 16px; }
+  .master-field input[type="file"] { min-height: 44px; font-size: 14px; }
   .master-field label { font-size: 12px; }
 }

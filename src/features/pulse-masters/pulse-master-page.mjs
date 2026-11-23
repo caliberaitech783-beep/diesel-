@@ -4,6 +4,7 @@ import { pulseMastersPath } from './pulse-master-catalog.mjs';
 import { recordDraftScope } from '../masters/records-fields.mjs';
 import { masterDataFileMenu } from '../master-data/file-menu.mjs';
 import { masterDataSearch } from '../master-data/search.mjs';
+import { tableCellAttributes } from '../master-data/table-layout.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -13,7 +14,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
   const link = values => pulseMastersPath + '?' + new URLSearchParams({ master: master.slug, ...(search ? { q: search } : {}),
     ...(by ? { by } : {}), ...(sort ? { sort, dir } : {}), ...values });
   const body = rows.map(row => `<tr>${master.columns.map(([key, label], index) =>
-    index ? `<td data-label="${escape(label)}">${escape(row[key])}</td>` : `<th scope="row">${escape(row[key])}</th>`).join('')}</tr>`).join('');
+    index ? `<td data-label="${escape(label)}"${tableCellAttributes(row[key])}>${escape(row[key])}</td>` : `<th scope="row">${escape(row[key])}</th>`).join('')}</tr>`).join('');
   const empty = syncedAt ? 'No records match.' : 'Records are temporarily unavailable. Retrying automatically.';
   return `<!doctype html>
 <html lang="en"><head>
@@ -48,7 +49,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
       ${notice ? `<p class="record-meta" data-live-warning role="alert">${escape(notice)}</p>` : ''}
       <div class="master-data-table" role="region" aria-label="${escape(master.name)} records" tabindex="0">
         <table>
-          <thead><tr>${master.columns.map(([, label]) => `<th scope="col">${escape(label)}</th>`).join('')}</tr></thead>
+          <thead><tr>${master.columns.map(([, label], index) => `<th scope="col"${index === 0 ? ' data-record-key' : ''}>${escape(label)}</th>`).join('')}</tr></thead>
           <tbody>${body || `<tr class="master-data-empty"><td colspan="${master.columns.length}">${empty}</td></tr>`}</tbody>
         </table>
       </div>
