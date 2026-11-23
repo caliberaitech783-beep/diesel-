@@ -68,9 +68,10 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.match(html,/value="Save indent"/);
   assert.doesNotMatch(html,/Use site|value="Submit"|Review role|My approvals/);
   assert.match(html,/<details class="indent-secondary"><summary>Site stock<\/summary>/);
-  const id=randomUUID();
+  const id=html.match(/id="entry-form" data-id="([a-f0-9-]+)"/)[1];
+  assert.match(html,/Indent number<input type="text" readonly value="cmll\/DEOC\/\d{2}-\d{2}\/001"/);
   const response=await fetch(origin+'/entries/record/'+id,{method:'POST',headers,
-    body:JSON.stringify({...input,actor:site+'-'+role})});
+    body:JSON.stringify({...input,rev:1,actor:site+'-'+role})});
   assert.equal(response.status,200);
   assert.equal((await response.json()).status,'Saved');
   const saved=await (await fetch(origin+'/entries/record/'+id,{headers})).text();

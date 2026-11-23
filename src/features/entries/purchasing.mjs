@@ -1,7 +1,7 @@
 import { review, ratePerKL } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
-import { requiredDate } from './indent-details.mjs';
+import { requiredDate, indentLitres } from './indent-details.mjs';
 import { calculatedDeduction, financialYearStart, tdsRuleFor } from './tds-deduction.mjs';
 
 function siteOrder(data,c) {
@@ -53,19 +53,20 @@ export const purchasing = {
     const average = c.sum(c.posted('E11').filter(r=>r.day>=dayBefore(c.doc.day,6)),'litres')/7;
     const tankCapacity = storage.filter(location=>location.type==='UG tank').reduce((sum,location)=>sum+location.safe,0);
     const suggested = Math.max(0,round(tankCapacity-stock-inTransit));
-    check(d.litres>0,'Enter a positive requested quantity.');
+    const litres=indentLitres(d);
+    check(litres>0,'Enter a positive requested quantity.');
     const legacyDate=typeof d.requiredBy==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d.requiredBy);
     if (legacyDate) check(d.requiredBy>=c.doc.day,'Choose a required-by date on or after the request.');
     const due=legacyDate?d.requiredBy:requiredDate(c.doc.day,d.requiredBy);
-    check(d.litres<=suggested || d.reason,'Select a reason for requesting more than suggested.');
+    check(litres<=suggested || d.reason,'Select a reason for requesting more than suggested.');
     // An indent is open while it waits for approval or still has quantity without a purchase order.
     const openIndents = c.reserved('E1').filter(r=>r.status!=='Posted'
       || r.result.litres>c.sum(c.reserved('E2').filter(p=>p.data.indent===r.id),'litres'));
     check(!openIndents.length || d.reason,'Indent '+(openIndents[0]?.number||'for this site')+' is still open. Select a reason to raise another.');
     const approvals = ['Project Manager','Head – Procurement'];
-    if (d.litres>review.indentSlab) approvals.push('Director / CMD');
+    if (litres>review.indentSlab) approvals.push('Director / CMD');
     const item = c.siteConfig?.item;
-    return { item:item?item.code+' · '+item.name:review.item, ...(!legacyDate?{requiredDate:due}:{}), litres:d.litres, stock, inTransit, averageDaily:round(average), daysOfStock:average?round(stock/average):null, suggested,
+    return { item:item?item.code+' · '+item.name:review.item, ...(!legacyDate?{requiredDate:due}:{}), litres, stock, inTransit, averageDaily:round(average), daysOfStock:average?round(stock/average):null, suggested,
       otherOpenIndents:openIndents.length, ...(openIndents.length ? {openIndentNumbers:openIndents.map(r=>r.number).filter(Boolean).join(', ')} : {}), approvals };
   },
   E2(d,c) {

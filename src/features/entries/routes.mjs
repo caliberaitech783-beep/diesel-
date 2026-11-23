@@ -121,7 +121,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
         return res.status(409).send('Opening stock must include a tank and a bowser to record a transfer between them.');
       }
     }
-    res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],t.id==='E1'?store.stockPicture(a.site):null,store.definition(t.id,a.site)));
+    if (t.id==='E1') {
+      try { return res.redirect(303,'/entries/record/'+store.openIndent(a).id); }
+      catch(error) { return res.status(422).send(error.message); }
+    }
+    res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],null,store.definition(t.id,a.site)));
   });
   router.get('/record/:id',(req,res)=>{
     const a=req.dieselActor;

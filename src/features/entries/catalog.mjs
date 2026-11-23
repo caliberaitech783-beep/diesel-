@@ -18,7 +18,10 @@ const gate = link('gate','Tanker gate entry','E5'), grn = link('grn','Goods rece
 const po = link('po','Purchase order','E2');
 
 export const entries = [
-  ['E1','Diesel indent','Buy','Site In-charge',[number('litres','Requested quantity (L)'),{...number('requiredBy','Required by (days)'),step:1,min:0,max:3650},reason,remarks]],
+  ['E1','Diesel indent','Buy','Site In-charge',[number('litres','Quantity'),
+    {...pick('unit','Unit',['KL','Litre']),default:'Litre'},
+    {...pick('priority','Priority',['Normal','Urgent']),default:'Normal'},
+    {...number('requiredBy','Required by (days)'),step:1,min:0,max:3650},reason,remarks]],
   ['E2','Purchase order','Buy','Procurement Executive',[link('indent','Approved indent','E1'),pick('type','PO type',['Bulk','Retail']),pick('supplier','Supplier',[review.supplier,review.pump]),pick('depot','Depot',[review.depot]),pick('basis','Delivery basis',['Delivered','Ex-depot']),number('kl','Quantity (KL)'),pick('transporter','Transporter',[review.transporter],true),number('tolerance','Lower transit tolerance (%)',true),pick('terms','Payment terms',['Advance','Credit'])]],
   ['E3','Payment advice and UTR','Buy','Accounts Executive',[po,number('amount','Amount to pay (₹)')]],
   ['E5','Gate entry','Receive','Site Store',[po,pick('scenario','Receipt scenario',['UG tank','Direct to bowsers']),pick('transporter','Transporter',[review.transporter]),text('truck','Truck registration'),text('driver','Driver name'),text('mobile','Driver mobile'),date('fitness','Fitness valid until'),date('licence','Explosive licence valid until'),text('invoice','Supplier invoice number'),date('invoiceDate','Invoice date'),number('litres','Invoice quantity (L)'),text('eway','E-way bill number'),text('seals','Compartment seal numbers (comma-separated)'),pick('intact','Seals intact',['Yes','No']),photo('sealPhotos','Compartment seal photos'),photo('billPhoto','Bill photo')]],

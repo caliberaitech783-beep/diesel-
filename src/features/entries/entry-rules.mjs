@@ -20,7 +20,7 @@ export function dayBefore(day, days = 1) { return new Date(Date.parse(day)-days*
 export function validateFields(type,input) {
   const data = {};
   for (const field of type.fields) {
-    const raw = input[field.key];
+    const raw = input[field.key] ?? field.default;
     if (field.type === 'file') {
       if (raw?.length) data[field.key] = raw;
       else requireValue(field.optional,'Add ' + field.label.toLowerCase() + '.');

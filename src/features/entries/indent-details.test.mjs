@@ -53,8 +53,8 @@ test('indent details show all site names while retaining assignment restrictions
   for(const row of entrySites) assert.ok(html.includes('>'+row.name+'</option>'));
   assert.match(html,/Item name<input type="text" readonly value="Approved diesel"/);
   assert.match(html,/HSN code<input type="text" readonly value="00123456"/);
-  assert.match(html,/Unit<input type="text" readonly value="L"/);
-  assert.match(html,/Entry date<input name="day" type="date"/);
+  assert.match(html,/Unit<select name="unit"/);
+  assert.match(html,/Date<input name="day" type="date"/);
   assert.match(html,/Required by \(days\)<input name="requiredBy" type="number" data-required="true" step="1" min="0" max="3650" value="3"/);
   assert.match(html,/form="indent-site-switch"/);
   const assigned={...maker,assignments:[{site:'Jayant',profile:maker.profile}]};
