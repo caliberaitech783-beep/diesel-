@@ -7,7 +7,7 @@ import { createLocalWorkspace } from '../local-workspace/app.mjs';
 import { indentLitres } from './indent-details.mjs';
 import { roleKey } from './review-masters.mjs';
 
-const maker={site:'Jayant',id:'maker',profile:roleKey('Site In-charge')};
+const maker={site:'Jayant',id:'maker',profile:roleKey('Site In-charge'),requestedBy:'Test requester'};
 
 test('opening an indent reserves a persistent draft number and saving keeps its number, unit and priority',t=>{
   const db=openDieselDatabase(':memory:');t.after(()=>db.close());
@@ -16,6 +16,10 @@ test('opening an indent reserves a persistent draft number and saving keeps its 
   assert.equal(first.rev,1);assert.equal(first.status,'Draft');
   assert.match(first.number,/\/001$/);assert.match(second.number,/\/002$/);
   assert.deepEqual(first.data,{unit:'Litre',priority:'Normal'});
+  assert.equal(first.requestedBy,'Test requester');
+  const legacyNumber=second.number.replace('/IND/','/');
+  db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify({...second,number:legacyNumber}),second.id);
+  assert.equal(store.read(second.id,maker.site).number,legacyNumber);
   assert.equal(store.read(first.id,maker.site).number,first.number);
   assert.throws(()=>store.openIndent({...maker,profile:roleKey('Project Manager')}),/initiator role/);
   store=createEntryStore(db);
@@ -52,10 +56,10 @@ test('new-entry navigation reserves unique numbers and the form follows the requ
   const urls=opens.map(response=>response.headers.get('location'));
   assert.notEqual(urls[0],urls[1]);
   const pages=await Promise.all(urls.map(url=>fetch(origin+url).then(response=>response.text())));
-  assert.match(pages[0],/CMLL\/JOC\/\d{2}-\d{2}\/001/);
-  assert.match(pages[1],/CMLL\/JOC\/\d{2}-\d{2}\/002/);
+  assert.match(pages[0],/CMLL\/JOC\/IND\/\d{2}-\d{2}\/001/);
+  assert.match(pages[1],/CMLL\/JOC\/IND\/\d{2}-\d{2}\/002/);
   const html=pages[0];
-  const labels=['Location</label>','Indent number<input','Date<input','Item name<input','HSN code<input','Quantity<input','Unit<select','Priority<select'];
+  const labels=['Indent number<input','Indent date<input','Site / Location<select','Item name<input','HSN code<input','Quantity<input','Unit<select','Priority<select','Required by (days)<input'];
   let prior=-1;
   for(const label of labels) { const at=html.indexOf(label);assert.ok(at>prior,label+' follows the preceding field');prior=at; }
   assert.match(html,/<option value="KL">KL<\/option>/);

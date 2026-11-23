@@ -47,9 +47,9 @@ function switcher(actor, back) {
     <button class="primary">Switch</button></form></details>`;
 }
 
-export function page(title, actor, active, back, body, heading, remoteApproval = false) {
+export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
-    <link rel="stylesheet" href="/entries/assets/entries.css"><script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
+    <link rel="stylesheet" href="/entries/assets/entries.css">${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
     ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>
     ${active==='E11' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/fuel-issue-form.js"></script>' : ''}
@@ -60,7 +60,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(active)}</span>` : ''}</div>${active==='E1'?indentSiteForm(actor):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(active)}</span>` : ''}</div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div></body></html>`;
 }

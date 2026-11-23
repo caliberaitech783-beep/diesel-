@@ -144,7 +144,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
     return doc;
   }
   const approvedIndent=await approve(await submit('E1','Site In-charge',{litres:200,requiredBy:0}));
-  assert.match(approvedIndent.number,/^CMLL\/JOC\/\d{2}-\d{2}\/\d{3}$/);
+  assert.match(approvedIndent.number,/^CMLL\/JOC\/IND\/\d{2}-\d{2}\/\d{3}$/);
   assert.equal(approvedIndent.indentItem.hsn,'00123456');
   assert.equal(approvedIndent.indentItem.unit,'L');
   assert.match(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/<span>HSN code<\/span><strong>00123456<\/strong>/);

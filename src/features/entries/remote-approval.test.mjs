@@ -114,13 +114,13 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   const record = await submit();
   assert.equal((await request(record,'b')).status,404);
   assert.equal((await request('/entries/type/E1','b')).status,403);
-  assert.doesNotMatch(await (await request('/entries/export.csv?type=E1','b')).text(),/CMLL\/MN\//);
+  assert.doesNotMatch(await (await request('/entries/export.csv?type=E1','b')).text(),/CMLL\/MN\/IND\//);
   const excel = await request('/entries/export.xlsx?type=E1&from='+day,'r',null,reviewerSite);
   assert.equal(excel.status,200);
   const workbook = readWorkbook(Buffer.from(await excel.arrayBuffer()));
   const rows = workbookUtils.sheet_to_json(workbook.Sheets['Diesel Entries']);
   assert.equal(rows.length,1);
-  assert.match(rows[0].Document,/^CMLL\/MN\/\d{2}-\d{2}\/001$/);
+  assert.match(rows[0].Document,/^CMLL\/MN\/IND\/\d{2}-\d{2}\/001$/);
   assert.equal(rows[0].Site,site);
   assert.doesNotMatch(await (await request(record,'r',null,reviewerSite)).text(),/Review via Telegram/);
   assert.doesNotMatch(await (await request(record,'i')).text(),/Review via Telegram/);

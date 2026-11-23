@@ -13,12 +13,17 @@ if(indentDue){form.addEventListener('input',updateIndentDue);updateIndentDue();}
 let indentEdited=false;
 if(form?.dataset.type==='E1') form.addEventListener('input',event=>{if(event.target.form===form)indentEdited=true;});
 const indentSiteSwitch=document.querySelector('#indent-site-switch');
-indentSiteSwitch?.querySelector('select')?.addEventListener('change',()=>indentSiteSwitch.requestSubmit());
+const indentSiteSelect=document.querySelector('#indent-site');
+indentSiteSelect?.addEventListener('change',()=>indentSiteSwitch.requestSubmit());
 indentSiteSwitch?.addEventListener('submit',event=>{
   if(indentEdited&&!confirm('Switch site and discard the unsaved changes to this indent?')) {
     event.preventDefault();
-    indentSiteSwitch.querySelector('select').value=form.dataset.site;
+    indentSiteSelect.value=form.dataset.site;
   }
+});
+const indentRemarks=document.querySelector('.indent-card textarea[name="remarks"]');
+indentRemarks?.addEventListener('input',()=>{
+  document.querySelector('#indent-remarks-count').textContent=indentRemarks.value.length+' / 2000';
 });
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
