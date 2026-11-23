@@ -12,7 +12,7 @@ import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { indentFields, indentReadDetails, indentHeading } from './indent-fields.mjs';
-import { indentStatus, formatIndentNumber } from './indent-details.mjs';
+import { indentStatus, formatIndentNumber, formatIndentDate, indentFormData } from './indent-details.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -141,6 +141,7 @@ function editableFields(meta, doc, rows, actor) {
 }
 export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remoteApproval=false) {
   const indent=d.type==='E1';
+  if(indent) d={...d,data:indentFormData(d)};
   if (indent) remoteApproval=false;
   const role=entryRole(actor);
   const editable=(['Draft','Returned'].includes(d.status)||(indent&&['Saved','Awaiting approval'].includes(d.status)))&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
@@ -177,7 +178,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     return indent?`<div><span>${esc(fieldLabel)}</span><strong>${displayValue(label)}</strong></div>`:`<dt>${esc(fieldLabel)}</dt><dd>${displayValue(label)}</dd>`;
   }).join('');
   const resultRows=Object.entries(d.result).filter(([k])=>!['moves','approvals','generateGRN','telegramAllowed'].includes(k)).map(([k,v])=>
-    `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(v)}</dd>`).join('');
+    `<dt>${esc(k.replace(/([a-z])([A-Z])/g,'$1 $2'))}</dt><dd>${displayValue(indent&&k==='requiredDate'?formatIndentDate(v):v)}</dd>`).join('');
   const state=indentStatus(d);
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
@@ -204,7 +205,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     <output id="entry-message" role="status"></output></form>${switchForm}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${history.length?`${indent?'<details class="indent-secondary"><summary>History</summary>':'<section><h2>History</h2>'}<ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
+    ${!indent&&history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
-      </li>`).join('')}</ol>${indent?'</details>':'</section>'}`:''}`, indent?indentHeading(d):undefined, remoteApproval,indent&&editable);
+      </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):undefined, remoteApproval,indent&&editable);
 }

@@ -73,7 +73,7 @@ test('Entry opens live for a person with a role at a Pulse site and as a private
 
   const first = await (await request('/entries', 'n')).text();
   assert.match(first, /Trial workspace · sample data · not live records/);
-  assert.equal((await request('/entries/new/E1', 'n')).status, 303);
+  assert.equal((await request('/entries/new/E1', 'n')).status, 200);
   assert.equal((await request('/entries/new/E11', 'n')).status, 403);
   const asBowser = await request('/workspace/role', 'n', new URLSearchParams({ site: 'Sasti', role: roleKey('Bowser operator') }));
   assert.equal(asBowser.status, 303);

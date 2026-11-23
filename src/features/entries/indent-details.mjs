@@ -17,6 +17,22 @@ export function indentLitres(data) {
   return litres;
 }
 
+export function indentFormData(doc) {
+  const data={priority:'Normal',...doc.data,unit:'Litre',requiredBy:requiredDays(doc.data.requiredBy,doc.day)};
+  // Preserve the requested volume when reopening an indent saved using the earlier KL option.
+  if(doc.data.unit==='KL' && doc.data.litres!==undefined && doc.data.litres!=='') data.litres=Number(doc.data.litres)*1000;
+  return data;
+}
+
+export const formatIndentDate = day => /^\d{4}-\d{2}-\d{2}$/.test(day??'') ? day.split('-').reverse().join('/') : '';
+
+export function indentDueDate(doc) {
+  const raw=doc.data.requiredBy;
+  if(typeof raw==='string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const days=Number(raw);
+  return raw!==undefined && raw!=='' && Number.isInteger(days) && days>=0 && days<=3650 ? requiredDate(doc.day,days) : '';
+}
+
 export function indentFinancialYear(day) {
   const start=Number(day.slice(0,4))-(day.slice(5,7)<'04'?1:0);
   return String(start).slice(-2)+'-'+String(start+1).slice(-2);

@@ -61,6 +61,7 @@ export function registerLocalSession(app) {
     const value = role + '.' + site;
     response.cookie('diesel_local', value + '.' + signature(value), {httpOnly:true,sameSite:'strict',path:'/'});
     const back = request.body.returnTo;
-    response.redirect(303, typeof back==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(back) ? back : '/records');
+    const target=typeof back==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(back) ? back : '/records';
+    response.redirect(303,target+(target==='/entries/new/E1'&&request.body.indentSite==='1'?'?site='+encodeURIComponent(site):''));
   });
 }

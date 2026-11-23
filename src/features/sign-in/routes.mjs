@@ -165,6 +165,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     const delivery = siteStock && configured && createApprovalDelivery(env, publicUrl.origin, fetcher);
     registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,
       siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
+      readEmployees:pulseMasterCopies?async request=>(await pulseMasterCopies.read('employee',{
+        grant:readCookie(request,sessionCookie),sites:[],
+      })).records:undefined,
       approvalOptions:delivery ? { delivery, secret: env.DIESEL_SSO_CLIENT_SECRET } : undefined,
       async getProfile(request) {
         const result = await verifySession(request);

@@ -19,7 +19,7 @@ const po = link('po','Purchase order','E2');
 
 export const entries = [
   ['E1','Diesel indent','Buy','Site In-charge',[number('litres','Quantity'),
-    {...pick('unit','Unit',['KL','Litre']),default:'Litre'},
+    {...pick('unit','Unit',['Litre']),default:'Litre'},
     {...pick('priority','Priority',['Normal','Urgent']),default:'Normal'},
     {...number('requiredBy','Required by (days)'),step:1,min:0,max:3650},reason,remarks]],
   ['E2','Purchase order','Buy','Procurement Executive',[link('indent','Approved indent','E1'),pick('type','PO type',['Bulk','Retail']),pick('supplier','Supplier',[review.supplier,review.pump]),pick('depot','Depot',[review.depot]),pick('basis','Delivery basis',['Delivered','Ex-depot']),number('kl','Quantity (KL)'),pick('transporter','Transporter',[review.transporter],true),number('tolerance','Lower transit tolerance (%)',true),pick('terms','Payment terms',['Advance','Credit'])]],

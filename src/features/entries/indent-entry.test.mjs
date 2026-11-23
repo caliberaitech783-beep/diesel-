@@ -7,35 +7,38 @@ import { createLocalWorkspace } from '../local-workspace/app.mjs';
 import { indentLitres } from './indent-details.mjs';
 import { roleKey } from './review-masters.mjs';
 
-const maker={site:'Jayant',id:'maker',profile:roleKey('Site In-charge'),requestedBy:'Test requester'};
+const maker={site:'Jayant',id:'maker',profile:roleKey('Site In-charge'),employee:{empId:'E001',name:'Test requester'}};
 
-test('opening an indent reserves a persistent draft number and saving keeps its number, unit and priority',t=>{
+test('opening an indent does not persist or reserve a number and saving keeps its number, unit and priority',t=>{
   const db=openDieselDatabase(':memory:');t.after(()=>db.close());
   let store=createEntryStore(db);
   const first=store.openIndent(maker),second=store.openIndent(maker);
-  assert.equal(first.rev,1);assert.equal(first.status,'Draft');
-  assert.match(first.number,/\/001$/);assert.match(second.number,/\/002$/);
+  assert.equal(first.rev,0);assert.equal(first.status,'Draft');
+  assert.equal(first.number,'');assert.equal(second.number,'');
+  assert.equal(store.list(maker.site).length,0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM entry_review_numbers').get().n,0);
+  assert.throws(()=>store.read(first.id,maker.site),/unavailable/);
   assert.deepEqual(first.data,{unit:'Litre',priority:'Normal'});
-  assert.equal(first.requestedBy,'Test requester');
-  const legacyNumber=second.number.replace('/IND/','/');
-  db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify({...second,number:legacyNumber}),second.id);
-  assert.equal(store.read(second.id,maker.site).number,legacyNumber);
-  assert.equal(store.read(first.id,maker.site).number,first.number);
   assert.throws(()=>store.openIndent({...maker,profile:roleKey('Project Manager')}),/initiator role/);
   store=createEntryStore(db);
-  assert.match(store.openIndent(maker).number,/\/003$/);
+  assert.equal(store.openIndent(maker).number,'');
   const saved=store.write(first.id,maker,{type:'E1',rev:first.rev,day:first.day,action:'Save indent',
-    number:'FORGED',data:{litres:1.25,unit:'KL',priority:'Urgent',requiredBy:2}});
-  assert.equal(saved.number,first.number);
-  assert.equal(saved.data.litres,1.25);assert.equal(saved.data.unit,'KL');assert.equal(saved.data.priority,'Urgent');
+    number:'FORGED',data:{litres:1250,unit:'Litre',priority:'Urgent',requiredBy:2,sanctionQuantity:900}});
+  assert.match(saved.number,/\/001$/);
+  assert.deepEqual(saved.requester,maker.employee);
+  assert.equal(saved.data.litres,1250);assert.equal(saved.data.unit,'Litre');assert.equal(saved.data.priority,'Urgent');
+  assert.equal(saved.data.sanctionQuantity,undefined);
   assert.equal(saved.result.litres,1250);assert.equal(saved.status,'Saved');
   assert.deepEqual(saved.result.approvals,[]);
   const revised=store.write(saved.id,maker,{rev:saved.rev,day:saved.day,action:'Save indent',
     data:{litres:1250,unit:'Litre',priority:'Normal',requiredBy:2}});
-  assert.equal(revised.number,first.number);assert.equal(revised.result.litres,1250);
-  for(const data of [{litres:1,unit:'Gallon',priority:'Normal'},{litres:1,unit:'KL',priority:'Immediate'}]) {
-    assert.throws(()=>store.write(second.id,maker,{rev:second.rev,day:second.day,action:'Save indent',data:{...data,requiredBy:2}}),/Choose a listed/);
+  assert.equal(revised.number,saved.number);assert.equal(revised.result.litres,1250);
+  for(const data of [{litres:1,unit:'Gallon',priority:'Normal'},{litres:1,unit:'KL',priority:'Normal'},{litres:1,unit:'Litre',priority:'Immediate'}]) {
+    assert.throws(()=>store.write(second.id,maker,{type:'E1',rev:second.rev,day:second.day,action:'Save indent',data:{...data,requiredBy:2}}),/Unit must be Litre|Choose a listed/);
   }
+  assert.equal(store.list(maker.site).length,1);
+  const next=store.write(second.id,maker,{type:'E1',rev:0,day:second.day,action:'Save indent',data:{litres:100,requiredBy:2,reason:'Operational demand'}});
+  assert.match(next.number,/\/002$/);
 });
 
 test('KL and Litre use the same litre basis, including fractional quantities and legacy entries',()=>{
@@ -46,26 +49,28 @@ test('KL and Litre use the same litre basis, including fractional quantities and
   for(const data of [{litres:0},{litres:-1},{litres:NaN},{litres:1e12,unit:'KL'},{litres:10,unit:'Gallon'}]) assert.throws(()=>indentLitres(data));
 });
 
-test('new-entry navigation reserves unique numbers and the form follows the requested sequence',async t=>{
+test('opening or refreshing a new indent keeps location and number blank without creating entries',async t=>{
   const db=openDieselDatabase(':memory:');
   const server=createLocalWorkspace(db).listen(0,'127.0.0.1');await once(server,'listening');
   t.after(async()=>{await new Promise(resolve=>server.close(resolve));db.close();});
   const origin='http://127.0.0.1:'+server.address().port;
   const opens=await Promise.all([1,2].map(()=>fetch(origin+'/entries/new/E1',{redirect:'manual'})));
-  for(const response of opens) assert.equal(response.status,303);
-  const urls=opens.map(response=>response.headers.get('location'));
-  assert.notEqual(urls[0],urls[1]);
-  const pages=await Promise.all(urls.map(url=>fetch(origin+url).then(response=>response.text())));
-  assert.match(pages[0],/CMLL\/JOC\/IND\/\d{2}-\d{2}\/001/);
-  assert.match(pages[1],/CMLL\/JOC\/IND\/\d{2}-\d{2}\/002/);
+  for(const response of opens) assert.equal(response.status,200);
+  const pages=await Promise.all(opens.map(response=>response.text()));
+  for(const html of pages) {
+    assert.match(html,/Indent number<input type="text" readonly value="" placeholder="Generated after saving"/);
+    assert.match(html,/<option value="" selected>Select a location<\/option>/);
+    assert.doesNotMatch(html,/value="Jayant" selected|HSN code|CMLL\/JOC\/IND/);
+  }
   const html=pages[0];
-  const labels=['Indent number<input','Indent date<input','Site / Location<select','Item name<input','HSN code<input','Quantity<input','Unit<select','Priority<select','Required by (days)<input'];
+  const labels=['Indent number<input','Indent date<input','Site / Location<select','Item name<input','Quantity<input','Sanction quantity<input','Unit<input','Priority<select','Required by (days)<input'];
   let prior=-1;
   for(const label of labels) { const at=html.indexOf(label);assert.ok(at>prior,label+' follows the preceding field');prior=at; }
-  assert.match(html,/<option value="KL">KL<\/option>/);
-  assert.match(html,/<option value="Litre" selected>Litre<\/option>/);
+  assert.doesNotMatch(html,/<option value="KL"|<select name="unit"/);
+  assert.match(html,/Unit<input name="unit" type="text" readonly value="Litre"/);
+  assert.match(html,/Sanction quantity<input type="text" readonly value=""/);
   assert.match(html,/<option value="Normal" selected>Normal<\/option>/);
   assert.match(html,/<option value="Urgent">Urgent<\/option>/);
-  assert.equal(await (await fetch(origin+urls[0])).text(),html);
-  assert.equal(createEntryStore(db).list('Jayant').length,2);
+  assert.equal(createEntryStore(db).list('Jayant').length,0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM entry_review_numbers').get().n,0);
 });

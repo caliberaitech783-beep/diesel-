@@ -17,6 +17,7 @@ import { masterAssignments } from '../masters/master-access.mjs';
 import { createLocationsFromPulseSites } from '../masters/pulse-site-locations.mjs';
 import { createPulseMasterStore } from '../pulse-masters/pulse-master-store.mjs';
 import { readEntrySiteDirectory } from './entry-site-directory.mjs';
+import { indentRequester } from './indent-requester.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -40,7 +41,7 @@ function seedWalkthrough(db) {
   } catch (error) { db.exec('ROLLBACK');throw error; }
 }
 
-export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions }) {
+export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees }) {
   const routers = new Map();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
@@ -106,7 +107,10 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
-      req.dieselActor.requestedBy=profile.name||profile.login;
+      if (req.path==='/new/E1' || req.path.startsWith('/record/')) {
+        const employees=readEmployees?await readEmployees(req):siteMasterDb?createPulseMasterStore(siteMasterDb).read('employee').records:[];
+        req.dieselActor.employee=indentRequester(profile,employees);
+      }
       req.dieselActor.entrySites=readEntrySiteDirectory(siteMasterDb,locations);
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
@@ -121,7 +125,8 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
     const { site, role } = selected ? { site: selected.site, role: selected.profile } : (req.body ?? {});
     if (!canChooseRole(req.dieselActor, site, role)) return res.sendStatus(assigned && !req.dieselActor.trial ? 403 : 400);
     res.cookie(cookie,site+'.'+role,{httpOnly:true,secure,sameSite:'strict',path:'/'});
-    res.redirect(303, typeof returnTo==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(returnTo) ? returnTo:'/entries');
+    const target=typeof returnTo==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(returnTo) ? returnTo:'/entries';
+    res.redirect(303,target+(target==='/entries/new/E1'&&req.body.indentSite==='1'?'?site='+encodeURIComponent(site):''));
   });
   app.use('/entries',gate,(req,res,next)=>{
     let router = routers.get(req.reviewOwner);

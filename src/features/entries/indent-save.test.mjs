@@ -57,11 +57,12 @@ test('the indent screen switches site at the top and saves without showing appro
   const origin='http://127.0.0.1:'+server.address().port;
   const role=roleKey('Site In-charge'),site='Dudhichua East OC';
   const switcher=await fetch(origin+'/workspace/role',{method:'POST',redirect:'manual',headers:{Origin:origin},
-    body:new URLSearchParams({role,site,returnTo:'/entries/new/E1'})});
+    body:new URLSearchParams({role,site,returnTo:'/entries/new/E1',indentSite:'1'})});
   assert.equal(switcher.status,303);
   const cookie=switcher.headers.getSetCookie()[0].split(';')[0];
   const headers={cookie,Origin:origin,'Content-Type':'application/json'};
-  const html=await (await fetch(origin+'/entries/new/E1',{headers})).text();
+  assert.equal(switcher.headers.get('location'),'/entries/new/E1?site='+encodeURIComponent(site));
+  const html=await (await fetch(origin+switcher.headers.get('location'),{headers})).text();
   assert.ok(html.indexOf('id="indent-site-switch"')<html.indexOf('<h1>Create diesel indent</h1>'));
   assert.equal((html.match(/id="indent-site-switch"/g)||[]).length,1);
   assert.match(html,/value="Dudhichua East OC" selected/);
@@ -69,16 +70,27 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.doesNotMatch(html,/Use site|value="Submit"|Review role|My approvals/);
   assert.match(html,/<details class="indent-secondary"><summary>Site stock<\/summary>/);
   const id=html.match(/id="entry-form" data-id="([a-f0-9-]+)"/)[1];
-  assert.match(html,/Indent number<input type="text" readonly value="CMLL\/DEOC\/IND\/\d{2}-\d{2}\/001"/);
+  assert.match(html,/Indent number<input type="text" readonly value=""/);
+  assert.equal(createEntryStore(db).list(site).length,0);
+  const missing=await fetch(origin+'/entries/record/'+id,{method:'POST',headers,
+    body:JSON.stringify({...input,actor:site+'-'+role})});
+  assert.equal(missing.status,422);
+  const invalid=await fetch(origin+'/entries/record/'+id,{method:'POST',headers,
+    body:JSON.stringify({...input,site,actor:site+'-'+role,data:{litres:0,requiredBy:2}})});
+  assert.equal(invalid.status,422);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM entry_review_numbers').get().n,0);
   const response=await fetch(origin+'/entries/record/'+id,{method:'POST',headers,
-    body:JSON.stringify({...input,rev:1,actor:site+'-'+role})});
+    body:JSON.stringify({...input,site,actor:site+'-'+role})});
   assert.equal(response.status,200);
   assert.equal((await response.json()).status,'Saved');
   const saved=await (await fetch(origin+'/entries/record/'+id,{headers})).text();
   assert.match(saved,/value="CMLL\/DEOC\/IND\/\d{2}-\d{2}\/001"/);
   assert.match(saved,/>Saved<\/span>/);
+  assert.match(saved,/value="Dudhichua East OC" selected/);
+  assert.doesNotMatch(saved,/HSN code/);
   assert.doesNotMatch(saved,/Awaiting approval|value="Approve"|Review as|Review via Telegram/);
-  assert.match(saved,/<details class="indent-secondary"><summary>History<\/summary>/);
+  assert.doesNotMatch(saved,/<summary>History<\/summary>|<h2>History<\/h2>/);
+  assert.equal(createEntryStore(db).history(id).length,1);
   const register=await (await fetch(origin+'/entries/type/E1?status=Saved',{headers})).text();
   assert.match(register,/CMLL\/DEOC\/IND\/\d{2}-\d{2}\/001/);
   const approvals=await (await fetch(origin+'/entries/approvals',{headers})).text();

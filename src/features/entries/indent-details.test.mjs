@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createEntryStore } from './entry-store.mjs';
-import { indentFinancialYear, requiredDate } from './indent-details.mjs';
+import { indentFinancialYear, requiredDate, indentFormData, indentDueDate, formatIndentDate } from './indent-details.mjs';
 import { entrySites, entrySiteDirectory, siteInitials } from './entry-sites.mjs';
 import { detailPage } from './entry-page.mjs';
 import { byId } from './catalog.mjs';
@@ -32,7 +32,7 @@ test('indent numbers are transactional, persistent, site-wise, and fiscal-year-w
   const write=(id,site,day,action='Submit',rev=0,extra={})=>store.write(id,actor(site),{
     type:'E1',day,action,rev,data:{litres:100,requiredBy:2,reason:'Operational demand'},...extra});
   const id=randomUUID(), token=randomUUID();
-  assert.equal(write(id,'Jayant','2026-03-31','Save draft').number,'');
+  assert.equal(write(id,'Jayant','2026-03-31','Save draft').number,'CMLL/JOC/IND/25-26/001');
   const first=write(id,'Jayant','2026-03-31','Submit',1,{token});
   assert.equal(first.number,'CMLL/JOC/IND/25-26/001');
   assert.equal(write(id,'Jayant','2026-03-31','Submit',1,{token}).number,first.number);
@@ -48,13 +48,15 @@ test('indent numbers are transactional, persistent, site-wise, and fiscal-year-w
 
 test('indent details show all site names while retaining assignment restrictions and master item details',()=>{
   const maker=actor();
-  const doc={id:randomUUID(),type:'E1',site:maker.site,maker:maker.id,day:'2026-11-23',rev:0,status:'Draft',number:'',data:{requiredBy:3},result:{}};
+  const doc={id:randomUUID(),type:'E1',site:maker.site,selectedSite:maker.site,maker:maker.id,day:'2026-11-23',rev:0,status:'Draft',number:'',data:{requiredBy:3},result:{}};
   const meta={...byId.E1,indentItem:{code:'HSD',name:'Approved diesel',hsn:'00123456',unit:'L'}};
   const html=detailPage(maker,doc,[],[],null,meta);
   for(const row of entrySites) assert.ok(html.includes('>'+row.name+'</option>'));
   assert.match(html,/Item name<input type="text" readonly value="Approved diesel"/);
-  assert.match(html,/HSN code<input type="text" readonly value="00123456"/);
-  assert.match(html,/Unit<select name="unit"/);
+  assert.doesNotMatch(html,/HSN code|00123456/);
+  assert.match(html,/Unit<input name="unit" type="text" readonly value="Litre"/);
+  assert.match(html,/data-indent-date aria-label="Required date" min="2026-11-23"[^>]*value="2026-11-26"/);
+  assert.match(html,/>26\/11\/2026<\/output>/);
   assert.match(html,/Indent date<input name="day" type="date"/);
   assert.match(html,/Required by \(days\)<input name="requiredBy" type="number" data-required="true" step="1" min="0" max="3650" value="3"/);
   assert.match(html,/form="indent-site-switch"/);
@@ -62,7 +64,7 @@ test('indent details show all site names while retaining assignment restrictions
   assert.equal(entrySiteDirectory(assigned).filter(row=>row.allowed).length,1);
   assert.match(detailPage(assigned,doc,[],[],null,meta),/value="Sasti" disabled>Sasti OC/);
   const posted={...doc,status:'Awaiting approval',rev:1,number:'CMLL/JOC/IND/26-27/001',indentItem:meta.indentItem};
-  assert.match(detailPage(maker,posted,[],[],null,byId.E1),/HSN code<input type="text" readonly value="00123456"/);
+  assert.doesNotMatch(detailPage(maker,posted,[],[],null,byId.E1),/HSN code|00123456/);
   const legacy={...posted,number:'cmll/joc/26-27/001'};
   const legacyPage=detailPage(maker,legacy,[],[],null,meta);
   assert.match(legacyPage,/value="CMLL\/JOC\/IND\/26-27\/001"/);
@@ -70,6 +72,26 @@ test('indent details show all site names while retaining assignment restrictions
   assert.equal(entryCsvRows([legacy])[1][0],'CMLL/JOC/IND/26-27/001');
   assert.equal(entryExportRows([legacy])[1][0],'CMLL/JOC/IND/26-27/001');
   assert.equal(legacy.number,'cmll/joc/26-27/001');
+});
+
+test('older KL quantities reopen in litres without changing their volume and required dates use DD/MM/YYYY',t=>{
+  const db=openDieselDatabase(':memory:');t.after(()=>db.close());
+  const store=createEntryStore(db),maker=actor();
+  const saved=store.write(randomUUID(),maker,{type:'E1',rev:0,day:'2026-11-20',action:'Save indent',data:{litres:1250,requiredBy:2}});
+  const legacy={...saved,data:{...saved.data,litres:1.25,unit:'KL'}};
+  db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify(legacy),legacy.id);
+  const converted=indentFormData(legacy);
+  assert.equal(converted.litres,1250);assert.equal(converted.unit,'Litre');
+  const html=detailPage(maker,legacy,[],store.history(legacy.id),null);
+  assert.match(html,/name="litres"[^>]*value="1250"/);
+  assert.doesNotMatch(html,/<option value="KL"|<summary>History<\/summary>/);
+  const revised=store.write(legacy.id,maker,{rev:legacy.rev,day:legacy.day,action:'Save indent',data:converted});
+  assert.equal(revised.result.litres,legacy.result.litres);
+  assert.equal(revised.number,legacy.number);
+  assert.equal(formatIndentDate(indentDueDate({day:'2028-02-28',data:{requiredBy:1}})),'29/02/2028');
+  assert.equal(indentDueDate({day:'2026-11-23',data:{requiredBy:3651}}),'');
+  assert.equal(indentDueDate({day:'2026-11-23',data:{}}),'');
+  assert.equal(formatIndentDate(indentDueDate({day:'2026-11-23',data:{requiredBy:'2026-12-02'}})),'02/12/2026');
 });
 
 test('legacy date indents retain their number and can still be approved',t=>{
