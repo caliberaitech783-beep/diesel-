@@ -12,7 +12,7 @@ import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { indentFields, indentReadDetails } from './indent-fields.mjs';
-import { indentStatus } from './indent-details.mjs';
+import { indentStatus, formatIndentNumber } from './indent-details.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
 function switchTo(role,site,path,label) {
@@ -29,7 +29,7 @@ function table(rows, sources = rows) {
   const trace = traceEntries(sources);
   return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th><th>Truck / vehicle</th><th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
-    <td class="doc-number">${esc(r.number||'Draft')}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
   const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
@@ -39,7 +39,7 @@ export function approvalsPage(actor, rows) {
 }
 export function alertsPage(actor, alerts) {
   const list = alerts.map(alert => `<li><strong>${esc(alert.label)}</strong> · ${esc(alert.detail)}
-    ${alert.id ? `· <a href="/entries/record/${esc(alert.id)}">${esc(alert.number || 'Open entry')}</a>` : ''}
+    ${alert.id ? `· <a href="/entries/record/${esc(alert.id)}">${esc(formatIndentNumber(alert.number || 'Open entry'))}</a>` : ''}
     ${alert.escalation ? `· Escalated to ${esc(alert.escalation)}` : ''}</li>`).join('');
   return page('My alerts', actor, 'alerts', '/entries/alerts', list ? `<section><ul>${list}</ul></section>` : '<p>No alerts for this role and site.</p>');
 }
@@ -102,7 +102,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
 }
 function fieldControl(f,d,rows,actor) {
   const raw=d.data[f.key]??'',value=f.oldOptions?.get(raw)??raw,opts=f.type==='link'?sourceChoices(f,d,rows,actor)
-    .map(r=>[r.id,r.number+' · '+byId[r.type].name]):f.options?.map(v=>[v,v]);
+    .map(r=>[r.id,formatIndentNumber(r.number)+' · '+byId[r.type].name]):f.options?.map(v=>[v,v]);
   const label=esc(f.label);
   const fuelIssues = d.type==='E11' && actor.siteEntryTypes && ['vehicle','bowser'].includes(f.key)
     ? rows.filter(row=>row.type==='E11'&&row.status==='Posted'&&row.day<=d.day) : [];
@@ -125,7 +125,7 @@ function fieldControl(f,d,rows,actor) {
 function display(value) {
   if (Array.isArray(value)) return value.map(display).join(', ');
   if (value && typeof value==='object') return value.id&&value.name?`<a href="/entries/file/${esc(value.id)}">${esc(value.name)}</a>`:Object.entries(value).map(([k,v])=>esc(k)+' · '+display(v)).join(', ');
-  return typeof value==='number'?esc(value.toLocaleString('en-IN',{maximumFractionDigits:4})):esc(value??'—');
+  return typeof value==='number'?esc(value.toLocaleString('en-IN',{maximumFractionDigits:4})):esc(formatIndentNumber(value??'—'));
 }
 function editableFields(meta, doc, rows, actor) {
   if (doc.type==='E1') return indentFields(actor,doc,meta,(fields,d)=>fields.map(field=>fieldControl(field,d,rows,actor)).join(''));
@@ -165,8 +165,8 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const displayValue=v=>{
     const source = typeof v==='string' && rows.find(row=>row.id===v);
     if (!source) return display(v);
-    return actor.siteEntryTypes && actor.assignments && !mayViewEntry(source,actor) ? esc(source.number)
-      : `<a href="/entries/record/${source.id}">${esc(source.number)}</a>`;
+    return actor.siteEntryTypes && actor.assignments && !mayViewEntry(source,actor) ? esc(formatIndentNumber(source.number))
+      : `<a href="/entries/record/${source.id}">${esc(formatIndentNumber(source.number))}</a>`;
   };
   const inputRows=(d.type==='E1'?indentReadDetails(d,meta,actor):'')+meta.fields.filter(f=>d.data[f.key]!==undefined||(indent&&f.default!==undefined)).map(f=>{
     const value = d.data[f.key]??f.default;
@@ -182,9 +182,9 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← E1 register</a>
-    <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(state)}</strong><span>${esc(d.day)}</span></div></div>`
+    <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(state)}</strong><span>${esc(d.day)}</span></div></div>`
     : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
-      <div class="bar"><strong>${esc(d.number||'New draft')} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
+      <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent?`<section><h2>Site stock</h2>${stock}</section>`:''}

@@ -52,8 +52,8 @@ test('new-entry navigation reserves unique numbers and the form follows the requ
   const urls=opens.map(response=>response.headers.get('location'));
   assert.notEqual(urls[0],urls[1]);
   const pages=await Promise.all(urls.map(url=>fetch(origin+url).then(response=>response.text())));
-  assert.match(pages[0],/cmll\/JOC\/\d{2}-\d{2}\/001/);
-  assert.match(pages[1],/cmll\/JOC\/\d{2}-\d{2}\/002/);
+  assert.match(pages[0],/CMLL\/JOC\/\d{2}-\d{2}\/001/);
+  assert.match(pages[1],/CMLL\/JOC\/\d{2}-\d{2}\/002/);
   const html=pages[0];
   const labels=['Location</label>','Indent number<input','Date<input','Item name<input','HSN code<input','Quantity<input','Unit<select','Priority<select'];
   let prior=-1;

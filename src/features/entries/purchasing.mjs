@@ -1,7 +1,7 @@
 import { review, ratePerKL } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
-import { requiredDate, indentLitres } from './indent-details.mjs';
+import { requiredDate, indentLitres, formatIndentNumber } from './indent-details.mjs';
 import { calculatedDeduction, financialYearStart, tdsRuleFor } from './tds-deduction.mjs';
 
 function siteOrder(data,c) {
@@ -62,7 +62,7 @@ export const purchasing = {
     // An indent is open while it waits for approval or still has quantity without a purchase order.
     const openIndents = c.reserved('E1').filter(r=>r.status!=='Posted'
       || r.result.litres>c.sum(c.reserved('E2').filter(p=>p.data.indent===r.id),'litres'));
-    check(!openIndents.length || d.reason,'Indent '+(openIndents[0]?.number||'for this site')+' is still open. Select a reason to raise another.');
+    check(!openIndents.length || d.reason,'Indent '+(formatIndentNumber(openIndents[0]?.number)||'for this site')+' is still open. Select a reason to raise another.');
     const approvals = ['Project Manager','Head – Procurement'];
     if (litres>review.indentSlab) approvals.push('Director / CMD');
     const item = c.siteConfig?.item;
