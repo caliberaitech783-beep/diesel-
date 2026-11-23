@@ -1,7 +1,7 @@
 import { byId } from './catalog.mjs';
 import { validDate } from './entry-rules.mjs';
 import { utils, write } from 'xlsx';
-import { indentStatus } from './indent-details.mjs';
+import { indentStatus, formatIndentNumber } from './indent-details.mjs';
 
 const text = value => typeof value === 'string' ? value.trim().slice(0, 100) : '';
 const date = value => validDate(value) ? value : '';
@@ -42,14 +42,14 @@ export function entryExportRows(rows,sources=rows) {
   return [['Document','Entry','Site','Business date','Shift','Truck','Vehicle','Status','Details','Results'],
     ...rows.map(row => {
       const { truck, vehicle } = trace(row);
-      return [row.number,byId[row.type].name,row.site,row.day,row.shift?.name,truck,vehicle,row.status,
-        JSON.stringify(row.data),JSON.stringify(row.result)];
+      return [formatIndentNumber(row.number),byId[row.type].name,row.site,row.day,row.shift?.name,truck,vehicle,row.status,
+        JSON.stringify(row.data),formatIndentNumber(JSON.stringify(row.result))];
     })];
 }
 
 export function entryCsvRows(rows) {
   return [['Document','Entry','Site','Date','Status','Details','Results'],
-    ...rows.map(row=>[row.number,byId[row.type].name,row.site,row.day,row.status,JSON.stringify(row.data),JSON.stringify(row.result)])];
+    ...rows.map(row=>[formatIndentNumber(row.number),byId[row.type].name,row.site,row.day,row.status,JSON.stringify(row.data),formatIndentNumber(JSON.stringify(row.result))])];
 }
 
 export function entryExcel(rows) {

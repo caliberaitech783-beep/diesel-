@@ -55,7 +55,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n')
         .get(series.scope,'E1',series.year);
       doc.number=series.label+'/'+String(n).padStart(3,'0');
-      check(!all().some(row=>row.number===doc.number),'This indent number already exists.');
+      check(!all().some(row=>row.number?.toUpperCase()===doc.number),'This indent number already exists.');
       return;
     }
     if (siteFor) {

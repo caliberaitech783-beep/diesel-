@@ -9,6 +9,7 @@ import { detailPage } from './entry-page.mjs';
 import { byId } from './catalog.mjs';
 import { roleKey } from './review-masters.mjs';
 import { validateFields } from './entry-rules.mjs';
+import { entryCsvRows, entryExportRows } from './entry-register.mjs';
 
 const actor=(site='Jayant')=>({site,id:'maker-'+site,profile:roleKey('Site In-charge')});
 
@@ -33,13 +34,13 @@ test('indent numbers are transactional, persistent, site-wise, and fiscal-year-w
   const id=randomUUID(), token=randomUUID();
   assert.equal(write(id,'Jayant','2026-03-31','Save draft').number,'');
   const first=write(id,'Jayant','2026-03-31','Submit',1,{token});
-  assert.equal(first.number,'cmll/JOC/25-26/001');
+  assert.equal(first.number,'CMLL/JOC/25-26/001');
   assert.equal(write(id,'Jayant','2026-03-31','Submit',1,{token}).number,first.number);
-  assert.equal(write(randomUUID(),'Jayant','2026-04-01').number,'cmll/JOC/26-27/001');
-  assert.equal(write(randomUUID(),'Sasti','2026-04-01').number,'cmll/SOC/26-27/001');
+  assert.equal(write(randomUUID(),'Jayant','2026-04-01').number,'CMLL/JOC/26-27/001');
+  assert.equal(write(randomUUID(),'Sasti','2026-04-01').number,'CMLL/SOC/26-27/001');
   assert.throws(()=>write(randomUUID(),'Jayant','2026-04-01','Submit',0,{data:{litres:0,requiredBy:2}}));
   store=createEntryStore(db);
-  assert.equal(write(randomUUID(),'Jayant','2026-04-02').number,'cmll/JOC/26-27/002');
+  assert.equal(write(randomUUID(),'Jayant','2026-04-02').number,'CMLL/JOC/26-27/002');
   const returned=store.write(first.id,{id:'manager',site:'Jayant',profile:roleKey('Project Manager')},{action:'Return',rev:first.rev,reason:'Check quantity'});
   assert.equal(write(first.id,'Jayant','2026-03-31','Submit',returned.rev).number,first.number);
   assert.equal(new Set(entrySites.map(row=>siteInitials(row.site))).size,entrySites.length);
@@ -60,8 +61,15 @@ test('indent details show all site names while retaining assignment restrictions
   const assigned={...maker,assignments:[{site:'Jayant',profile:maker.profile}]};
   assert.equal(entrySiteDirectory(assigned).filter(row=>row.allowed).length,1);
   assert.match(detailPage(assigned,doc,[],[],null,meta),/value="Sasti" disabled>Sasti OC/);
-  const posted={...doc,status:'Awaiting approval',rev:1,number:'cmll/JOC/26-27/001',indentItem:meta.indentItem};
+  const posted={...doc,status:'Awaiting approval',rev:1,number:'CMLL/JOC/26-27/001',indentItem:meta.indentItem};
   assert.match(detailPage(maker,posted,[],[],null,byId.E1),/HSN code<input type="text" readonly value="00123456"/);
+  const legacy={...posted,number:'cmll/joc/26-27/001'};
+  const legacyPage=detailPage(maker,legacy,[],[],null,meta);
+  assert.match(legacyPage,/value="CMLL\/JOC\/26-27\/001"/);
+  assert.doesNotMatch(legacyPage,/cmll\/joc/);
+  assert.equal(entryCsvRows([legacy])[1][0],'CMLL/JOC/26-27/001');
+  assert.equal(entryExportRows([legacy])[1][0],'CMLL/JOC/26-27/001');
+  assert.equal(legacy.number,'cmll/joc/26-27/001');
 });
 
 test('legacy date indents retain their number and can still be approved',t=>{

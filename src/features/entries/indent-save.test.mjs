@@ -16,7 +16,7 @@ test('Save indent validates, numbers and persists a saved request without approv
   const store=createEntryStore(db),id=randomUUID(),token=randomUUID();
   const doc=store.write(id,maker,{...input,token});
   assert.equal(doc.status,'Saved');
-  assert.match(doc.number,/^cmll\/JOC\/\d{2}-\d{2}\/001$/);
+  assert.match(doc.number,/^CMLL\/JOC\/\d{2}-\d{2}\/001$/);
   assert.deepEqual(doc.result.approvals,[]);
   assert.equal(doc.result.telegramAllowed,false);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM entry_review_moves').get().n,0);
@@ -69,17 +69,17 @@ test('the indent screen switches site at the top and saves without showing appro
   assert.doesNotMatch(html,/Use site|value="Submit"|Review role|My approvals/);
   assert.match(html,/<details class="indent-secondary"><summary>Site stock<\/summary>/);
   const id=html.match(/id="entry-form" data-id="([a-f0-9-]+)"/)[1];
-  assert.match(html,/Indent number<input type="text" readonly value="cmll\/DEOC\/\d{2}-\d{2}\/001"/);
+  assert.match(html,/Indent number<input type="text" readonly value="CMLL\/DEOC\/\d{2}-\d{2}\/001"/);
   const response=await fetch(origin+'/entries/record/'+id,{method:'POST',headers,
     body:JSON.stringify({...input,rev:1,actor:site+'-'+role})});
   assert.equal(response.status,200);
   assert.equal((await response.json()).status,'Saved');
   const saved=await (await fetch(origin+'/entries/record/'+id,{headers})).text();
-  assert.match(saved,/cmll\/DEOC\/\d{2}-\d{2}\/001 · Saved/);
+  assert.match(saved,/CMLL\/DEOC\/\d{2}-\d{2}\/001 · Saved/);
   assert.doesNotMatch(saved,/Awaiting approval|value="Approve"|Review as|Review via Telegram/);
   assert.match(saved,/<details class="indent-secondary"><summary>History<\/summary>/);
   const register=await (await fetch(origin+'/entries/type/E1?status=Saved',{headers})).text();
-  assert.match(register,/cmll\/DEOC\/\d{2}-\d{2}\/001/);
+  assert.match(register,/CMLL\/DEOC\/\d{2}-\d{2}\/001/);
   const approvals=await (await fetch(origin+'/entries/approvals',{headers})).text();
   assert.doesNotMatch(approvals,new RegExp(id));
 });
