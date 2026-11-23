@@ -24,6 +24,7 @@ if (dialog) {
     event.preventDefault();
     opener = link;
     dirty = busy = false;
+    dialog.style.removeProperty('--record-frame-height');
     discard.hidden = true;
     frame.inert = false;
     dialog.querySelector('[role="status"]').hidden = false;
@@ -46,6 +47,9 @@ if (dialog) {
     if (event.origin !== location.origin || event.source !== frame.contentWindow || !dialog.open) return;
     const message = event.data;
     if (message?.type === 'master-record-ready') dialog.querySelector('h2').textContent = message.title;
+    if (message?.type === 'master-record-size' && Number.isFinite(message.height) && message.height > 0) {
+      dialog.style.setProperty('--record-frame-height', Math.min(10000, Math.ceil(message.height)) + 'px');
+    }
     if (message?.type === 'master-record-dirty') dirty = true;
     if (message?.type === 'master-record-busy') busy = Boolean(message.busy);
     if (message?.type === 'master-record-close') requestClose();
@@ -61,6 +65,11 @@ if (dialog) {
 if (document.body.classList.contains('record-dialog-page') && window.parent !== window) {
   const send = data => window.parent.postMessage(data, location.origin);
   send({ type: 'master-record-ready', title: document.querySelector('#record-form')?.dataset.masterName ?? 'Record details' });
+  const workspace = document.querySelector('main');
+  if (workspace) {
+    // Observe the content, not the iframe viewport, so small forms can shrink again.
+    new ResizeObserver(() => send({ type:'master-record-size', height:workspace.getBoundingClientRect().height })).observe(workspace);
+  }
   document.querySelector('#record-form')?.addEventListener('input', () => send({ type: 'master-record-dirty' }));
   document.querySelector('[data-dialog-cancel]')?.addEventListener('click', () => send({ type: 'master-record-close' }));
   document.addEventListener('keydown', event => {

@@ -7,7 +7,7 @@ import { masterForm } from './master-form.mjs';
 const css = await readFile(new URL('./assets/master-form.css', import.meta.url), 'utf8');
 
 test('master forms fill each section and line boxes up across a row', () => {
-  assert.match(css, /\.field-grid \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 15rem\), 1fr\)\)/);
+  assert.match(css, /\.field-grid \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 12\.5rem\), 1fr\)\)/);
   assert.match(css, /\.master-field \{[^}]*grid-row: span 3;[^}]*grid-template-rows: subgrid;/);
   assert.doesNotMatch(css, /--heading-width|--form-cols|flex: 1 0 auto/, 'section titles and empty fixed columns do not reserve unused space');
   const form = masterForm({ slug: 'sample', sections: [{ name: 'Details', fields: [{ label: 'Long required label', required: true }] }] });

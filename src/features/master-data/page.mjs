@@ -6,6 +6,7 @@ import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from '../masters/master-site-menu.mjs';
 import { masterDataFileMenu } from './file-menu.mjs';
 import { masterDataSearch } from './search.mjs';
+import { tableCellAttributes } from './table-layout.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -24,14 +25,14 @@ function savedTable(master, rows, canSave, prefix, canEdit) {
       const value = escape(values.get(key));
       return key === master.codeField
         ? `<th scope="row"><a data-record-dialog href="${escape(href)}">${value}</a>${row.missing ? ` <small class="record-incomplete" title="Required fields still empty">Incomplete · ${row.missing}</small>` : ''}</th>`
-        : `<td data-label="${escape(key)}">${value}</td>`;
+        : `<td data-label="${escape(key)}"${tableCellAttributes(values.get(key))}>${value}</td>`;
     });
     return `<tr>${cells.join('')}<td><a class="record-edit-link" data-record-dialog href="${escape(href)}" aria-label="${action} ${escape(row.code)}">${action}</a>${row.status === 'pending deletion' ? '<small class="record-pending-delete">Deletion in review</small>' : ''}</td></tr>`;
   }).join('');
   const empty = canSave ? 'No saved records for this master.' : 'This master is available as a form preview.';
   return `<div class="master-data-table" role="region" aria-label="${escape(master.name)} records" tabindex="0">
     <table>
-      <thead><tr>${master.fields.map(field => `<th scope="col">${escape(field.key)}</th>`).join('')}<th scope="col">Actions</th></tr></thead>
+      <thead><tr>${master.fields.map(field => `<th scope="col"${field.key === master.codeField ? ' data-record-key' : ''}>${escape(field.key)}</th>`).join('')}<th scope="col">Actions</th></tr></thead>
       <tbody>${records || `<tr class="master-data-empty"><td colspan="${master.fields.length + 1}">${empty}</td></tr>`}</tbody>
     </table>
   </div>`;
