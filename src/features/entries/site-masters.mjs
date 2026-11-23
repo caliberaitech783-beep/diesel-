@@ -36,7 +36,7 @@ export function readSiteMasters(db,site) {
   const location=data['location-master'].find(record=>record.site===site);
   const items=data['item-master'].map(record=>({
     ...ref(record),densityMin:Number(record.values['Density minimum (kg/m³)']),densityMax:Number(record.values['Density maximum (kg/m³)']),
-    volumeBasis:record.values['Volume basis'],
+    volumeBasis:record.values['Volume basis'], hsn:record.values['HSN Code'], unit:record.values['Measuring Unit'],
   }));
   const reasons=data['reason-code-master'].map(record=>({...ref(record),
     category:record.values['Used for (rejection, shortage, variance, correction, override)'],
@@ -80,7 +80,7 @@ export function siteDefinition(type, config) {
     E17:[{key:'clearingAccount',label:'Approved diesel clearing account',type:'select'},
       {key:'consumptionAccount',label:'Approved diesel consumption account',type:'select'}],
   };
-  return { ...standard, receiptReasons:entryReasons('E12',config.reasons).map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
+  return { ...standard, ...(type==='E1'?{indentItem:config.item}:{}), receiptReasons:entryReasons('E12',config.reasons).map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
     if (type==='E12' && field.key==='to') {
       const targets = transferOptions(config);
       const counts = new Map();

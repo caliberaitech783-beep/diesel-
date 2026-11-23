@@ -1,5 +1,6 @@
 // Local review fixtures only. Rates and limits are illustrative, not company approvals.
-export const sites = ['Jayant', 'Sasti'];
+import { entrySites } from './entry-sites.mjs';
+export const sites = entrySites.map(row=>row.site);
 export const roles = ['Site In-charge','Project Manager','Head – Procurement','Director / CMD','Procurement Executive',
   'Accounts Executive','Head – Accounts','CFO','Treasury','Site Store','Point operator','Bowser operator'];
 export const roleKey = role => 'entry-' + roles.indexOf(role);

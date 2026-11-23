@@ -106,7 +106,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   async function submit() {
     const record = '/entries/record/' + randomUUID();
     const posted = await request(record,'i',{ actor:context('i','Site In-charge'), action:'Submit', type:'E1',
-      day, data:{ litres:120,requiredBy:day,reason:'START' }, rev:0 });
+      day, data:{ litres:120,requiredBy:0,reason:'START' }, rev:0 });
     assert.equal(posted.status,200,await posted.text());
     return record;
   }
@@ -114,13 +114,13 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   const record = await submit();
   assert.equal((await request(record,'b')).status,404);
   assert.equal((await request('/entries/type/E1','b')).status,403);
-  assert.doesNotMatch(await (await request('/entries/export.csv?type=E1','b')).text(),/IND\/MN-1/);
+  assert.doesNotMatch(await (await request('/entries/export.csv?type=E1','b')).text(),/cmll\/MN\//);
   const excel = await request('/entries/export.xlsx?type=E1&from='+day,'r',null,reviewerSite);
   assert.equal(excel.status,200);
   const workbook = readWorkbook(Buffer.from(await excel.arrayBuffer()));
   const rows = workbookUtils.sheet_to_json(workbook.Sheets['Diesel Entries']);
   assert.equal(rows.length,1);
-  assert.match(rows[0].Document,/^IND\/MN-1/);
+  assert.match(rows[0].Document,/^cmll\/MN\/\d{2}-\d{2}\/001$/);
   assert.equal(rows[0].Site,site);
   assert.match(await (await request(record,'r',null,reviewerSite)).text(),/Review via Telegram/);
   assert.doesNotMatch(await (await request(record,'i')).text(),/Review via Telegram/);

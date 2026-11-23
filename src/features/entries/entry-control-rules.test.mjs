@@ -29,7 +29,7 @@ function setup(t) {
   return {store,submit,act,approve};
 }
 function receive(w,inspection) {
-  const indent=w.approve(w.submit('E1',{litres:2000,requiredBy:day}));
+  const indent=w.approve(w.submit('E1',{litres:2000,requiredBy:0}));
   const po=w.approve(w.submit('E2',{indent:indent.id,type:'Bulk',supplier:review.supplier,depot:review.depot,basis:'Ex-depot',transporter:review.transporter,kl:1,terms:'Advance'}));
   w.act(w.approve(w.submit('E3',{po:po.id,amount:po.result.value})),'Confirm UTR','Treasury',{utr:'CTRL-UTR-'+randomUUID().slice(0,6),paymentDate:day});
   const gate=w.submit('E5',{po:po.id,scenario:'UG tank',transporter:review.transporter,truck:'CTRL101',driver:'Test driver',mobile:'9000000000',
@@ -39,10 +39,10 @@ function receive(w,inspection) {
 
 test('a second indent while one is open needs a reason and names the open indent', t => {
   const w=setup(t);
-  const first=w.submit('E1',{litres:500,requiredBy:day});
+  const first=w.submit('E1',{litres:500,requiredBy:0});
   assert.equal(first.status,'Awaiting approval');
-  assert.throws(()=>w.submit('E1',{litres:400,requiredBy:day}),new RegExp('Indent '+first.number+' is still open'));
-  const second=w.submit('E1',{litres:400,requiredBy:day,reason:'Operational demand'});
+  assert.throws(()=>w.submit('E1',{litres:400,requiredBy:0}),new RegExp('Indent '+first.number+' is still open'));
+  const second=w.submit('E1',{litres:400,requiredBy:0,reason:'Operational demand'});
   assert.equal(second.result.otherOpenIndents,1);
   assert.equal(second.result.openIndentNumbers,first.number);
 });
@@ -68,13 +68,13 @@ test('corrections cover every entry type and field, and never need less approval
   assert.ok(!['E3','E7','E16','E17'].some(type=>correctionTypes.includes(type)));
   assert.ok(correctableFields('E11').some(field=>field.key==='end') && !correctableFields('E11').some(field=>field.key==='vehicle'));
   const field=byId.E16.fields.find(item=>item.key==='field');
-  assert.equal(field.optionLabels.get('requiredBy'),'Required by');
+  assert.equal(field.optionLabels.get('requiredBy'),'Required by (days)');
   const w=setup(t);
-  const indent=w.approve(w.submit('E1',{litres:300,requiredBy:day}));
-  const dated=w.submit('E16',{target:indent.id,field:'requiredBy',value:'2099-12-31',reason:review.reasons[4],evidence:photo},'Site In-charge');
+  const indent=w.approve(w.submit('E1',{litres:300,requiredBy:0}));
+  const dated=w.submit('E16',{target:indent.id,field:'requiredBy',value:'3',reason:review.reasons[4],evidence:photo},'Site In-charge');
   assert.throws(()=>w.submit('E16',{target:indent.id,field:'bill',value:'X',reason:review.reasons[4],evidence:photo},'Site In-charge'),/field that the original diesel indent has/);
   assert.match(String(dated.result.approvals),/^Site In-charge$/);
-  assert.equal(dated.result.field,'Required by');
+  assert.equal(dated.result.field,'Required by (days)');
   const po=w.approve(w.submit('E2',{indent:indent.id,type:'Bulk',supplier:review.supplier,depot:review.depot,basis:'Ex-depot',transporter:review.transporter,kl:0.3,terms:'Advance'}));
   const poCorrection=w.submit('E16',{target:po.id,field:'kl',value:'0.2',reason:review.reasons[4],evidence:photo},'Procurement Executive');
   assert.deepEqual(poCorrection.result.approvals,[...po.result.approvals,'Head – Accounts']);
@@ -119,7 +119,7 @@ test('a post-sale discount stays outstanding on the bill until its credit notes 
 test('GPS stamps keep the reading accuracy with the action', t => {
   const {store}=setup(t);
   const save=position=>store.write(randomUUID(),actor('Site In-charge'),{type:'E1',rev:0,day,action:'Save draft',
-    data:{litres:1000,requiredBy:day},position});
+    data:{litres:1000,requiredBy:0},position});
   const id=save({latitude:23.1,longitude:82.5,accuracy:12.6}).id;
   assert.deepEqual(store.history(id).at(-1).meta.position,{latitude:23.1,longitude:82.5,accuracy:13});
   assert.deepEqual(store.history(save({latitude:23.1,longitude:82.5,accuracy:-4}).id).at(-1).meta.position,{latitude:23.1,longitude:82.5});

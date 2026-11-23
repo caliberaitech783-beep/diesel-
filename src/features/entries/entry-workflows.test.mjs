@@ -33,7 +33,7 @@ function setup(t) {
   return {db,store,submit,act,approve};
 }
 function purchase(w,when=day) {
-  const indent=w.approve(w.submit('E1',{litres:2000,requiredBy:when},undefined,when));
+  const indent=w.approve(w.submit('E1',{litres:2000,requiredBy:0},undefined,when));
   const po=w.approve(w.submit('E2',{indent:indent.id,type:'Bulk',supplier:review.supplier,depot:review.depot,basis:'Ex-depot',transporter:review.transporter,kl:1,terms:'Advance'},undefined,when));
   assert.equal(po.result.value,90000);
   assert.throws(()=>w.submit('E2',{...po.data,kl:1.1},undefined,when),/indent balance/);
@@ -89,7 +89,7 @@ test('stock transfers, issues, two-source recovery, and destination confirmation
 });
 test('entry changes are attributed, retry-safe, scope-limited and corrected with a new version',t=>{
   const w=setup(t),id=randomUUID(),maker=actor('Site In-charge');
-  const input={type:'E1',action:'Submit',day,rev:0,data:{litres:100,requiredBy:day},token:randomUUID()};
+  const input={type:'E1',action:'Submit',day,rev:0,data:{litres:100,requiredBy:0},token:randomUUID()};
   const submitted=w.store.write(id,maker,input);
   assert.deepEqual(w.store.write(id,maker,input),submitted);
   assert.throws(()=>w.act(submitted,'Approve','Site In-charge'),/another reviewer/);
@@ -127,12 +127,12 @@ test('the sample purchase, receipt and fuel issue reconcile through month close 
     {account:'Review diesel clearing',debit:0,credit:9034.29},
   ]);
   assert.match(closeJournalCsv(closed),/"Fleet operations","9034.29","0.00","3400"/);
-  assert.throws(()=>w.submit('E1',{litres:50,requiredBy:end},undefined,end),/month is locked/);
+  assert.throws(()=>w.submit('E1',{litres:50,requiredBy:0},undefined,end),/month is locked/);
 });
 
 test('local SMS approval enforces expiry, attempt lockout, scope and single-use across channels',t=>{
   const w=setup(t),inbox=createLocalApproval(w.db,w.store);
-  const d=w.submit('E1',{litres:100,requiredBy:day});
+  const d=w.submit('E1',{litres:100,requiredBy:0});
   const reviewer=actor('Project Manager'),now=Date.now();
   assert.throws(()=>inbox.issue(d.id,actor('Site In-charge'),now),/reviewer/);
   const first=inbox.issue(d.id,reviewer,now);
