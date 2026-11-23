@@ -27,10 +27,10 @@
 .indent-details-grid label:first-child input { font-family:ui-monospace,"Segoe UI",monospace; font-size:12px; letter-spacing:-.025em; }
 .indent-requester { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
 .indent-requester strong { color:var(--ink); font-weight:550; }
-.indent-item-grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:14px 18px; }
+.indent-item-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:14px 18px; }
 .indent-delivery-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px 22px; align-items:start; }
 .indent-quantity-block { display:grid; gap:14px; align-content:start; }
-.indent-quantity-controls,.indent-date-controls { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(100px,1fr); gap:10px; align-items:start; align-content:start; }
+.indent-quantity-controls,.indent-date-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(65px,.65fr); gap:10px; align-items:start; align-content:start; }
 .indent-date-controls { grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); }
 .indent-priority { max-width:260px; }
 .indent-reason-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:16px 22px; align-items:start; }
@@ -43,6 +43,11 @@
 .indent-workspace .indent-card label[data-state="changed"]::after { content:none; }
 .indent-workspace .indent-card label:has([name="priority"] option[value="Urgent"]:checked) select { color:#984d12; background:#fff7e9; border-color:#e5ba75; }
 .indent-card [data-indent-due] { display:flex; align-items:center; min-height:40px; margin:0; padding:8px 10px; border:1px solid #c3d5fb; border-radius:7px; font-size:13px; font-weight:550; background:var(--indent-soft); color:var(--indent-accent); }
+.indent-date-picker { position:relative; display:block; }
+.indent-card .indent-date-picker [data-indent-due] { padding-right:36px; }
+.indent-card .indent-date-picker input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.indent-date-picker svg { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:18px; height:18px; pointer-events:none; color:var(--indent-accent); }
+.indent-date-picker:focus-within { border-radius:7px; outline:3px solid #225de040; }
 .indent-character-count { justify-self:end; color:var(--muted); font-size:10px; font-weight:450; }
 .indent-extra { margin-top:12px; }
 .indent-extra input[type=file] { padding:8px; }
@@ -71,8 +76,7 @@
   .indent-details-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
   .indent-details-grid label:first-child { grid-column:auto; }
   .indent-item-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
-  .indent-item-grid label:last-child { max-width:55%; }
-  .indent-quantity-controls { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:8px; }
+  .indent-quantity-controls { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
   .indent-date-controls { grid-template-columns:minmax(0,1fr); }
   .indent-workspace .indent-card :is(input,select,textarea),.indent-card [data-indent-due] { min-height:44px; }
   .indent-reason-grid { gap:12px; }

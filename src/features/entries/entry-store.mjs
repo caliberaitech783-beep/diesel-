@@ -108,21 +108,10 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     check(byId[doc.type].maker && (doc.type==='E16'||byId[doc.type].maker===role||(doc.type==='E15'&&role==='Site Store')),'Switch to the entry’s initiator role.');
   }
   function openIndent(actor) {
-    const nested=db.isTransaction;
-    db.exec(nested?'SAVEPOINT indent_open':'BEGIN IMMEDIATE');
-    try {
-      const doc=fresh('E1',actor);
-      checkMaker(doc,actor);checkLocks(doc);
-      doc.data={unit:'Litre',priority:'Normal'};
-      if (actor.requestedBy) doc.requestedBy=actor.requestedBy;
-      assignNumber(doc);
-      persist(doc,actor.id,'Opened indent');
-      db.exec(nested?'RELEASE indent_open':'COMMIT');
-      return doc;
-    } catch(error) {
-      db.exec(nested?'ROLLBACK TO indent_open; RELEASE indent_open':'ROLLBACK');
-      throw error;
-    }
+    const doc=fresh('E1',actor);
+    checkMaker(doc,actor);
+    doc.data={unit:'Litre',priority:'Normal'};
+    return doc;
   }
   function files(doc,field,raw) {
     check(Array.isArray(raw) && raw.length<=16,'Choose up to 16 files per field.');
@@ -144,6 +133,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
   }
   function collect(doc,input) {
     check(input && typeof input==='object','Supply the entry fields.');
+    if(doc.type==='E1') check(input.unit===undefined || input.unit==='Litre','Unit must be Litre for a diesel indent.');
     const data={};
     for (const field of definition(doc.type,doc.site).fields) {
       const value=input[field.key] ?? field.default;
@@ -239,6 +229,10 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         const saveIndent=action==='Save indent';
         check(!saveIndent || doc.type==='E1','Save indent is only available for Diesel indent.');
         checkMaker(doc,actor);
+        if (doc.type==='E1' && !doc.requester) {
+          check(action==='Submit' || !actor.hosted || actor.employee,'Link your Pulse account to an Employee Master record before saving this indent.');
+          if (actor.employee) doc.requester={empId:actor.employee.empId,name:actor.employee.name};
+        }
         check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status),'This entry is already submitted.');
         check(validDate(body.day) && body.day<=dayFor(doc.site,now),'Choose today’s business date or an earlier date.');
         const config=siteConfig(doc.type,doc.site,body.day);
@@ -260,6 +254,7 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
             doc.status='Saved';
           } else if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
+        if (doc.type==='E1') assignNumber(doc);
       } else if (action==='Approve' || action==='Return') {
         check(mayApproveEntry(doc,actor),'This action belongs to another reviewer or stage.');
         checkLocks(doc);

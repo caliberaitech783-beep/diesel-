@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { read as readWorkbook, utils as workbookUtils } from 'xlsx';
 import { createApp } from '../../server.mjs';
@@ -161,7 +162,12 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   assert.equal(result.status,200,await result.clone().text());
   assert.equal((await result.json()).status,'Posted');
   assert.equal((await request(approve,'r',correct,reviewerSite)).status,422);
-  assert.match(await (await request(record,'r',null,reviewerSite)).text(),/Approve · Telegram \/ SMS OTP/);
+  assert.doesNotMatch(await (await request(record,'r',null,reviewerSite)).text(),/<summary>History<\/summary>|<h2>History<\/h2>/);
+  const auditDb=new DatabaseSync(join(directory,'site-stock.sqlite'),{readOnly:true});
+  try {
+    const audit=auditDb.prepare('SELECT action FROM entry_review_history WHERE doc=? ORDER BY seq DESC LIMIT 1').get(record.split('/').at(-1));
+    assert.match(audit.action,/Approve · Telegram \/ SMS OTP/);
+  } finally {auditDb.close();}
 
   const next = await submit();
   assert.equal((await request(next+'/telegram','s',{actor:context('s'),rev:1})).status,200);

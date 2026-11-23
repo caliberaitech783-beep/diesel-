@@ -122,7 +122,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       }
     }
     if (t.id==='E1') {
-      try { return res.redirect(303,'/entries/record/'+store.openIndent(a).id); }
+      try {
+        const doc=store.openIndent(a);
+        doc.selectedSite=req.query.site===a.site?a.site:'';
+        return res.send(detailPage(a,doc,store.list(a.site),[],doc.selectedSite?store.stockPicture(a.site,doc.day):null,store.definition(t.id,a.site)));
+      }
       catch(error) { return res.status(422).send(error.message); }
     }
     res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],null,store.definition(t.id,a.site)));
@@ -185,6 +189,9 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       return res.status(403).json({error:'Sign in with the Pulse account that prepared this action.'});
     }
     if (req.body.type!==undefined && !allowedType(req.body.type)) return res.sendStatus(404);
+    if ((req.body.action==='Save indent'||(req.body.type==='E1'&&req.body.action==='Save draft')) && req.body.site!==actor.site) {
+      return res.status(422).json({error:'Select a location before saving this indent.'});
+    }
     try { const doc=store.write(req.params.id,actor,req.body);res.json({url:'/entries/record/'+doc.id,status:doc.status}); }
     catch (e) { res.status(422).json({error:e.message}); }
   });

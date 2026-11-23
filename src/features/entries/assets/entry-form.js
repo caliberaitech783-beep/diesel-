@@ -2,25 +2,40 @@ const actor=document.body.dataset.actor;
 const offlineScope=document.body.dataset.offlineScope || undefined;
 const form=document.querySelector('#entry-form');
 const indentDue=document.querySelector('[data-indent-due]');
+const indentDate=document.querySelector('[data-indent-date]');
 function updateIndentDue() {
   if (!indentDue) return;
   const day=form.elements.namedItem('day').value, raw=form.elements.namedItem('requiredBy').value;
   const days=Number(raw), stamp=Date.parse(day);
-  indentDue.textContent=raw!==''&&Number.isInteger(days)&&days>=0&&days<=3650&&Number.isFinite(stamp)
-    ? new Date(stamp+days*86400000).toISOString().slice(0,10) : 'Enter required days';
+  const due=raw!==''&&Number.isInteger(days)&&days>=0&&days<=3650&&Number.isFinite(stamp)
+    ? new Date(stamp+days*86400000).toISOString().slice(0,10) : '';
+  indentDue.textContent=due?due.split('-').reverse().join('/'):'DD/MM/YYYY';
+  indentDate.min=day;
+  indentDate.max=Number.isFinite(stamp)?new Date(stamp+3650*86400000).toISOString().slice(0,10):'';
+  indentDate.value=due;
 }
-if(indentDue){form.addEventListener('input',updateIndentDue);updateIndentDue();}
+if(indentDue){
+  form.addEventListener('input',event=>{if(['day','requiredBy'].includes(event.target.name))updateIndentDue();});
+  indentDate.addEventListener('change',()=>{
+    const day=form.elements.namedItem('day').value;
+    form.elements.namedItem('requiredBy').value=indentDate.value?Math.round((Date.parse(indentDate.value)-Date.parse(day))/86400000):'';
+    updateIndentDue();
+  });
+  indentDate.addEventListener('click',()=>{try{indentDate.showPicker?.();}catch{/* The native control remains available. */}});
+  updateIndentDue();
+}
 let indentEdited=false;
 if(form?.dataset.type==='E1') form.addEventListener('input',event=>{if(event.target.form===form)indentEdited=true;});
 const indentSiteSwitch=document.querySelector('#indent-site-switch');
 const indentSiteSelect=document.querySelector('#indent-site');
-indentSiteSelect?.addEventListener('change',()=>indentSiteSwitch.requestSubmit());
+indentSiteSelect?.addEventListener('change',()=>{if(indentSiteSelect.value)indentSiteSwitch.requestSubmit();});
 indentSiteSwitch?.addEventListener('submit',event=>{
   if(indentEdited&&!confirm('Switch site and discard the unsaved changes to this indent?')) {
     event.preventDefault();
-    indentSiteSelect.value=form.dataset.site;
+    indentSiteSelect.value=indentSiteSelect.dataset.previous??'';
   }
 });
+if(indentSiteSelect)indentSiteSelect.dataset.previous=indentSiteSelect.value;
 const indentRemarks=document.querySelector('.indent-card textarea[name="remarks"]');
 indentRemarks?.addEventListener('input',()=>{
   document.querySelector('#indent-remarks-count').textContent=indentRemarks.value.length+' / 2000';
@@ -172,6 +187,7 @@ form?.addEventListener('submit',async event=>{
   const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
   try {
     const selectedSite=document.querySelector('select[form="indent-site-switch"]');
+    if(selectedSite&&!selectedSite.value) throw Error('Select a location before saving this indent.');
     if(selectedSite&&selectedSite.value!==form.dataset.site) throw Error('Wait for the selected site to open before saving this indent.');
     const values={};
     for(const input of form.querySelectorAll('[name]')) {
@@ -181,7 +197,7 @@ form?.addEventListener('submit',async event=>{
         values[input.name]=input.files.length?await Promise.all([...input.files].map(fileData)):saved;
       } else values[input.name]=input.value;
     }
-    const record={...values,token:crypto.randomUUID(),id:form.dataset.id,actor,offlineScope,action,rev:Number(form.dataset.rev),type:form.dataset.type,data:values,device:navigator.userAgent,queued:Date.now()};
+    const record={...values,...(selectedSite?{site:selectedSite.value}:{}),token:crypto.randomUUID(),id:form.dataset.id,actor,offlineScope,action,rev:Number(form.dataset.rev),type:form.dataset.type,data:values,device:navigator.userAgent,queued:Date.now()};
     if(form.dataset.position) record.position=JSON.parse(form.dataset.position);
     try { const path=await transmit(record);location.assign(path); }
     catch(e) {

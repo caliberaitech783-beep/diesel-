@@ -121,9 +121,9 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   majri.submit({site:'Majri',id:'majri-maker',profile:roleKey('Site In-charge')},
     {item:'HSD-A',measuredAt:last+'T07:00',revision:0,readings:[{code:'S-B',litres:0}]});
   majri.approve({site:'Majri',id:'majri-reviewer',profile:roleKey('Project Manager')},1);
-  const openedIndent=await request('/entries/new/E1',maker);
-  assert.equal(openedIndent.status,303);
-  const indent=await (await request(openedIndent.headers.get('location'),maker)).text();
+  const openedIndent=await request('/entries/new/E1?site=Jayant',maker);
+  assert.equal(openedIndent.status,200);
+  const indent=await openedIndent.text();
   assert.match(indent,/HSD-A · Site diesel/);
   assert.match(indent,/1,400/);
   const store=createEntryStore(siteDb);
@@ -147,7 +147,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.match(approvedIndent.number,/^CMLL\/JOC\/IND\/\d{2}-\d{2}\/\d{3}$/);
   assert.equal(approvedIndent.indentItem.hsn,'00123456');
   assert.equal(approvedIndent.indentItem.unit,'L');
-  assert.match(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/<span>HSN code<\/span><strong>00123456<\/strong>/);
+  assert.doesNotMatch(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/HSN code|00123456/);
   const order=await approve(await submit('E2','Procurement Executive',{indent:approvedIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Advance',kl:0.2}));
   assert.equal(order.result.value,19750);
