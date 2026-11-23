@@ -18,8 +18,20 @@ if(indentDue){
   form.addEventListener('input',event=>{if(['day','requiredBy'].includes(event.target.name))updateIndentDue();});
   indentDate.addEventListener('change',()=>{
     const day=form.elements.namedItem('day').value;
+    if(indentDate.value && (indentDate.value<day || indentDate.validity.rangeOverflow)) {
+      indentDate.value='';
+      form.elements.namedItem('requiredBy').value='';
+      updateIndentDue();
+      indentDate.setCustomValidity('Choose a required date on or after the indent date, within 3650 days.');
+      indentDate.reportValidity();
+      return;
+    }
+    indentDate.setCustomValidity('');
     form.elements.namedItem('requiredBy').value=indentDate.value?Math.round((Date.parse(indentDate.value)-Date.parse(day))/86400000):'';
     updateIndentDue();
+  });
+  form.addEventListener('input',event=>{
+    if(['day','requiredBy'].includes(event.target.name))indentDate.setCustomValidity('');
   });
   indentDate.addEventListener('click',()=>{try{indentDate.showPicker?.();}catch{/* The native control remains available. */}});
   updateIndentDue();

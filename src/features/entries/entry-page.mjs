@@ -24,12 +24,12 @@ function traceLinks({truck, vehicle}) {
   return Object.entries({truck, vehicle}).filter(([, value]) => value).map(([key, value]) =>
     `<a href="/entries?${key}=${encodeURIComponent(value)}">${esc(value)}</a>`).join(' · ');
 }
-function table(rows, sources = rows) {
+function table(rows, sources = rows, transport = true) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
   const trace = traceEntries(sources);
-  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th><th>Truck / vehicle</th><th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
+  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}<th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
-    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td><td>${traceLinks(trace(r)) || '—'}</td><td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
   const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
@@ -94,11 +94,11 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
     <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a></div></div>
-    <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
+    <form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
-    ${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources)}</section>
+    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources,type!=='E1')}</section>
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {
@@ -163,7 +163,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     const needed=d.status==='In transit'?'Site Store':'Project Manager';
     if(!receipt||role!==needed) switchForm=switchTo(roleKey(needed),d.result.destination,back,'Open at '+d.result.destination+' as '+needed);
   }
-  const submitButton=name=>`<button class="${indent&&name==='Save draft'?'secondary':'primary'}" type="submit" value="${name}">${name}</button>`;
+  const submitButton=name=>`<button class="${indent&&name==='Save draft'?'secondary':'primary'}" type="submit" value="${name}"${indent&&name==='Save draft'?' formnovalidate':''}>${name}</button>`;
   const displayValue=v=>{
     const source = typeof v==='string' && rows.find(row=>row.id===v);
     if (!source) return display(v);
@@ -194,7 +194,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions gps"><output id="gps-status" aria-live="polite">GPS is stamped automatically when location is allowed.</output><button type="button" id="record-position">Refresh GPS</button></div>':''}
     ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
     ${indent?`<details class="indent-secondary" open><summary>Site stock</summary>${picture&&Object.keys(picture).length?stock:`<p>${d.rev||d.selectedSite?'Site stock is currently unavailable.':'Select a location to see its stock.'}</p>`}</details>`:''}
-    ${resultRows?indent?`<details class="indent-secondary"><summary>Stock calculations</summary><dl>${resultRows}</dl></details>`:`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
+    ${resultRows&&!indent?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
     ${d.type==='E17'&&d.status==='Posted'&&['Head – Accounts','CFO'].includes(role)?`<p><a href="/entries/accounting/${d.id}.csv">Download month-end journal</a></p>`:''}
     ${next&&d.status==='Awaiting approval'?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
