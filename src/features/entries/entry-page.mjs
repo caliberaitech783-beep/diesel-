@@ -6,7 +6,7 @@ import { sourceChoices } from './entry-choices.mjs';
 import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { approvalCard } from './approval-inbox.mjs';
-import { filterRegister, registerFilters, traceEntries } from './entry-register.mjs';
+import { filterRegister, registerFilters, traceEntries, isRegisterRecord } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
@@ -73,8 +73,9 @@ export function roleHomePage(actor, rows, alerts, today = {}) {
 }
 
 export function registerPage(actor,rows,type,query={},sources=rows) {
+  rows=rows.filter(isRegisterRecord);
   const meta=byId[type], path=meta?'/entries/type/'+type:'/entries';
-  const filters=registerFilters(query);
+  const filters=registerFilters(type==='E1'?{...query,status:'Saved'}:query);
   const { q: text, status, from, to, truck, vehicle } = filters;
   const relevant=filterRegister(rows, type, filters,sources);
   const actorRole=entryRole(actor);
@@ -93,7 +94,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
     <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a></div></div>
-    <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${(type==='E1'?['','Draft','Saved','Returned','Superseded']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
+    <form class="filters"><label class="search-field"><span class="sr-only">Search</span><input type="search" name="q" value="${esc(text)}" placeholder="Search document, truck or vehicle"></label><label><span class="sr-only">Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label><button>Filter</button>
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
