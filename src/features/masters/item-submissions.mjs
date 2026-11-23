@@ -84,7 +84,7 @@ export async function openItemSubmissions(directory) {
 
   async function create(actor, slug, values, selectedSite) {
     const owner = ownerDirectory(actor, slug);
-    const fields = masterDefinition(slug).fields;
+    const fields = masterDefinition(slug,values).fields;
     const db = new DatabaseSync(':memory:', { enableForeignKeyConstraints: true });
     let record;
     const files = new Map();
@@ -189,7 +189,7 @@ export async function openItemSubmissions(directory) {
           const store = createMasterStore(db,[slug]);
           record = store.createPrivateSubmission(slug,values,actor,slug === legacyMaster ? itemSubmissionSite(payload.site,current.site) : undefined);
           await uniqueCode(actor,slug,record.code,id);
-          for (const field of masterDefinition(slug).fields) {
+          for (const field of masterDefinition(slug,values).fields) {
             if (field.type !== 'file' || !record.values[field.key]) continue;
             const file = store.attachment(slug,record.id,record.values[field.key].id);
             files.set(file.id,file.bytes);

@@ -1,7 +1,7 @@
 import { masterSidebar } from './master-sidebar.mjs';
 import { mastersMenuLink } from './master-navigation.mjs';
 import { itemFileMenu } from './item-file-menu.mjs';
-import { recordDraftScope } from './records-fields.mjs';
+import { recordDraftScope, masterDefinition } from './records-fields.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { masterSiteMenu } from './master-site-menu.mjs';
 import { attributeMasters } from './master-attributes.mjs';
@@ -9,6 +9,7 @@ import { attributeFields } from './attribute-page.mjs';
 import { recordDialogAssets, recordDialogHost, deleteConfirmation } from './record-dialog.mjs';
 import { masterDataSearch } from '../master-data/search.mjs';
 import { itemFormContent } from './item-form-page.mjs';
+import { legacyTaxSections } from '../tax-masters/rules.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -44,6 +45,7 @@ function recordField(field, value, index, base, editable, enhanced = false, prev
 }
 
 export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, comparison, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
+  if (legacyTaxSections(master.slug, record?.values)) master = masterDefinition(master.slug, record.values);
   const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
   const home = prefix + '/records?master=' + master.slug;

@@ -163,7 +163,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.match(preview, /<h1 id="workspace-title">Account Master<\/h1>/);
     assert.ok(columnNames(preview).length > 0);
     assert.match(preview, /INVENTORY DIESEL/, 'Account Master lists the company ERP records');
-    assert.match(await (await restarted('/master-data?master=gst-master', maker)).text(), /No saved records for this master/);
+    assert.match(await (await restarted('/master-data?master=gst-master', maker)).text(), /GST_18_INTRA/);
     for (const slug of recordMasters.filter(slug => slug !== 'item-master')) {
       const definition = masterDefinition(slug);
       const masterForm = await (await restarted('/?master=' + slug, maker)).text();
@@ -256,7 +256,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   const finalPage = await (await fetch(origin + '/master-data?master=item-master&offset=50')).text();
   assert.match(finalPage, />TEST-001<\/a>/);
   const download = await (await fetch(origin + '/api/master-data/records')).json();
-  assert.equal(download.records.length, 51);
+  assert.equal(download.records.filter(record => record.slug === 'item-master').length, 51);
 });
 
 test('Item Master survives closing and reopening the SQLite file, including its optional attachment', t => {

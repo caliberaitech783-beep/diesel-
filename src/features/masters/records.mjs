@@ -72,9 +72,9 @@ export function approvedLocationDirectory(db) {
 }
 
 export function createMasterStore(db, enabledMasters = ['item-master']) {
-  function definition(slug) {
+  function definition(slug,values) {
     if (!enabledMasters.includes(slug) || !recordMasters.includes(slug)) throw new MasterRecordError('Records are unavailable for this master.', 404);
-    return masterDefinition(slug);
+    return masterDefinition(slug,values);
   }
   preparePulseProjects(db);
   db.exec(`
@@ -204,7 +204,7 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
 
   function save(slug, id, payload, actor, privateSubmission = false) {
     const editor = identity(actor);
-    const master = definition(slug);
+    const master = definition(slug,payload?.values);
     if (!isObject(payload)) throw new MasterRecordError('Supply the master record.');
     const current = id ? get(slug, id) : null;
     if (current) {

@@ -3,6 +3,7 @@ import { masters } from '../masters/catalog.mjs';
 import { masterDataPage } from './page.mjs';
 import { attributeColumn, attributeExport, attributeMasters } from '../masters/master-attributes.mjs';
 import { filterAndSort, missingFields } from '../master-insights/insights.mjs';
+import { taxDisplayValues } from '../tax-masters/rules.mjs';
 
 const pageSize = 50;
 
@@ -36,14 +37,15 @@ export function registerMasterDataRoutes(app, { enabledMasters, getActor, listRe
           const saved = await listRecords(actor, slugs, { search, ...options }, request);
           return saved.map(record => {
             const definition = bySlug.get(record.master);
+            const values = taxDisplayValues(record.master, record.values);
             return {
               id: record.id, slug: record.master, master: definition.name, code: record.code, name: record.name,
               status: record.status.replaceAll('_', ' '), site: record.site, revision: record.revision, updatedAt: record.updatedAt,
               canEdit: record.canEdit,
               recordPath: record.recordPath,
-              missing: missingFields(definition, record.values).length,
+              missing: missingFields(masterDefinition(record.master, record.values), record.values).length,
               fields: definition.fields.map(field => {
-                const value = record.values[field.key];
+                const value = values[field.key];
                 return [field.key, field.type === 'attributes' ? attributeExport(record.attributes)
                   : field.type === 'file' ? value?.name ?? '' : value ?? ''];
               }),

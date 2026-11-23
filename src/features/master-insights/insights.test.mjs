@@ -111,7 +111,8 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.deepEqual(counts.pulse, { site: 2, region: 1, equipment: 3, employee: 0, driver: 1, shift: 1, company: 0 });
   assert.equal(counts.masters['storage-location-master'], 71);
   assert.equal(counts.masters['account-master'], 165);
-  assert.equal(counts.masters['gst-master'], 0);
+  assert.equal(counts.masters['gst-master'], 4);
+  assert.equal(counts.masters['tax-master-tds'], 3);
 
   const overview = await page('/master-insights');
   assert.match(overview, /<a href="\/pulse-masters\?master=equipment">Equipment Master<\/a><\/th><td data-label="Records">3<\/td>/);

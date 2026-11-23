@@ -30,7 +30,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   const masters=createMasterStore(mastersDb,kinds);
   const sample={number:'10',date:'2025-01-01',time:'06:00',email:'test@example.com',file:pdf};
   function master(kind,fields,{approve=true,site='Jayant'}={}) {
-    const defaults=Object.fromEntries(masterDefinition(kind).fields.filter(field=>field.required)
+    const defaults=Object.fromEntries(masterDefinition(kind,fields).fields.filter(field=>field.required)
       .map(field=>[field.key,field.options?.[0]??sample[field.type]??'Test']));
     const record=masters.create(kind,{site,values:{...defaults,...fields}},{id:'master-maker'});
     if(approve) masters.changeStatus(kind,record.id,record.revision,'approve',{id:'master-checker'});
