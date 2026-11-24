@@ -77,7 +77,7 @@ const litres = value => Number(value).toLocaleString('en-IN', { maximumFractionD
 export function decisionForm(request, back) {
   return `<form class="indent-decision" method="post" action="${approvalsPath}/decide">
     <input type="hidden" name="doc" value="${escape(request.doc)}"><input type="hidden" name="back" value="${escape(back)}">
-    <label>Sanction quantity (litres)<input name="sanctioned" type="number" inputmode="decimal" step="any" min="0.01"${request.litres != null ? ` max="${request.litres}" placeholder="Up to ${escape(litres(request.litres))}"` : ''} autocomplete="off"></label>
+    <label>Sanction quantity (litres)<input name="sanctioned" type="number" inputmode="decimal" step="any" min="0.01"${request.litres != null ? ` placeholder="Requested ${escape(litres(request.litres))}"` : ''} autocomplete="off"></label>
     <label>Reason if declining (optional)<input name="reason" maxlength="500" autocomplete="off"></label>
     <button name="decision" value="approve" class="approve">Approve</button><button name="decision" value="decline" class="decline" formnovalidate>Decline</button>
   </form>`;
