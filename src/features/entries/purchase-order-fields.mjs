@@ -5,7 +5,7 @@ import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
 import { accountVendors } from './account-vendors.mjs';
-import { purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
+import { defaultFooterRows, footerHeads, footerLegends, footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const star = '<b class="req" aria-hidden="true">*</b>';
 const icon = path => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -67,6 +67,14 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const stamp = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options }).format(created);
   const totals = purchaseOrderTotals(d);
   const deliveries = d.deliveries ?? [];
+  // Five footer rows, each with its head and legend chosen from a list. A new order starts with excise, VAT and round off.
+  const saved = d.footerRows?.length || d.exciseRate !== undefined || d.vatPercent !== undefined ? footerRowsOf(d) : defaultFooterRows;
+  const pickFrom = (kind, list, value, label) => `<select data-foot="${kind}" aria-label="${label}"><option value="">Select…</option>${list.map(item => `<option${item === value ? ' selected' : ''}>${esc(item)}</option>`).join('')}</select>`;
+  const footerRows = Array.from({ length: Math.max(5, saved.length) }, (_, index) => saved[index] ?? {}).map((row, index) => `      <tr><td>${index + 1}</td>
+        <td>${pickFrom('head', footerHeads, row.head, 'Footer head ' + (index + 1))}</td><td>${pickFrom('legend', footerLegends, row.legend, 'Legend ' + (index + 1))}</td>
+        <td><input data-foot="rate" type="number" step="any" min="0" inputmode="decimal" aria-label="Rate or percent ${index + 1}" value="${esc(row.rate ?? '')}"></td>
+        <td><output data-foot="on"></output></td><td><output data-foot="value"></output></td></tr>`).join('\n')
+    + `\n<input type="hidden" name="footerRows" value="${esc(JSON.stringify(saved.filter(row => row.head)))}">`;
   const advance = (d.terms ?? 'Advance') === 'Advance';
 
   return `<div class="order-top">
@@ -83,7 +91,7 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
         <div><strong>Vendor's Address &amp; Contact</strong><p data-vendor-address>Select a vendor to see its address.</p><p data-vendor-contact></p></div></div>`)}
     <div class="order-stack">
     ${card('tax', 'Tax &amp; Supply', `<div class="order-grid three">${select('transactionType', 'Transaction Type', { required: true })}${select('supplyNature', 'Supply Nature', { required: true, offer: ['Non-GST Supplies', 'Taxable Supplies'] })}${select('type', 'PO Type', { required: true })}</div>`)}
-    ${card('freight', 'Freight &amp; Logistics', `<div class="order-grid two">${select('depot', 'Lifting Location', { required: !field('depot').optional })}
+    ${card('freight', 'Freight &amp; Logistics', `<div class="order-grid two">${field('depot').options ? select('depot', 'Lifting Location', { required: !field('depot').optional }) : input('depot', 'Lifting Location', { required: true, type: 'text', attrs: 'maxlength="200" autocomplete="off" placeholder="Enter lifting location"', value: d.depot === review.depot ? '' : d.depot })}
       ${select('basis', 'Freight Type', { required: true, labels: { Delivered: 'FOR', 'Ex-depot': 'To Pay' } })}
       ${input('freightContract', 'Freight Contract No.', { attrs: 'maxlength="100" autocomplete="off"' })}
       ${input('freightRate', 'Freight Rate (₹/L)')}
@@ -99,12 +107,8 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
       <td><output data-order="netRate">${esc(totals.netRate || '')}</output></td><td><output data-order="amount">${esc(totals.amount ? rupee(totals.amount).slice(2) : '')}</output></td>
       <td><output data-order="landedRate">${esc(totals.landedRate || '')}</output></td><td>—</td><td>—</td></tr></tbody></table></div>`, 'layers')}
     <div class="order-calc">
-    ${card('footer', 'Final Calculation – Footer / Tax', `<div class="order-table"><table><thead><tr><th>Seq</th><th>Footer Head</th><th>Legend</th><th>Rate / %</th><th>Calculated On</th><th>Value (₹)</th></tr></thead><tbody>
-      <tr><td>1</td><td>Basic Excise Duty</td><td><span class="legend">QQA</span></td><td><input name="exciseRate" type="number" step="any" min="0" inputmode="decimal" aria-label="Basic excise duty per litre" value="${esc(d.exciseRate ?? '')}"></td>
-        <td><output data-order="exciseOn"></output></td><td><output data-order="excise"></output></td></tr>
-      <tr><td>2</td><td>VAT[S]</td><td><span class="legend">PRA</span></td><td><input name="vatPercent" type="number" step="any" min="0" max="100" inputmode="decimal" aria-label="VAT percent" value="${esc(d.vatPercent ?? '')}"></td>
-        <td><output data-order="vatBase"></output></td><td><output data-order="vat"></output></td></tr>
-      <tr><td>3</td><td>Round Off (+/-)</td><td><span class="legend">LSA</span></td><td>—</td><td>—</td><td><output data-order="roundOff"></output></td></tr>
+    ${card('footer', 'Final Calculation – Footer / Tax', `<div class="order-table"><table><thead><tr><th>Seq</th><th>Footer Head</th><th>Legend</th><th>Rate / %</th><th>Calculated On</th><th>Value (₹)</th></tr></thead><tbody data-footer-rows>
+${footerRows}
       </tbody></table></div>`, 'sum')}
     <div class="order-totals"><div><span>Total (Before Footer Heads)</span><output data-order="amountTotal">${rupee(totals.amount)}</output></div>
       <div><span>Total Footer Heads</span><output data-order="footer">${rupee(totals.footer)}</output></div>

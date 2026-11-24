@@ -1,20 +1,41 @@
 // Diesel purchase order arithmetic, shared by the server rules and the form so both always agree.
-// Rates are ₹ per litre. Excise is charged per litre (QQA), VAT as a percentage of amount plus excise (PRA),
-// and the round-off (LSA) brings the PO amount to a whole rupee.
+// Rates are ₹ per litre. Each footer head carries a legend that says how it is worked out:
+//   LS lump sum · OQ rate × quantity · PR percent of the running total · PA percent of the basic amount,
+//   ending in A to add or D to deduct. Round Off brings the PO amount to a whole rupee.
 const paise = value => Math.round((value + Number.EPSILON) * 100) / 100;
 const num = value => Number.isFinite(Number(value)) && value !== '' && value !== null && value !== undefined ? Number(value) : 0;
 
+export const footerHeads = ['Basic Excise Duty', 'VAT', 'Cess', 'Discount', 'Round Off'];
+export const footerLegends = ['LSA', 'LSD', 'OQA', 'OQD', 'PRA', 'PRD', 'PAA', 'PAD'];
+export const defaultFooterRows = [{ head: 'Basic Excise Duty', legend: 'OQA' }, { head: 'VAT', legend: 'PRA' }, { head: 'Round Off', legend: 'LSA' }];
+
+// The footer rows of an order: its own rows, or the excise and VAT an earlier order was saved with.
+export function footerRowsOf(input) {
+  if (Array.isArray(input.footerRows) && input.footerRows.length) return input.footerRows;
+  return [{ ...defaultFooterRows[0], rate: input.exciseRate }, { ...defaultFooterRows[1], rate: input.vatPercent }, defaultFooterRows[2]];
+}
+
 export function purchaseOrderTotals(input) {
-  const litres = num(input.litres), rateAfter = num(input.rateAfter), exciseRate = num(input.exciseRate), vatPercent = num(input.vatPercent);
+  const litres = num(input.litres), rateAfter = num(input.rateAfter);
   const amount = paise(litres * rateAfter);
-  const excise = paise(litres * exciseRate);
-  const vatBase = paise(amount + excise);
-  const vat = paise(vatBase * vatPercent / 100);
-  const beforeRound = paise(amount + excise + vat);
-  const total = Math.round(beforeRound);
-  const roundOff = paise(total - beforeRound);
-  return { litres, netRate: rateAfter, amount, excise, vatBase, vat, roundOff, footer: paise(excise + vat + roundOff), total,
-    landedRate: litres > 0 ? Math.round((total / litres + Number.EPSILON) * 10000) / 10000 : 0 };
+  let running = amount, excise = 0, vat = 0, vatBase, rounds = false;
+  const rows = footerRowsOf(input).map(row => {
+    const legend = footerLegends.includes(row.legend) ? row.legend : '';
+    if (row.head === 'Round Off') { rounds = true; return { head: row.head, legend, round: true, on: null, value: 0 }; }
+    if (!row.head || !legend) return { head: row.head ?? '', legend, on: null, value: 0 };
+    const rate = num(row.rate), kind = legend.slice(0, 2);
+    const on = kind === 'OQ' ? litres : kind === 'PR' ? running : kind === 'PA' ? amount : null;
+    const value = paise((kind === 'LS' ? rate : kind === 'OQ' ? litres * rate : on * rate / 100) * (legend.endsWith('D') ? -1 : 1));
+    if (row.head === 'VAT') { vatBase ??= on ?? 0; vat = paise(vat + value); }
+    if (row.head === 'Basic Excise Duty') excise = paise(excise + value);
+    running = paise(running + value);
+    return { head: row.head, legend, on, quantity: kind === 'OQ', value };
+  });
+  const total = rounds ? Math.round(running) : running;
+  const roundOff = paise(total - running);
+  for (const row of rows) if (row.round) { row.value = roundOff; break; }
+  return { litres, netRate: rateAfter, amount, excise, vatBase: vatBase ?? paise(amount + excise), vat, roundOff, footer: paise(total - amount), total,
+    landedRate: litres > 0 ? Math.round((total / litres + Number.EPSILON) * 10000) / 10000 : 0, rows };
 }
 
 const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',

@@ -9,16 +9,27 @@ if (form) {
   const plain = value => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const systemFill = (control, value) => { control.value = value; control.dispatchEvent(new Event('change', { bubbles: true })); };
 
+  // Footer rows are kept as JSON in one hidden field: the head, the legend and the rate of each row in use.
+  const footRows = [...form.querySelectorAll('[data-footer-rows] tr')], footStore = el('footerRows');
+  const part = (row, kind) => row.querySelector('[data-foot="' + kind + '"]');
+  function readFooter() {
+    return footRows.map(row => ({ head: part(row, 'head').value, legend: part(row, 'legend').value, rate: part(row, 'rate').value }));
+  }
   function calculate() {
-    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, exciseRate: el('exciseRate').value, vatPercent: el('vatPercent').value });
+    const entered = readFooter();
+    footStore.value = JSON.stringify(entered.filter(row => row.head).map(({ head, legend, rate }) => ({ head, legend, ...(rate === '' || head === 'Round Off' ? {} : { rate }) })));
+    // Blank rows still take a place, so each result lines up with its row on the page.
+    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered });
     out('netRate').textContent = t.netRate || '';
     out('amount').textContent = t.amount ? plain(t.amount) : '';
     out('landedRate').textContent = t.landedRate ? t.landedRate.toFixed(4) : '';
-    out('exciseOn').textContent = t.litres ? plain(t.litres) + ' L' : '—';
-    out('excise').textContent = plain(t.excise);
-    out('vatBase').textContent = plain(t.vatBase);
-    out('vat').textContent = plain(t.vat);
-    out('roundOff').textContent = plain(t.roundOff);
+    footRows.forEach((row, index) => {
+      const result = t.rows[index], used = Boolean(result?.head && result.legend);
+      part(row, 'rate').disabled = result?.head === 'Round Off';
+      if (result?.head === 'Round Off') part(row, 'rate').value = '';
+      part(row, 'on').textContent = !used || result.on === null ? '—' : plain(result.on) + (result.quantity ? ' L' : '');
+      part(row, 'value').textContent = used ? plain(result.value) : '—';
+    });
     out('amountTotal').textContent = rupee(t.amount);
     out('footer').textContent = rupee(t.footer);
     out('total').textContent = rupee(t.total);
@@ -83,7 +94,10 @@ if (form) {
     el('deliveryDate').min = el('day').value;
   }
 
-  for (const name of ['litres', 'rateBefore', 'rateAfter', 'exciseRate', 'vatPercent']) el(name).addEventListener('input', calculate);
+  for (const name of ['litres', 'rateBefore', 'rateAfter']) el(name).addEventListener('input', calculate);
+  for (const row of footRows) { row.addEventListener('input', calculate); row.addEventListener('change', calculate); }
+  // The hidden footer field must be current before the shared form script reads it on submit.
+  form.addEventListener('submit', calculate, true);
   el('supplier').addEventListener('change', showVendor);
   el('shortageMethod').addEventListener('change', shortage);
   el('basis').addEventListener('change', freight);
