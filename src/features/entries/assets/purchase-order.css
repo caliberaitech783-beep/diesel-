@@ -75,3 +75,6 @@
 :root[data-theme="dark"] .order-hint { background:#3c3021; color:#f2ce8c; }
 :root[data-theme="dark"] .order-schedule-foot output[data-state=ok] { background:#1d3733; color:#93d8be; }
 :root[data-theme="dark"] .order-schedule-foot output[data-state=warn] { background:#3c3021; color:#f2ce8c; }
+
+.order-footer td select { min-width:150px; }
+.order-footer td:nth-child(3) select { min-width:84px; }

@@ -28,7 +28,8 @@ function setup(t) {
 }
 
 test('purchase order totals follow excise per litre, VAT on amount plus excise, and a whole-rupee round-off', () => {
-  const totals=purchaseOrderTotals({litres:40000,rateAfter:107.95274,exciseRate:7.8,vatPercent:14.9});
+  const {rows:legacyRows,...totals}=purchaseOrderTotals({litres:40000,rateAfter:107.95274,exciseRate:7.8,vatPercent:14.9});
+  assert.deepEqual(legacyRows.map(row=>[row.head,row.legend,row.on,row.value]),[['Basic Excise Duty','OQA',40000,312000],['VAT','PRA',4630109.6,689886.33],['Round Off','LSA',null,0.07]]);
   assert.deepEqual(totals,{litres:40000,netRate:107.95274,amount:4318109.6,excise:312000,vatBase:4630109.6,vat:689886.33,roundOff:0.07,
     footer:1001886.4,total:5319996,landedRate:132.9999});
   assert.equal(rupeesInWords(5319996),'Rupees Fifty Three Lakh Nineteen Thousand Nine Hundred Ninety Six Only');
@@ -139,4 +140,31 @@ test('the maker reopens a purchase order awaiting approval, edits it and sends i
   const using=store.write(randomUUID(),actor('Site Store'),{type:'E16',rev:0,day,action:'Save draft',data:{}});
   db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify({...using,number:'E3-JAY-2026-0009',data:{po:po.id}}),using.id);
   assert.throws(()=>store.write(po.id,maker,{action:'Edit',rev:po.rev}),/already used by E3-JAY-2026-0009, so it cannot be edited/);
+});
+
+test('footer heads and legends chosen on the order decide how each amount is worked out', t => {
+  const rows=[{head:'Basic Excise Duty',legend:'OQA',rate:2},{head:'Discount',legend:'PAD',rate:10},{head:'VAT',legend:'PRA',rate:10},
+    {head:'Cess',legend:'LSA',rate:50.4},{head:'',legend:''},{head:'Round Off',legend:'LSA'}];
+  const totals=purchaseOrderTotals({litres:100,rateAfter:90,footerRows:rows});
+  // 9,000 basic; +200 excise on quantity; -900 discount on the basic amount; +830 VAT on the running 8,300; +50.40 lump sum; rounded.
+  assert.deepEqual(totals.rows.map(row=>[row.on,row.value]),[[100,200],[9000,-900],[8300,830],[null,50.4],[null,0],[null,-0.4]]);
+  assert.deepEqual([totals.amount,totals.excise,totals.vat,totals.vatBase,totals.roundOff,totals.footer,totals.total,totals.landedRate],[9000,200,830,8300,-0.4,180,9180,91.8]);
+  assert.equal(purchaseOrderTotals({litres:100,rateAfter:90,footerRows:[{head:'Cess',legend:'OQD',rate:0.255}]}).total,8974.5,'without Round Off the amount is not rounded');
+
+  const {submit,order,store}=setup(t);
+  const {exciseRate,vatPercent,...base}=order;
+  assert.throws(()=>submit('E2',{...base,footerRows:JSON.stringify([{head:'Octroi',legend:'LSA',rate:1}])}),/Footer row 1: choose a footer head from the list/);
+  assert.throws(()=>submit('E2',{...base,footerRows:JSON.stringify([{head:'VAT',legend:'XYZ',rate:1}])}),/Footer row 1: choose a legend from the list/);
+  assert.throws(()=>submit('E2',{...base,footerRows:JSON.stringify([{head:'VAT',legend:'PRA',rate:101}])}),/a percent cannot be more than 100/);
+  assert.throws(()=>submit('E2',{...base,footerRows:JSON.stringify([{head:'VAT',legend:'PRA'}])}),/enter the rate or percent/);
+
+  const po=submit('E2',{...base,depot:'IOCL Tadali depot',footerRows:JSON.stringify(rows.filter(row=>row.head)),advanceAmount:100});
+  assert.deepEqual([po.status,po.data.depot,po.result.vat,po.result.excise,po.result.vatAmount,po.data.footerRows.length],['Awaiting approval','IOCL Tadali depot',10,80000,396629.86,5]);
+  const buyer={...actor('Procurement Executive'),businessDay:day};
+  const html=detailPage(buyer,store.fresh('E2',buyer),[],[],null,store.definition('E2','Jayant'));
+  assert.match(html,/name="depot" type="text" data-required="true"[^>]*placeholder="Enter lifting location" value="">/);
+  assert.equal(html.match(/data-foot="head"/g).length,5);
+  assert.match(html,/<select data-foot="head" aria-label="Footer head 1"><option value="">Select…<\/option><option selected>Basic Excise Duty<\/option><option>VAT<\/option><option>Cess<\/option><option>Discount<\/option><option>Round Off<\/option>/);
+  assert.match(html,/<select data-foot="legend" aria-label="Legend 2"><option value="">Select…<\/option><option>LSA<\/option><option>LSD<\/option><option>OQA<\/option><option>OQD<\/option><option selected>PRA<\/option><option>PRD<\/option><option>PAA<\/option><option>PAD<\/option>/);
+  assert.doesNotMatch(html,/name="exciseRate"|name="vatPercent"/);
 });

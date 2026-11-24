@@ -4,13 +4,14 @@ import { requireValue as check, round, money } from './entry-rules.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
 import { review } from './review-masters.mjs';
 import { accountVendor } from './account-vendors.mjs';
-import { purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
+import { footerHeads, footerLegends, footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 export const deliveryColumns = [
   { key:'date', label:'Delivery date', type:'date' }, { key:'location', label:'Location', type:'text' },
   { key:'address', label:'Delivery address', type:'text', optional:true }, { key:'litres', label:'DSL Qty (L)', type:'number' },
   { key:'vehicle', label:'Vehicle No.', type:'text', optional:true }, { key:'transporter', label:'Transporter name', type:'text', optional:true },
 ];
+export const footerColumns = [{ key:'head', label:'Footer head', type:'text' }, { key:'legend', label:'Legend', type:'text' }, { key:'rate', label:'Rate / %', type:'number', optional:true }];
 export const vehicleNumber = value => String(value ?? '').toUpperCase().replace(/[\s-]/g,'');
 const vehiclePattern = /^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{4}$/;
 
@@ -37,6 +38,14 @@ export function singlePageOrder(d,c,indent,allocated) {
   check(d.rateBefore>0 && d.rateAfter>0,'Enter the rate before and after discount.');
   check(d.rateAfter<=d.rateBefore,'The rate after discount cannot be higher than the rate before discount.');
   check((d.vatPercent??0)<=100,'VAT cannot be more than 100%.');
+  for (const [index,row] of (d.footerRows??[]).entries()) {
+    const at='Footer row '+(index+1)+': ';
+    check(footerHeads.includes(row.head),at+'choose a footer head from the list.');
+    check(footerLegends.includes(row.legend),at+'choose a legend from the list.');
+    check(row.head==='Round Off' || row.rate!==undefined,at+'enter the rate or percent.');
+    check(!row.legend.startsWith('P') || (row.rate??0)<=100,at+'a percent cannot be more than 100.');
+  }
+  const vatRow=footerRowsOf(d).find(row=>row.head==='VAT'&&String(row.legend).startsWith('P'));
   const exDepot=d.basis==='Ex-depot';
   check(!exDepot || d.freightRate!==undefined,'Enter the freight rate for a To Pay purchase.');
   check(d.tolerance!==undefined,'Enter the tolerance (%).');
@@ -75,7 +84,7 @@ export function singlePageOrder(d,c,indent,allocated) {
     : d.shortageMethod==='Percent'?money(rate*d.freightDeductionRate/100) : 0;
   const approvals=['Head – Procurement'];
   if (d.type==='Retail') approvals.push('Director / CMD'); else if (totals.total>review.poSlab) approvals.push('CFO');
-  return { litres, rate, vat:d.vatPercent??0, invoiceDiscount:money((d.rateBefore-d.rateAfter)*1000),
+  return { litres, rate, vat:Number(vatRow?.rate??0), invoiceDiscount:money((d.rateBefore-d.rateAfter)*1000),
     postSaleDiscount:parties.master?.postSaleDiscount??0, ...(parties.master?{rateRef:parties.master.id,rateRevision:parties.master.revision}:{}),
     freight, shortageRate, depot:parties.depot, landed:rate+freight, value:totals.total,
     amount:totals.amount, excise:totals.excise, vatAmount:totals.vat, roundOff:totals.roundOff, footerHeads:totals.footer,
