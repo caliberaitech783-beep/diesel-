@@ -256,8 +256,12 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         }
         if (doc.type==='E1') assignNumber(doc);
       } else if (action==='Edit') {
-        // The maker takes a purchase order back from approval to change it. Saving it again restarts the approvals.
-        check(doc.type==='E2' && doc.status==='Awaiting approval','Only a purchase order awaiting approval can be reopened for editing.');
+        // The maker takes a purchase order back to change it, before or after approval. Saving it again restarts the approvals.
+        // Once a payment advice, tanker entry or other record uses the order, it can no longer change underneath them.
+        check(doc.type==='E2' && ['Awaiting approval','Posted'].includes(doc.status),'Only a purchase order awaiting approval or approved can be reopened for editing.');
+        const user=doc.status==='Posted' ? all().find(row=>row.data?.po===doc.id && row.status!=='Superseded') : null;
+        check(!user,'This purchase order is already used by '+(user?.number||'another entry')+', so it cannot be edited.');
+        check(!doc.result.moves?.length,'This purchase order has stock booked against it, so it cannot be edited.');
         checkMaker(doc,actor);checkLocks(doc);
         doc.status='Draft';doc.stage=0;log='Reopened for editing';
       } else if (action==='Approve' || action==='Return') {

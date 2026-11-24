@@ -168,8 +168,8 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
       switchForm=switchTo(profile,d.site,back,'Review as '+(profile==='entry-deputy'?'Deputy Site In-charge':next));
     }
   }
-  // A purchase order still awaiting approval can be taken back and edited by the role that made it.
-  const reopen=d.type==='E2'&&d.status==='Awaiting approval';
+  // A purchase order awaiting approval or approved can be taken back and edited by the role that made it.
+  const reopen=d.type==='E2'&&['Awaiting approval','Posted'].includes(d.status);
   const mayReopen=reopen&&d.maker===actor.id&&meta.maker===role;
   if (reopen&&!mayReopen&&(!actor.assignments||d.maker===actor.id)&&canChooseRole(actor,d.site,roleKey(meta.maker))) {
     switchForm+=switchTo(roleKey(meta.maker),d.site,back,'Edit as '+meta.maker);
