@@ -5,7 +5,7 @@ import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
 import { accountVendors } from './account-vendors.mjs';
-import { defaultFooterRows, footerHeads, footerLegends, footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
+import { footerHeads, footerLegends, footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const star = '<b class="req" aria-hidden="true">*</b>';
 const icon = path => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -67,10 +67,12 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const stamp = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options }).format(created);
   const totals = purchaseOrderTotals(d);
   const deliveries = d.deliveries ?? [];
-  // Five footer rows, each with its head and legend chosen from a list. A new order starts with excise, VAT and round off.
-  const saved = d.footerRows?.length || d.exciseRate !== undefined || d.vatPercent !== undefined ? footerRowsOf(d) : defaultFooterRows;
+  // A new order shows one footer row, with its head and legend chosen from a list; more are added one at a time, up to five.
+  // An order saved earlier shows the rows it was saved with.
+  const saved = d.footerRows?.length || d.exciseRate !== undefined || d.vatPercent !== undefined ? footerRowsOf(d) : [];
+  const shown = Math.max(1, saved.length);
   const pickFrom = (kind, list, value, label) => `<select data-foot="${kind}" aria-label="${label}"><option value="">Select…</option>${list.map(item => `<option${item === value ? ' selected' : ''}>${esc(item)}</option>`).join('')}</select>`;
-  const footerRows = Array.from({ length: Math.max(5, saved.length) }, (_, index) => saved[index] ?? {}).map((row, index) => `      <tr><td>${index + 1}</td>
+  const footerRows = Array.from({ length: Math.max(5, saved.length) }, (_, index) => saved[index] ?? {}).map((row, index) => `      <tr${index < shown ? '' : ' hidden'}><td>${index + 1}</td>
         <td>${pickFrom('head', footerHeads, row.head, 'Footer head ' + (index + 1))}</td><td>${pickFrom('legend', footerLegends, row.legend, 'Legend ' + (index + 1))}</td>
         <td><input data-foot="rate" type="number" step="any" min="0" inputmode="decimal" aria-label="Rate or percent ${index + 1}" value="${esc(row.rate ?? '')}"></td>
         <td><output data-foot="on"></output></td><td><output data-foot="value"></output></td></tr>`).join('\n')
@@ -109,7 +111,7 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
     <div class="order-calc">
     ${card('footer', 'Final Calculation – Footer / Tax', `<div class="order-table"><table><thead><tr><th>Seq</th><th>Footer Head</th><th>Legend</th><th>Rate / %</th><th>Calculated On</th><th>Value (₹)</th></tr></thead><tbody data-footer-rows>
 ${footerRows}
-      </tbody></table></div>`, 'sum')}
+      </tbody></table></div><div class="order-schedule-foot"><button type="button" data-add-footer-row>+ Add footer row</button></div>`, 'sum')}
     <div class="order-totals"><div><span>Total (Before Footer Heads)</span><output data-order="amountTotal">${rupee(totals.amount)}</output></div>
       <div><span>Total Footer Heads</span><output data-order="footer">${rupee(totals.footer)}</output></div>
       <div class="grand"><span>P.O. Amount</span><output data-order="total">${rupee(totals.total)}</output></div>

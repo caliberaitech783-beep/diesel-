@@ -96,6 +96,15 @@ if (form) {
 
   for (const name of ['litres', 'rateBefore', 'rateAfter']) el(name).addEventListener('input', calculate);
   for (const row of footRows) { row.addEventListener('input', calculate); row.addEventListener('change', calculate); }
+  // Footer rows are shown one at a time as they are needed.
+  const addFooterRow = form.querySelector('[data-add-footer-row]');
+  const moreRows = () => { addFooterRow.hidden = !footRows.some(row => row.hidden); };
+  addFooterRow.addEventListener('click', () => {
+    const next = footRows.find(row => row.hidden);
+    if (next) { next.hidden = false; part(next, 'head').focus(); }
+    moreRows();
+  });
+  moreRows();
   // The hidden footer field must be current before the shared form script reads it on submit.
   form.addEventListener('submit', calculate, true);
   el('supplier').addEventListener('change', showVendor);
