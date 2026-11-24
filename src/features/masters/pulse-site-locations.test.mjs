@@ -4,9 +4,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { randomUUID } from 'node:crypto';
+import { DatabaseSync } from 'node:sqlite';
+import { createEntryStore } from '../entries/entry-store.mjs';
+import { businessDay } from '../entries/entry-rules.mjs';
 import { createApp } from '../../server.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
-import { roleKey } from '../entries/review-masters.mjs';
+import { roleKey, sites } from '../entries/review-masters.mjs';
 import { createPulseMasterStore } from '../pulse-masters/pulse-master-store.mjs';
 import { approvedLocationDirectory, createMasterStore } from './records.mjs';
 import { createLocationsFromPulseSites, locationCode, pulseSiteFor } from './pulse-site-locations.mjs';
@@ -53,7 +57,7 @@ test('a site named in a Pulse role gets an approved Location Master record from 
     values: { ...approved.values, 'Location Code': 'L-015' } }, maker), /used by storage records and cannot change/);
 });
 
-test('Entry opens live for a person with a role at a Pulse site and as a private trial for everyone else', async t => {
+test('Entry opens live for a person with a role at a Pulse site and as a trial for everyone else', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'diesel-pulse-locations-'));
   const origin = 'https://diesel.test', masterDb = openDieselDatabase(':memory:');
   createMasterStore(masterDb, ['location-master']);
@@ -97,4 +101,36 @@ test('Entry opens live for a person with a role at a Pulse site and as a private
     assert.match(sandbox, /Trial workspace · sample data · not live records/);
   }
   assert.deepEqual(approvedLocationDirectory(masterDb).length, 1);
+});
+
+test('everyone in the trial sees the records anyone saved, including those from earlier private workspaces', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'diesel-shared-trial-'));
+  const origin = 'https://diesel.test', masterDb = openDieselDatabase(':memory:');
+  createMasterStore(masterDb, ['location-master']);
+  const earlier = new DatabaseSync(join(dir, 'trial-' + 'a'.repeat(64) + '.sqlite'));
+  const actor = { site: 'Sasti', profile: roleKey('Site In-charge'), id: 'Sasti-' + roleKey('Site In-charge'), hosted: true };
+  const old = createEntryStore(earlier).write(randomUUID(), actor, { type: 'E1', action: 'Submit', rev: 0, day: businessDay(),
+    data: { litres: 900, requiredBy: 0, remarks: 'Saved before sharing' } });
+  earlier.close();
+  const app = createApp({ env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+    entryReviewDirectory: dir, siteMasterDb: masterDb,
+    fetcher: async (_url, options) => Response.json({ profile: { login: 'person-' + JSON.parse(options.body).grant[0] } }) });
+  const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); masterDb.close(); await rm(dir, { recursive: true, force: true }); });
+  const address = 'http://127.0.0.1:' + server.address().port;
+  const request = (path, who, body, cookie = '', json = false) => fetch(address + path, { redirect: 'manual', method: body ? 'POST' : 'GET',
+    headers: { Origin: origin, ...(json ? { 'content-type': 'application/json' } : {}), cookie: '__Host-diesel_session=' + who.repeat(43) + (cookie && '; ' + cookie) }, body });
+  const atSasti = async who => (await request('/workspace/role', who, new URLSearchParams({ site: 'Sasti', role: roleKey('Site In-charge') }))).headers.get('set-cookie').split(';')[0];
+
+  const p = await atSasti('p'), q = await atSasti('q');
+  assert.match(await (await request('/entries', 'p', null, p)).text(), new RegExp(old.number), 'a record from a private workspace is brought in');
+  const other = sites.find(site => !['Sasti', 'Jayant'].includes(site)), id = randomUUID();
+  const at = async who => (await request('/workspace/role', who, new URLSearchParams({ site: other, role: roleKey('Site In-charge') }))).headers.get('set-cookie').split(';')[0];
+  const p2 = await at('p'), q2 = await at('q');
+  const saved = await request('/entries/record/' + id, 'p', JSON.stringify({ actor: other + '-' + roleKey('Site In-charge'), type: 'E1', action: 'Submit', rev: 0, day: businessDay(),
+    data: { litres: 700, requiredBy: 0, remarks: 'Shared indent' } }), p2, true);
+  assert.equal(saved.status, 200, await saved.clone().text());
+  const seen = await request('/entries/record/' + id, 'q', null, q2);
+  assert.equal(seen.status, 200, 'another person opens the record');
+  assert.match(await (await request('/entries', 'q', null, q)).text(), new RegExp(old.number));
 });

@@ -15,29 +15,41 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
   const store = createIndentApprovalStore(db);
   const token = env.DIESEL_INDENT_BOT_TOKEN?.trim();
   const telegram = validBotToken(token) ? createTelegram(token, fetcher) : null;
-  const bot = { configured: Boolean(token), username: '', webhook: undefined };
+  const bot = { configured: Boolean(token), username: '', webhook: undefined, calls: 0, since: now() };
   const failures = [];
   // Categories only, for the administrator page and logs: never a token, chat or message.
   const report = error => { failures.push(String(error?.message ?? error).slice(0, 120)); if (failures.length > 20) failures.shift(); };
   const approval = telegram && createIndentApproval({ store, telegram, now, report });
 
-  // Asks Telegram who the bot is and where to deliver button presses. Run at start and again from the
-  // administrator page while not connected, so a corrected token or a passing outage clears by itself.
-  let connecting;
-  const connect = () => connecting ??= (async () => {
-    try {
-      bot.username = (await telegram.send('getMe', {})).username ?? '';
-      bot.problem = '';
-      // Telegram delivers button presses and replies only to a public HTTPS address.
-      if (publicOrigin.startsWith('https:')) {
-        await telegram.send('setWebhook', { url: publicOrigin + indentWebhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] });
-        bot.webhook = true;
-      }
-    } catch (error) {
-      if (bot.username) bot.webhook = false;
+  // Tells Telegram where to deliver button presses and replies, then learns the bot's name. Telegram limits
+  // these calls hard on shared hosting addresses, so a refusal is retried after the wait Telegram asks for,
+  // in the background, and never more often than that.
+  let connecting, retry;
+  const retryAfter = message => Math.min(3600, Math.max(30, Number(/retry after (\d+)/.exec(message)?.[1] ?? 0) + 5));
+  async function attempt(method, body, done) {
+    bot.calls = (bot.calls ?? 0) + 1;
+    try { done(await telegram.send(method, body)); return true; }
+    catch (error) {
       bot.problem = /refused \w+ \((401|404)\)/.test(error.message) ? 'refused' : /reached/.test(error.message) ? 'unreachable' : 'failed';
       bot.detail = String(error.message).slice(0, 160);
       report(error);
+      if (bot.problem !== 'refused') {
+        clearTimeout(retry);
+        retry = setTimeout(connect, retryAfter(error.message) * 1000);
+        retry.unref();
+      }
+      return false;
+    }
+  }
+  const connect = () => connecting ??= (async () => {
+    try {
+      // Telegram delivers only to a public HTTPS address; without one the bot can still send.
+      if (bot.webhook !== true && publicOrigin.startsWith('https:')) {
+        const set = await attempt('setWebhook', { url: publicOrigin + indentWebhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] },
+          () => { bot.webhook = true; });
+        if (!set) return;
+      }
+      if (!bot.username && await attempt('getMe', {}, me => { bot.username = me.username ?? ''; })) bot.problem = '';
     } finally { connecting = undefined; }
   })();
   // What is wrong with the saved value, without showing it: only its length and whether it has the two parts of a token.
@@ -70,7 +82,8 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
     .send(approversPage({ name: person.name, approvers: store.approvers(), bot, error }));
   const form = express.urlencoded({ extended: false, limit: '2kb' });
   app.get(approversPath, admin(async (_request, response, person) => {
-    if (telegram && !(bot.username && bot.webhook !== false)) await connect();
+    // The page shows the current state at once; a retry already waiting is left to its own time.
+    if (telegram && !bot.username && !retry) await connect();
     show(response, person);
   }));
   app.post(approversPath, form, admin((request, response, person) => {

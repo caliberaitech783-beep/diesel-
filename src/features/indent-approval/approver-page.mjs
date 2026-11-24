@@ -33,16 +33,18 @@ function botProblem(bot) {
         : '; a token is about 46 characters: numbers, a colon, then 35 letters and digits. Paste it again with nothing before or after it.');
   }
   if (bot.problem === 'refused') return 'Telegram does not recognise the token saved in DIESEL_INDENT_BOT_TOKEN. It was mistyped or has been revoked in BotFather. Copy the current token from BotFather and save it again.';
-  const detail = bot.detail ? ' Details: ' + bot.detail : '';
-  if (bot.problem === 'unreachable') return 'Diesel could not reach Telegram just now. The token may be fine; refresh this page in a minute.' + detail;
-  return 'Diesel could not confirm the bot with Telegram. Refresh this page in a minute.' + detail;
+  const detail = (bot.detail ? ' Details: ' + bot.detail : '') + ' Diesel has called Telegram ' + bot.calls + ' time' + (bot.calls === 1 ? '' : 's') + ' since it started and retries by itself.';
+  if (bot.problem === 'unreachable') return 'Diesel could not reach Telegram just now. The token may be fine.' + detail;
+  return 'Telegram has not accepted the connection yet.' + detail;
 }
 
 export const approversDenied = name => shell(name, `<h1>Indent approvers</h1>
   <p role="alert">Only a Diesel administrator can change who approves indents. Ask an administrator, or ask for your Pulse username to be added to the Diesel administrator list.</p>`);
 
 export function approversPage({ name, approvers, bot, error }) {
-  const botLine = bot.username ? `<p class="bot">Telegram bot connected: <strong>@${escape(bot.username)}</strong>${bot.webhook === false ? ' · it cannot receive replies yet, so buttons will not work' : ''}</p>`
+  // Connected means Telegram knows where to deliver button presses. The bot's name is a courtesy and may arrive later.
+  const connected = bot.webhook === true || (bot.username && bot.webhook === undefined);
+  const botLine = connected ? `<p class="bot">Telegram bot connected${bot.username ? `: <strong>@${escape(bot.username)}</strong>` : ''}</p>`
     : `<p class="bot off">${escape(botProblem(bot))}</p>`;
   const rows = approvers.map(person => `<tr><td>${escape(person.name)}</td><td>${escape(person.phone)}</td><td>${escape(person.pulse_login)}</td>
     <td>${person.chat_id ? `<span class="linked">Linked</span> · ${escape(istDay.format(new Date(person.linked_at)))}` : '<span class="waiting">Waiting for Start in the bot</span>'}</td>

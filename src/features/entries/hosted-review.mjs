@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import express from 'express';
@@ -39,6 +39,45 @@ function seedWalkthrough(db) {
     }
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK');throw error; }
+}
+
+// Trial records used to live in one private file per person. They are copied once into the shared trial workspace,
+// so everyone sees the records everyone saved. The sample pair each private file started with is left behind.
+export const sharedTrial = 'trial-shared';
+function gatherPrivateTrials(db, directory) {
+  db.exec('CREATE TABLE IF NOT EXISTS entry_review_imports(file TEXT PRIMARY KEY)');
+  const done = new Set(db.prepare('SELECT file FROM entry_review_imports').all().map(row => row.file));
+  for (const file of readdirSync(directory).filter(name => /^trial-[0-9a-f]{64}\.sqlite$/.test(name) && !done.has(name)).sort()) {
+    let source;
+    try {
+      source = new DatabaseSync(join(directory,file),{readOnly:true});
+      const docs = source.prepare('SELECT id,document FROM entry_review_docs').all().map(row => ({ ...row, doc: JSON.parse(row.document) }));
+      const samples = new Set(docs.filter(({doc}) => doc.type==='E1' && doc.data?.remarks==='Sample Jayant indent').map(row => row.id));
+      for (const {id,doc} of docs) if (doc.type==='E2' && samples.has(doc.data?.indent)) samples.add(id);
+      const keep = docs.filter(row => !samples.has(row.id) && !db.prepare('SELECT 1 FROM entry_review_docs WHERE id=?').get(row.id));
+      const kept = new Set(keep.map(row => row.id));
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        for (const row of keep) db.prepare('INSERT INTO entry_review_docs VALUES(?,?)').run(row.id,row.document);
+        for (const row of source.prepare('SELECT doc,actor,action,stamp,snapshot FROM entry_review_history ORDER BY seq').all()) {
+          if (kept.has(row.doc)) db.prepare('INSERT INTO entry_review_history(doc,actor,action,stamp,snapshot) VALUES(?,?,?,?,?)').run(row.doc,row.actor,row.action,row.stamp,row.snapshot);
+        }
+        for (const row of source.prepare('SELECT doc,site,day,storage,litres FROM entry_review_moves ORDER BY seq').all()) {
+          if (kept.has(row.doc)) db.prepare('INSERT INTO entry_review_moves(doc,site,day,storage,litres) VALUES(?,?,?,?,?)').run(row.doc,row.site,row.day,row.storage,row.litres);
+        }
+        for (const row of source.prepare('SELECT id,doc,name,mime,bytes FROM entry_review_files').all()) {
+          if (kept.has(row.doc)) db.prepare('INSERT OR IGNORE INTO entry_review_files VALUES(?,?,?,?,?)').run(row.id,row.doc,row.name,row.mime,row.bytes);
+        }
+        // New numbers continue after the highest one any person had reached.
+        for (const row of source.prepare('SELECT site,type,year,n FROM entry_review_numbers').all()) {
+          db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,?) ON CONFLICT(site,type,year) DO UPDATE SET n=MAX(n,excluded.n)').run(row.site,row.type,row.year,row.n);
+        }
+        db.prepare('INSERT INTO entry_review_imports VALUES(?)').run(file);
+        db.exec('COMMIT');
+      } catch (error) { db.exec('ROLLBACK'); throw error; }
+    } catch { /* A private file that cannot be read is left as it is and tried again at the next start. */ }
+    finally { try { source?.close(); } catch { /* Already closed. */ } }
+  }
 }
 
 export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, indentApproval }) {
@@ -97,9 +136,8 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       const [site,role] = (context ?? '').split('.');
       const pulseOutcome = siteStock ? locationsFromPulse(profile) : null;
       const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
-      // Until the first Location Master record is approved, each person gets a private trial workspace on sample data.
-      // It never touches the live ledger and gives way to live Entry as soon as a location is approved.
-      // A person with no Entry role at an approved site gets a private trial workspace on sample data.
+      // A person with no Entry role at an approved site works in the trial workspace, which everyone in the trial shares:
+      // a record one person saves is seen by all of them.
       // It never touches the live ledger, and live Entry opens for them once Pulse assigns a role at an approved site.
       const live = assigned && (!siteStock || locations.length) ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context) : null;
       const trial = siteStock && !live;
@@ -116,7 +154,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
-      req.reviewOwner = trial ? 'trial-'+owner : siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
+      req.reviewOwner = trial ? sharedTrial : siteStock ? 'site-stock' : assigned ? 'assigned-pilot' : owner;
       next();
     } catch { res.status(503).send('Pulse sign-in is temporarily unavailable.'); }
   };
@@ -138,6 +176,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         db.exec('PRAGMA busy_timeout=5000');
         const trial = Boolean(req.dieselActor.trial);
         if (!assigned || trial) seedWalkthrough(db);
+        if (trial) gatherPrivateTrials(db,directory);
         const stock = siteStock && !trial ? siteEntryWorkspace(db,siteMasterDb) : {};
         router = createEntriesRouter(db,trial ? {hosted:true,indentApproval} : {hosted:true,assigned,...stock,approvalOptions,indentApproval});
         routers.set(req.reviewOwner,router);
