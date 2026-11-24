@@ -36,6 +36,7 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
     } catch (error) {
       if (bot.username) bot.webhook = false;
       bot.problem = /refused \w+ \((401|404)\)/.test(error.message) ? 'refused' : /reached/.test(error.message) ? 'unreachable' : 'failed';
+      bot.detail = String(error.message).slice(0, 160);
       report(error);
     } finally { connecting = undefined; }
   })();

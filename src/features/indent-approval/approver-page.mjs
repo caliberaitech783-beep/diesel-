@@ -33,8 +33,9 @@ function botProblem(bot) {
         : '; a token is about 46 characters: numbers, a colon, then 35 letters and digits. Paste it again with nothing before or after it.');
   }
   if (bot.problem === 'refused') return 'Telegram does not recognise the token saved in DIESEL_INDENT_BOT_TOKEN. It was mistyped or has been revoked in BotFather. Copy the current token from BotFather and save it again.';
-  if (bot.problem === 'unreachable') return 'Diesel could not reach Telegram just now. The token may be fine; refresh this page in a minute.';
-  return 'Diesel could not confirm the bot with Telegram. Refresh this page in a minute.';
+  const detail = bot.detail ? ' Details: ' + bot.detail : '';
+  if (bot.problem === 'unreachable') return 'Diesel could not reach Telegram just now. The token may be fine; refresh this page in a minute.' + detail;
+  return 'Diesel could not confirm the bot with Telegram. Refresh this page in a minute.' + detail;
 }
 
 export const approversDenied = name => shell(name, `<h1>Indent approvers</h1>

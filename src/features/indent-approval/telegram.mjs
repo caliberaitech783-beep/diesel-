@@ -10,8 +10,14 @@ export function createTelegram(token, fetcher = fetch) {
     try {
       const response = await fetcher(url(method), { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), ...options });
       reply = await response.json();
-    } catch { throw Error('Telegram could not be reached (' + method + ').'); }
-    if (reply?.ok !== true) throw Error('Telegram refused ' + method + (reply?.error_code ? ' (' + reply.error_code + ')' : '') + '.');
+    } catch (error) {
+      // The cause names the kind of network failure only (timeout, DNS, refused connection).
+      const cause = error?.name === 'TimeoutError' ? 'timed out' : String(error?.cause?.code ?? error?.name ?? 'network error').replace(/[^\w ]/g, '').slice(0, 40);
+      throw Error('Telegram could not be reached (' + method + ': ' + cause + ').');
+    }
+    // Telegram's own short description says what is wrong ("Unauthorized", "Not Found"); it never contains the token.
+    if (reply?.ok !== true) throw Error('Telegram refused ' + method + (reply?.error_code ? ' (' + reply.error_code + ')' : '')
+      + (typeof reply?.description === 'string' ? ': ' + reply.description.replace(/[^\w .,:'-]/g, ' ').slice(0, 80) : '') + '.');
     return reply.result;
   }
   return {
