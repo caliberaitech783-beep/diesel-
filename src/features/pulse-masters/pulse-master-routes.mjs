@@ -1,7 +1,8 @@
+import express from 'express';
 import { stringify } from 'csv-stringify/sync';
 import { pulseMaster, pulseMastersPath } from './pulse-master-catalog.mjs';
 import { pulseMasterPage } from './pulse-master-page.mjs';
-import { forSite, matching, readPulseMasters } from './pulse-master-rules.mjs';
+import { forSite, matching, readAddedRecords, readPulseMasters } from './pulse-master-rules.mjs';
 import { createPulseMasterStore } from './pulse-master-store.mjs';
 import { pulseMasterExport } from './pulse-master-export.mjs';
 import { filterAndSort } from '../master-insights/insights.mjs';
@@ -13,8 +14,16 @@ const driversPartial = 'Pulse could not read the ERP driver list just now, so on
 // Spreadsheet programs run cells that begin with these characters as formulas.
 const cell = value => /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
 
-export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSignIn, now = Date.now }) {
+// Offices that hold diesel but are not Pulse sites. They start in the Location Master and can be removed there.
+const startingLocations = [
+  { name: 'CMPL Madhya Pradesh', region: '', regionCode: '', state: 'MP' },
+  { name: 'CMPL Nagpur', region: '', regionCode: '', state: 'MH' },
+  { name: 'CMPL Chandrapur', region: '', regionCode: '', state: 'MH' },
+];
+
+export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSignIn, publicOrigin, now = Date.now }) {
   const store = createPulseMasterStore(db);
+  store.seed('cmpl-locations', 'site', startingLocations, new Date(now()).toISOString());
   let refreshing;
   let retryAt = 0;
   // Keep Pulse's ERP availability notice while automatically retrying the feed.
@@ -80,7 +89,31 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
       actor: access.actor, master, rows: found.slice(offset, offset + pageSize), total: found.length, offset, pageSize, search, by, sort, dir,
       syncedAt, site: master.siteColumn ? access.sites?.[0] : undefined, masterDataPath: access.masterDataPath,
       notice: !refreshed ? unavailable : master.slug === 'driver' && withoutErpDrivers ? driversPartial : '',
+      message: typeof request.query.done === 'string' ? request.query.done.slice(0, 200) : '',
     }));
+  }));
+
+  // Adding by hand, importing a file and removing an added record. Pulse's own records are never changed here.
+  const sameOrigin = (request, response, next) => !publicOrigin || (request.get('origin') === publicOrigin && request.get('sec-fetch-site') !== 'cross-site')
+    ? next() : response.sendStatus(403);
+  const page = (master, done) => pulseMastersPath + '?' + new URLSearchParams({ master: master.slug, done });
+  const summary = ({ added, skipped }) => added + ' record' + (added === 1 ? '' : 's') + ' added' + (skipped ? ', ' + skipped + ' already listed and skipped' : '') + '.';
+  const form = express.urlencoded({ extended: false, limit: '32kb' });
+  app.post(pulseMastersPath + '/add', sameOrigin, form, route((request, response, access, master) => {
+    let records;
+    try { records = readAddedRecords(master, [request.body]); }
+    catch (error) { return response.redirect(303, page(master, error.message)); }
+    response.redirect(303, page(master, summary(store.add(master.slug, records, access.actor.name, new Date(now()).toISOString()))));
+  }));
+  app.post(pulseMastersPath + '/import', sameOrigin, express.json({ limit: '4mb' }), route((request, response, access, master) => {
+    let records;
+    try { records = readAddedRecords(master, request.body.records); }
+    catch (error) { return response.status(422).json({ error: error.message }); }
+    response.json({ message: summary(store.add(master.slug, records, access.actor.name, new Date(now()).toISOString())) });
+  }));
+  app.post(pulseMastersPath + '/remove', sameOrigin, form, route((request, response, _access, master) => {
+    const id = Number(request.body.id);
+    response.redirect(303, page(master, Number.isSafeInteger(id) && store.remove(master.slug, id) ? 'Record removed.' : 'That record was already removed.'));
   }));
 
   app.get(pulseMastersPath + '/records', route(async (_request, response, access, master) => {

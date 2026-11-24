@@ -131,3 +131,14 @@
   .master-data-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
   .master-data-table td[data-label]:empty { display: none; }
 }
+
+.pulse-import { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 14px; cursor: pointer; }
+.pulse-import:hover { background: var(--nav-hover); }
+.pulse-add { margin-block-end: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.pulse-add summary { cursor: pointer; font-weight: 600; }
+.pulse-add form { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-items: end; margin-block-start: 12px; }
+.pulse-add label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.pulse-add input { min-height: 38px; padding: 6px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+.pulse-add form button { min-height: 38px; padding: 6px 14px; border: 0; border-radius: 6px; background: var(--folder-bg); color: var(--folder-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.pulse-remove { padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.master-data-table td form { margin: 0; }
