@@ -22,10 +22,10 @@ export function indentSummary(doc) {
 
 export const litresText = value => Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' litres';
 // The sanction quantity an approver gave, as litres, or the reason it cannot stand.
-export function sanctionQuantity(text, request) {
+// It may be less or more than the quantity requested.
+export function sanctionQuantity(text) {
   const value = Number(String(text ?? '').trim().replace(/,/g, '').replace(/\s*(l|ltr|ltrs|litres?|liters?)\.?$/i, ''));
   if (!Number.isFinite(value) || value <= 0) return { error: 'Enter the sanction quantity as a number of litres.' };
-  if (request.litres != null && value > request.litres) return { error: 'The sanction quantity cannot be more than the requested ' + litresText(request.litres) + '.' };
   return { value: Math.round(value * 100) / 100 };
 }
 
