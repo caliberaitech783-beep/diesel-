@@ -45,5 +45,5 @@ export function assignedEntryActor(profile, assignments, selection) {
 
 export function canChooseRole(actor, site, profile) {
   if (actor.assignments) return actor.assignments.some(grant => grant.site === site && grant.profile === profile);
-  return sites.includes(site) && (profile === 'entry-deputy' || roles.some(role => roleKey(role) === profile));
+  return (sites.includes(site) || Boolean(actor.entrySites?.some(row => row.site === site))) && (profile === 'entry-deputy' || roles.some(role => roleKey(role) === profile));
 }

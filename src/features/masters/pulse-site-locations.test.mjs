@@ -134,3 +134,33 @@ test('everyone in the trial sees the records anyone saved, including those from 
   assert.equal(seen.status, 200, 'another person opens the record');
   assert.match(await (await request('/entries', 'q', null, q)).text(), new RegExp(old.number));
 });
+
+test('a location added in Diesel, such as a CMPL office, can be chosen for a diesel indent', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'diesel-added-location-'));
+  const origin = 'https://diesel.test', masterDb = openDieselDatabase(':memory:');
+  createMasterStore(masterDb, ['location-master']);
+  createPulseMasterStore(masterDb).replace({ site: pulseSites, region: [], equipment: [], employee: [{ empId: 'person', name: 'A Person' }], driver: [] }, new Date().toISOString());
+  createPulseMasterStore(masterDb).add('site', [{ name: 'CMPL Nagpur', state: 'MH' }], 'Diesel', new Date().toISOString());
+  const app = createApp({ env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43) },
+    entryReviewDirectory: dir, siteMasterDb: masterDb, fetcher: async () => Response.json({ profile: { login: 'person' } }) });
+  const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); masterDb.close(); await rm(dir, { recursive: true, force: true }); });
+  const address = 'http://127.0.0.1:' + server.address().port;
+  const request = (path, body, cookie = '', json = false) => fetch(address + path, { redirect: 'manual', method: body ? 'POST' : 'GET',
+    headers: { Origin: origin, ...(json ? { 'content-type': 'application/json' } : {}), cookie: '__Host-diesel_session=' + 'p'.repeat(43) + (cookie && '; ' + cookie) }, body });
+  assert.match(await (await request('/entries/new/E1')).text(), /<option value="CMPL Nagpur">CMPL Nagpur<\/option>/);
+  const chosen = await request('/workspace/role', new URLSearchParams({ site: 'CMPL Nagpur', role: roleKey('Site In-charge'), returnTo: '/entries/new/E1', indentSite: '1' }));
+  assert.equal(chosen.status, 303);
+  const cookie = chosen.headers.get('set-cookie').split(';')[0];
+  const form = await request(chosen.headers.get('location'), null, cookie);
+  assert.equal(form.status, 200);
+  const html = await form.text();
+  assert.match(html, /<option value="CMPL Nagpur" selected>/);
+  const reason = /<select name="reason"[^>]*>(?:<option value=""[^>]*>[^<]*<\/option>)?<option value="([^"]+)"/.exec(html)[1];
+  const id = /data-id="([\w-]+)"/.exec(html)[1], rev = Number(/data-rev="(\d+)"/.exec(html)[1]);
+  const saved = await request('/entries/record/' + id, JSON.stringify({ actor: 'CMPL Nagpur-' + roleKey('Site In-charge'), type: 'E1', action: 'Save indent', rev, site: 'CMPL Nagpur',
+    day: businessDay(), data: { litres: 500, requiredBy: 0, priority: 'Normal', reason, remarks: '' } }), cookie, true);
+  assert.equal(saved.status, 200, await saved.clone().text());
+  assert.match(await (await request('/entries/type/E1', null, cookie)).text(), /CMLL\/[A-Z]+\/IND\//);
+  assert.equal((await request('/workspace/role', new URLSearchParams({ site: 'Nowhere', role: roleKey('Site In-charge') }))).status, 400);
+});
