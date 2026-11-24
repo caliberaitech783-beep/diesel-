@@ -164,7 +164,9 @@ test('footer heads and legends chosen on the order decide how each amount is wor
   const html=detailPage(buyer,store.fresh('E2',buyer),[],[],null,store.definition('E2','Jayant'));
   assert.match(html,/name="depot" type="text" data-required="true"[^>]*placeholder="Enter lifting location" value="">/);
   assert.equal(html.match(/data-foot="head"/g).length,5);
-  assert.match(html,/<select data-foot="head" aria-label="Footer head 1"><option value="">Select…<\/option><option selected>Basic Excise Duty<\/option><option>VAT<\/option><option>Cess<\/option><option>Discount<\/option><option>Round Off<\/option>/);
-  assert.match(html,/<select data-foot="legend" aria-label="Legend 2"><option value="">Select…<\/option><option>LSA<\/option><option>LSD<\/option><option>OQA<\/option><option>OQD<\/option><option selected>PRA<\/option><option>PRD<\/option><option>PAA<\/option><option>PAD<\/option>/);
+  assert.match(html,/<tr><td>1<\/td>\s*<td><select data-foot="head" aria-label="Footer head 1"><option value="">Select…<\/option><option>Basic Excise Duty<\/option><option>VAT<\/option><option>Cess<\/option><option>Discount<\/option><option>Round Off<\/option>/);
+  assert.match(html,/<select data-foot="legend" aria-label="Legend 1"><option value="">Select…<\/option><option>LSA<\/option><option>LSD<\/option><option>OQA<\/option><option>OQD<\/option><option>PRA<\/option><option>PRD<\/option><option>PAA<\/option><option>PAD<\/option>/);
+  assert.equal(html.match(/<tr hidden><td>\d<\/td>/g).length,4,'a new order shows one footer row; the rest wait behind Add footer row');
+  assert.match(html,/data-add-footer-row>\+ Add footer row</);
   assert.doesNotMatch(html,/name="exciseRate"|name="vatPercent"/);
 });
