@@ -26,6 +26,20 @@ export function validateFields(type,input) {
       else requireValue(field.optional,'Add ' + field.label.toLowerCase() + '.');
       continue;
     }
+    if (field.type === 'rows') {
+      let rows = raw;
+      if (typeof raw === 'string' && raw.trim()) { try { rows = JSON.parse(raw); } catch { rows = null; } }
+      else if (typeof raw === 'string') rows = [];
+      requireValue(rows === undefined || (Array.isArray(rows) && rows.length <= 50),'Check the rows in ' + field.label + '.');
+      const kept = (rows ?? []).filter(row => row && typeof row === 'object' && !Array.isArray(row))
+        .map((row,index) => {
+          try { return validateFields({ fields: field.columns }, row); }
+          catch (error) { throw Object.assign(error, { message: field.label + ' row ' + (index + 1) + ': ' + error.message }); }
+        });
+      if (kept.length) data[field.key] = kept;
+      else requireValue(field.optional,'Add ' + field.label.toLowerCase() + '.');
+      continue;
+    }
     const value = typeof raw === 'number' || typeof raw === 'string' ? String(raw).trim() : '';
     if (!value) { requireValue(field.optional,'Enter ' + field.label + '.'); continue; }
     requireValue(value.length <= 2000,field.label + ' is too long.');
