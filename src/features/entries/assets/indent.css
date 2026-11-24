@@ -97,3 +97,10 @@
 :root[data-theme="dark"] .indent-workspace .indent-card label[data-state="missing"] :is(input,select,textarea) { background:#412b38; border-color:#e08a9f; }
 :root[data-theme="dark"] .indent-workspace .indent-card label:has([name="priority"] option[value="Urgent"]:checked) select { color:#f0ca91; background:#3a3024; border-color:#a57c44; }
 :root[data-theme="dark"] .indent-card [data-indent-due] { border-color:#405981; }
+
+.indent-approval { margin-inline-start: 8px; padding: 4px 10px; border-radius: 20px; font-size: 12px; background: #fff3d6; color: #7a4b00; }
+.indent-approval.is-approved { background: #e3f3eb; color: #1a7050; }
+.indent-approval.is-declined { background: #fde8e6; color: #9b1c12; }
+:root[data-theme="dark"] .indent-approval { background: #3d3015; color: #f0c674; }
+:root[data-theme="dark"] .indent-approval.is-approved { background: #203b32; color: #8bd8b5; }
+:root[data-theme="dark"] .indent-approval.is-declined { background: #47201c; color: #f3a79f; }
