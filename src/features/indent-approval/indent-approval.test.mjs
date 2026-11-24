@@ -212,3 +212,28 @@ test('without a bot token nothing is sent and indents stay Saved', async () => {
   assert.equal(approval.decision(indent.id), null);
   assert.equal(approval.status().bot.configured, false);
 });
+
+test('the administrator page says exactly why the bot is not connected, without showing the token', async t => {
+  let reply = () => Response.json({ ok: false, error_code: 401 });
+  const start = async env => {
+    const app = express(), shared = new DatabaseSync(':memory:');
+    registerIndentApproval(app, { db: shared, env, publicOrigin: 'https://diesel.test', getProfile: async () => ({ login: 'admin', name: 'Admin' }), isAdmin: () => true,
+      startSignIn: () => {}, fetcher: async url => reply(String(url).split('/').pop()) });
+    const server = app.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => { server.close(); shared.close(); });
+    return () => fetch('http://127.0.0.1:' + server.address().port + '/indent-approvers').then(response => response.text());
+  };
+  const quoted = await (await start({ DIESEL_INDENT_BOT_TOKEN: '"' + token + '"' }))();
+  assert.match(quoted, /does not look like a bot token. It is 48 characters and has quote marks around it/);
+  assert.doesNotMatch(quoted, new RegExp(token.slice(12)));
+  assert.match(await (await start({ DIESEL_INDENT_BOT_TOKEN: 'dieselindent' }))(), /12 characters and has no colon/);
+  assert.match(await (await start({ DIESEL_INDENT_BOT_TOKEN: '9000000001:short' }))(), /16 characters; a token is about 46/);
+
+  const page = await start({ DIESEL_INDENT_BOT_TOKEN: token });
+  assert.match(await page(), /Telegram does not recognise the token/);
+  reply = () => { throw Error('offline'); };
+  assert.match(await page(), /could not reach Telegram just now/);
+  reply = method => Response.json({ ok: true, result: method === 'getMe' ? { username: 'dieselindent_bot' } : true });
+  assert.match(await page(), /Telegram bot connected: <strong>@dieselindent_bot<\/strong><\/p>/, 'a later page view connects without a restart');
+});

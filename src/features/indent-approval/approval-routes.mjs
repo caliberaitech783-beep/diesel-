@@ -21,13 +21,29 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
   const report = error => { failures.push(String(error?.message ?? error).slice(0, 120)); if (failures.length > 20) failures.shift(); };
   const approval = telegram && createIndentApproval({ store, telegram, now, report });
 
+  // Asks Telegram who the bot is and where to deliver button presses. Run at start and again from the
+  // administrator page while not connected, so a corrected token or a passing outage clears by itself.
+  let connecting;
+  const connect = () => connecting ??= (async () => {
+    try {
+      bot.username = (await telegram.send('getMe', {})).username ?? '';
+      bot.problem = '';
+      // Telegram delivers button presses and replies only to a public HTTPS address.
+      if (publicOrigin.startsWith('https:')) {
+        await telegram.send('setWebhook', { url: publicOrigin + indentWebhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] });
+        bot.webhook = true;
+      }
+    } catch (error) {
+      if (bot.username) bot.webhook = false;
+      bot.problem = /refused \w+ \((401|404)\)/.test(error.message) ? 'refused' : /reached/.test(error.message) ? 'unreachable' : 'failed';
+      report(error);
+    } finally { connecting = undefined; }
+  })();
+  // What is wrong with the saved value, without showing it: only its length and whether it has the two parts of a token.
+  if (token && !telegram) Object.assign(bot, { problem: 'format', length: token.length, quoted: /^["'].*["']$/.test(token), parts: token.split(':').length });
+
   if (telegram) {
-    telegram.send('getMe', {}).then(me => { bot.username = me.username ?? ''; }, report);
-    // Telegram delivers button presses and replies only to a public HTTPS address.
-    if (publicOrigin.startsWith('https:')) {
-      telegram.send('setWebhook', { url: publicOrigin + indentWebhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] })
-        .then(() => { bot.webhook = true; }, error => { bot.webhook = false; report(error); });
-    }
+    connect();
     app.post(indentWebhookPath, express.json({ limit: '256kb' }), async (request, response) => {
       const given = Buffer.from(String(request.get('x-telegram-bot-api-secret-token') ?? '')), expected = Buffer.from(telegram.webhookSecret);
       if (given.length !== expected.length || !timingSafeEqual(given, expected)) return response.sendStatus(403);
@@ -52,7 +68,10 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
   const show = (response, person, error) => response.status(error ? 422 : 200).type('html')
     .send(approversPage({ name: person.name, approvers: store.approvers(), bot, error }));
   const form = express.urlencoded({ extended: false, limit: '2kb' });
-  app.get(approversPath, admin((_request, response, person) => show(response, person)));
+  app.get(approversPath, admin(async (_request, response, person) => {
+    if (telegram && !(bot.username && bot.webhook !== false)) await connect();
+    show(response, person);
+  }));
   app.post(approversPath, form, admin((request, response, person) => {
     const { name, phone, pulseLogin } = request.body ?? {};
     try {

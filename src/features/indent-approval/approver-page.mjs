@@ -24,13 +24,25 @@ function shell(name, body) {
 </body></html>`;
 }
 
+// Says exactly why the bot is not connected, so the fix is clear without anyone seeing the token.
+function botProblem(bot) {
+  if (!bot.configured) return 'Telegram bot not connected yet. Add the bot token to the Diesel app settings as DIESEL_INDENT_BOT_TOKEN; until then saved indents are not sent.';
+  if (bot.problem === 'format') {
+    return 'The value saved in DIESEL_INDENT_BOT_TOKEN does not look like a bot token. It is ' + bot.length + ' characters'
+      + (bot.quoted ? ' and has quote marks around it; remove the quotes.' : bot.parts !== 2 ? ' and has no colon in the middle; a token is numbers, a colon, then about 35 letters and digits.'
+        : '; a token is about 46 characters: numbers, a colon, then 35 letters and digits. Paste it again with nothing before or after it.');
+  }
+  if (bot.problem === 'refused') return 'Telegram does not recognise the token saved in DIESEL_INDENT_BOT_TOKEN. It was mistyped or has been revoked in BotFather. Copy the current token from BotFather and save it again.';
+  if (bot.problem === 'unreachable') return 'Diesel could not reach Telegram just now. The token may be fine; refresh this page in a minute.';
+  return 'Diesel could not confirm the bot with Telegram. Refresh this page in a minute.';
+}
+
 export const approversDenied = name => shell(name, `<h1>Indent approvers</h1>
   <p role="alert">Only a Diesel administrator can change who approves indents. Ask an administrator, or ask for your Pulse username to be added to the Diesel administrator list.</p>`);
 
 export function approversPage({ name, approvers, bot, error }) {
   const botLine = bot.username ? `<p class="bot">Telegram bot connected: <strong>@${escape(bot.username)}</strong>${bot.webhook === false ? ' · it cannot receive replies yet, so buttons will not work' : ''}</p>`
-    : `<p class="bot off">${bot.configured ? 'The Telegram bot token was not accepted by Telegram. Check the token in the Diesel app settings.'
-      : 'Telegram bot not connected yet. Add the bot token to the Diesel app settings as DIESEL_INDENT_BOT_TOKEN; until then saved indents are not sent.'}</p>`;
+    : `<p class="bot off">${escape(botProblem(bot))}</p>`;
   const rows = approvers.map(person => `<tr><td>${escape(person.name)}</td><td>${escape(person.phone)}</td><td>${escape(person.pulse_login)}</td>
     <td>${person.chat_id ? `<span class="linked">Linked</span> · ${escape(istDay.format(new Date(person.linked_at)))}` : '<span class="waiting">Waiting for Start in the bot</span>'}</td>
     <td><form method="post" action="${approversPath}/remove"><input type="hidden" name="id" value="${person.id}"><button aria-label="Remove ${escape(person.name)}">Remove</button></form></td></tr>`).join('');
