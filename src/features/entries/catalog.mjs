@@ -1,5 +1,6 @@
 import { review, storageLabels } from './review-masters.mjs';
 import { deliveryColumns } from './purchase-order.mjs';
+import { accountVendors } from './account-vendors.mjs';
 
 const text = (key,label,optional=false) => ({key,label,type:'text',optional});
 const number = (key,label,optional=false) => ({key,label,type:'number',optional});
@@ -23,11 +24,11 @@ export const entries = [
     {...pick('unit','Unit',['Litre']),default:'Litre'},
     {...pick('priority','Priority',['Normal','Urgent']),default:'Normal'},
     {...number('requiredBy','Required by (days)'),step:1,min:0,max:3650},reason,remarks]],
-  ['E2','Purchase order','Buy','Procurement Executive',[link('indent','Approved indent','E1'),{...pick('type','PO type',['Bulk','Retail']),default:'Bulk'},pick('supplier','Supplier',[review.supplier,review.pump]),pick('depot','Depot',[review.depot]),pick('basis','Delivery basis',['Delivered','Ex-depot']),number('kl','Quantity (KL)',true),pick('transporter','Transporter',[review.transporter],true),number('tolerance','Lower transit tolerance (%)',true),pick('terms','Payment terms',['Advance','Credit']),
+  ['E2','Purchase order','Buy','Procurement Executive',[link('indent','Approved indent','E1'),{...pick('type','PO type',['Bulk','Retail']),default:'Bulk'},pick('supplier','Supplier',[review.supplier,review.pump,...accountVendors.map(vendor=>vendor.name)]),pick('depot','Depot',[review.depot]),pick('basis','Delivery basis',['Delivered','Ex-depot','To Bill']),number('kl','Quantity (KL)',true),pick('transporter','Transporter',[review.transporter],true),number('tolerance','Lower transit tolerance (%)',true),pick('terms','Payment terms',['Advance','Credit']),
     // Single-page purchase order. Optional here so earlier KL orders stay valid; purchase-order.mjs requires them on new orders.
     {...date('deliveryDate','Delivery date'),optional:true},text('undersigned','Undersigned (employee)',true),
-    pick('transactionType','Transaction type',['Inter State','Intra State'],true),pick('supplyNature','Supply nature',['Non-GST Supplies','GST Supplies'],true),
-    text('freightContract','Freight contract No.',true),number('freightRate','Freight rate (₹/L)',true),pick('loadingOnGross','Loading on gross',['Yes','No'],true),
+    pick('transactionType','Transaction type',['Inter State','Intra State'],true),pick('supplyNature','Supply nature',['Non-GST Supplies','Taxable Supplies','GST Supplies'],true),
+    text('freightContract','Freight contract No.',true),number('freightRate','Freight rate (₹/L)',true),pick('loadingOnGross','Landing on gross',['Yes','No'],true),
     number('litres','Diesel Qty (L)',true),number('rateBefore','Rate before discount (₹/L)',true),number('rateAfter','Rate after discount (₹/L)',true),
     number('exciseRate','Basic excise duty (₹/L)',true),number('vatPercent','VAT (%)',true),
     pick('shortageFrom','Shortage deduction from',['Transporter','Vendor'],true),pick('shortageMethod','Shortage deduction method',['None','Percent','Fixed'],true),

@@ -62,19 +62,21 @@ test('a single-page purchase order is checked before it is saved', t => {
   assert.throws(()=>submit('E2',{...order,deliveries:rows([{litres:15000}])}),/must total the Diesel Qty of 40,000 L/);
   assert.throws(()=>submit('E2',{...order,deliveries:rows([{vehicle:'TRUCK-1'}])}),/Delivery row 1: enter the vehicle number/);
   assert.throws(()=>submit('E2',{...order,deliveries:rows([{},{date:'2099-01-01'}])}),/Delivery row 2: the date must fall/);
-  assert.throws(()=>submit('E2',{...order,deliveries:''}),/at least one delivery row/);
   assert.throws(()=>submit('E2',{...order,deliveries:'not json'}),/Check the rows in Delivery schedule/);
   assert.throws(()=>submit('E2',{...order,litres:50000}),/remaining indent balance/);
   assert.throws(()=>submit('E2',{...order,rateAfter:120}),/cannot be higher/);
-  assert.throws(()=>submit('E2',{...order,deliveryDate:undefined}),/delivery date/);
+  assert.throws(()=>submit('E2',{...order,deliveryDate:'2000-01-01',deliveries:''}),/delivery date on or after the PO date/);
   assert.throws(()=>submit('E2',{...order,undersigned:''}),/undersigned/);
-  assert.throws(()=>submit('E2',{...order,transporter:undefined}),/transporter/);
   assert.throws(()=>submit('E2',{...order,tolerance:2}),/can only be lowered/);
   assert.throws(()=>submit('E2',{...order,shortageMethod:'Fixed'}),/freight deduction rate/);
   assert.throws(()=>submit('E2',{...order,advanceAmount:6000000}),/advance amount/);
   assert.throws(()=>submit('E2',{...order,terms:'Credit'}),/Leave the advance amount blank/);
   const fixed=submit('E2',{...order,shortageMethod:'Fixed',freightDeductionRate:95});
   assert.equal(fixed.result.shortageRate,95000);
+  // The delivery date, the transporter and the delivery schedule are no longer needed, and a vendor comes from the Account Master.
+  const {submit:again,order:plain}=setup(t);
+  const lean=again('E2',{...plain,deliveryDate:undefined,transporter:undefined,deliveries:'',basis:'To Bill',supplyNature:'Taxable Supplies',supplier:'SANDEEP GASOLENES'});
+  assert.deepEqual([lean.status,lean.data.supplier,lean.data.basis,lean.result.freight,lean.result.shortageParty],['Awaiting approval','SANDEEP GASOLENES','To Bill',0,'Transporter']);
   // A draft can be kept half-filled.
   assert.equal(submit('E2',{indent:order.indent,litres:100},'Save draft').status,'Draft');
 });
@@ -85,9 +87,20 @@ test('New entry on Purchase order opens the one-page form', t => {
   const draft=store.fresh('E2',buyer);
   const html=detailPage(buyer,draft,[indent],[],null,store.definition('E2','Jayant'));
   for (const text of ['Diesel Purchase Order','Purchase Order Details','Vendor Details','Tax &amp; Supply','Freight &amp; Logistics','Record Information',
-    'Material Details','Final Calculation – Footer / Tax','P.O. Amount','Tolerance &amp; Shortage','Is Full Payment as Advance?','Delivery Schedule',
+    'Material Details','Final Calculation – Footer / Tax','P.O. Amount','Tolerance &amp; Shortage','Is Full Payment as Advance?','Landing on Gross',
     'value="Save draft">Save as Draft<','value="Submit">Save PO<','purchase-order-form.js']) assert.ok(html.includes(text),text);
-  assert.match(html,new RegExp('<option value="'+indent.id+'" data-remaining="40000" selected>'));
+  assert.match(html,new RegExp('data-search-for="indent"[^>]*value="">\\s*<input type="hidden" name="indent" value="">'),'the indent starts blank and is searched');
+  assert.match(html,new RegExp('<option value="[^"]*IND[^"]*" data-value="'+indent.id+'" data-remaining="40000">'));
+  assert.match(html,/data-search-for="supplier"/);
+  assert.match(html,/<option value="SANDEEP GASOLENES" data-value="SANDEEP GASOLENES">/);
+  assert.match(html,/SANDEEP GASOLENES&quot;:\{&quot;address&quot;:&quot;2, AT-GHUGGUS PHATA, GHUGGUS ROAD, CHANDRAPUR, MAHARASHTRA, 442401&quot;/);
+  for (const gone of ['Delivery Schedule','name="transporter"','>Paid<','GST Supplies<','Loading on Gross']) assert.ok(!html.includes(gone)||gone==='GST Supplies<'&&!html.includes('>GST Supplies<'),gone);
+  assert.match(html,/<option value="Taxable Supplies">Taxable Supplies<\/option>/);
+  assert.match(html,/<option value="Delivered">FOR<\/option><option value="Ex-depot">To Pay<\/option><option value="To Bill">To Bill<\/option>/);
+  assert.match(html,/data-loading-gross checked><input type="hidden" name="loadingOnGross" value="Yes">Landing on Gross/);
+  assert.match(html,/name="deliveryDate" type="date" min=/);
+  assert.ok(html.indexOf('Record Information')>html.indexOf('Is Full Payment as Advance?'),'record information comes last');
+  assert.match(html,/id="rail-toggle"/);
   assert.match(html,/name="undersigned"[^>]*value="Pratik Ashok Bisen · E100"/);
   assert.match(html,/<option value="Ex-depot">To Pay<\/option>/);
   assert.doesNotMatch(html,/name="kl"/);

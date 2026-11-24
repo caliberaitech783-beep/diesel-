@@ -168,3 +168,7 @@ output { display: block; font-weight: 600; color: var(--link); }output:not(:empt
 
 .approval-detail { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; max-width: 34ch; }
 .approval-edit { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 600; }
+
+#rail-toggle { min-height: 32px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+body.rail-hidden .shell { grid-template-columns: minmax(0, 1fr); }
+body.rail-hidden .rail { display: none; }

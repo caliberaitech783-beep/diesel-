@@ -4,6 +4,7 @@ import { entryRole, roles, roleKey, sites } from './review-masters.mjs';
 import { pilotEntry } from './entry-access.mjs';
 import { mayViewEntryType } from './entry-visibility.mjs';
 import { indentSiteForm } from './indent-fields.mjs';
+import { entrySiteDirectory } from './entry-sites.mjs';
 
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -42,7 +43,7 @@ function switcher(actor, back) {
     <button class="primary">Switch</button></form></details>`;
   return `<details class="context"><summary><i class="location-mark" aria-hidden="true"></i>${esc(actor.site)}<span class="role-name">${esc(role)}</span></summary>
     <form class="switch" method="post" action="/workspace/role"><input type="hidden" name="returnTo" value="${esc(back)}">
-    <label>Site<select name="site">${sites.map(s => option(s, s, s === actor.site)).join('')}</select></label>
+    <label>Site<select name="site">${(actor.entrySites ? entrySiteDirectory(actor).map(row => [row.site, row.name]) : sites.map(s => [s, s])).map(([s, name]) => option(s, name, s === actor.site)).join('')}</select></label>
     <label>Review role<select name="role">${roles.map(r => option(roleKey(r), r, r === role)).join('')}${option('entry-deputy', 'Deputy Site In-charge', actor.profile === 'entry-deputy')}</select></label>
     <button class="primary">Switch</button></form></details>`;
 }
@@ -60,7 +61,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(active)}</span>` : ''}</div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(active)}</span>` : ''}</div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div></body></html>`;
 }

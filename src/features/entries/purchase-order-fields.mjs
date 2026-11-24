@@ -1,9 +1,10 @@
 // The Diesel Purchase Order form (E2): one page with order details, vendor, tax, freight, material and
-// footer calculation, tolerance and shortage, payment and the delivery schedule.
+// footer calculation, tolerance and shortage, payment and, last, the record information.
 import { esc } from './entry-shell.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
+import { accountVendors } from './account-vendors.mjs';
 import { purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const star = '<b class="req" aria-hidden="true">*</b>';
@@ -28,9 +29,10 @@ export function purchaseOrderHeading(doc) {
 export function purchaseOrderFields(actor, doc, meta, rows) {
   const d = doc.data, field = key => meta.fields.find(f => f.key === key);
   const card = (name, title, body, extra = '') => `<fieldset class="order-card order-${name}"><legend>${icons[extra || name] ?? ''}<span>${title}</span></legend>${body}</fieldset>`;
-  function select(key, label, { required = false, labels, attrs = '' } = {}) {
+  function select(key, label, { required = false, labels, attrs = '', offer } = {}) {
     const f = field(key), value = d[key] ?? f.default ?? '';
-    const options = f.options.map(v => [v, labels?.[v] ?? f.optionLabels?.get(v) ?? v]);
+    // `offer` narrows what a new order offers; a value saved earlier stays selectable on that order.
+    const options = f.options.filter(v => !offer || offer.includes(v) || v === value).map(v => [v, labels?.[v] ?? f.optionLabels?.get(v) ?? v]);
     const only = !value && required && options.length === 1;
     return `<label><span>${esc(label)}${required ? star : ''}</span><select name="${key}"${required ? ' data-required="true"' : ''} ${attrs}><option value=""${value || only ? '' : ' selected'}>Select…</option>${
       options.map(([v, n]) => `<option value="${esc(v)}"${v === value || only ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
@@ -39,6 +41,13 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
     const f = field(key), kind = type ?? f.type;
     return `<label><span>${esc(label)}${required ? star : ''}</span><input name="${key}" type="${kind}"${required ? ' data-required="true"' : ''}${kind === 'number' ? ' step="any" min="0" inputmode="decimal"' : ''} ${attrs} value="${esc(value ?? d[key] ?? '')}"></label>`;
   }
+  // A box to type in that searches a long list. The chosen record's value travels in the hidden field.
+  function search(key, label, choices, selected, placeholder) {
+    const current = choices.find(choice => choice.value === selected);
+    return `<label><span>${esc(label)}${star}</span><input type="search" data-search-for="${key}" data-required="true" list="order-${key}-list" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(current?.label ?? '')}">
+      <input type="hidden" name="${key}" value="${esc(current?.value ?? '')}"><datalist id="order-${key}-list">${choices.map(choice =>
+        `<option value="${esc(choice.label)}" data-value="${esc(choice.value)}"${choice.remaining === undefined ? '' : ` data-remaining="${esc(choice.remaining)}"`}>`).join('')}</datalist></label>`;
+  }
   const readOnly = (label, value, attrs = '') => `<label>${esc(label)}<input type="text" readonly tabindex="-1" ${attrs} value="${esc(value ?? '')}"></label>`;
 
   // Indents with quantity still to order, and how much is left on each.
@@ -46,8 +55,11 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const ordered = id => rows.filter(row => row.type === 'E2' && row.id !== doc.id && row.data.indent === id && !['Draft', 'Superseded', 'Returned'].includes(row.status))
     .reduce((sum, row) => sum + Number(row.result.litres ?? 0), 0);
   const indents = sourceChoices(indentField, doc, rows, actor);
-  const indentOptions = indents.map(row => `<option value="${esc(row.id)}" data-remaining="${esc(Math.max(0, row.result.litres - ordered(row.id)))}"${
-    row.id === d.indent || (!d.indent && indents.length === 1) ? ' selected' : ''}>${esc(formatIndentNumber(row.number))}</option>`).join('');
+  const indentChoices = indents.map(row => ({ value: row.id, label: formatIndentNumber(row.number), remaining: Math.max(0, row.result.litres - ordered(row.id)) }));
+  // Vendors come from the Account Master: the approved accounts of a live site, otherwise the company's own list.
+  const supplierField = field('supplier');
+  const vendorChoices = supplierField.options.map(value => ({ value, label: supplierField.optionLabels?.get(value) ?? value }));
+  const vendorDetails = meta.accountDetails ?? Object.fromEntries(accountVendors.map(vendor => [vendor.name, { address: vendor.address, contact: vendor.contact }]));
 
   const employee = actor.employee ? actor.employee.name + ' · ' + actor.employee.empId : '';
   const item = meta.orderItem, itemName = item ? item.code + ' · ' + item.name : review.item;
@@ -56,32 +68,27 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const totals = purchaseOrderTotals(d);
   const deliveries = d.deliveries ?? [];
   const advance = (d.terms ?? 'Advance') === 'Advance';
-  const transporterNames = (field('transporter').options ?? []).map(v => field('transporter').optionLabels?.get(v) ?? v);
 
   return `<div class="order-top">
     ${card('details', 'Purchase Order Details', `<div class="order-grid three">
       ${readOnly('Location', doc.site)}
       <label><span>PO Date${star}</span><input name="day" type="date" data-required="true" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       ${readOnly('PO No.', formatIndentNumber(doc.number) || '', 'placeholder="Auto-generated"')}
-      ${input('deliveryDate', 'Delivery Date', { required: true, attrs: `min="${esc(doc.day)}"` })}
-      <label class="span-two"><span>Indent No.${star}</span><select name="indent" data-required="true"><option value=""${d.indent || indents.length === 1 ? '' : ' selected'}>${indents.length ? 'Select…' : 'No approved indent with a balance'}</option>${indentOptions}</select></label>
+      ${input('deliveryDate', 'Delivery Date', { attrs: `min="${esc(doc.day)}"` })}
+      <div class="span-two">${search('indent', 'Indent No.', indentChoices, d.indent, indents.length ? 'Search indent number' : 'No approved indent with a balance')}</div>
       <label class="span-three"><span>Undersigned (Employee)${star}</span><input name="undersigned" type="text" data-required="true" maxlength="200" autocomplete="off" value="${esc(d.undersigned ?? employee)}"></label>
     </div>`, 'order')}
-    ${card('vendor', 'Vendor Details', `${select('supplier', 'Party / Vendor Name', { required: true })}
-      <div class="vendor-contact" data-accounts="${esc(JSON.stringify(meta.accountDetails ?? {}))}">${icon('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.800 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>')}
+    ${card('vendor', 'Vendor Details', `${search('supplier', 'Party / Vendor Name', vendorChoices, d.supplier, 'Search the Account Master')}
+      <div class="vendor-contact" data-accounts="${esc(JSON.stringify(vendorDetails))}">${icon('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.800 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>')}
         <div><strong>Vendor's Address &amp; Contact</strong><p data-vendor-address>Select a vendor to see its address.</p><p data-vendor-contact></p></div></div>`)}
     <div class="order-stack">
-    ${card('tax', 'Tax &amp; Supply', `<div class="order-grid three">${select('transactionType', 'Transaction Type', { required: true })}${select('supplyNature', 'Supply Nature', { required: true })}${select('type', 'PO Type', { required: true })}</div>`)}
+    ${card('tax', 'Tax &amp; Supply', `<div class="order-grid three">${select('transactionType', 'Transaction Type', { required: true })}${select('supplyNature', 'Supply Nature', { required: true, offer: ['Non-GST Supplies', 'Taxable Supplies'] })}${select('type', 'PO Type', { required: true })}</div>`)}
     ${card('freight', 'Freight &amp; Logistics', `<div class="order-grid two">${select('depot', 'Lifting Location', { required: !field('depot').optional })}
-      ${select('basis', 'Freight Type', { required: true, labels: { Delivered: 'Paid', 'Ex-depot': 'To Pay' } })}
-      ${select('transporter', 'Transporter')}${input('freightContract', 'Freight Contract No.', { attrs: 'maxlength="100" autocomplete="off"' })}
+      ${select('basis', 'Freight Type', { required: true, labels: { Delivered: 'FOR', 'Ex-depot': 'To Pay' } })}
+      ${input('freightContract', 'Freight Contract No.', { attrs: 'maxlength="100" autocomplete="off"' })}
       ${input('freightRate', 'Freight Rate (₹/L)')}
-      <label class="order-check"><input type="checkbox" data-loading-gross${d.loadingOnGross === 'Yes' ? ' checked' : ''}><input type="hidden" name="loadingOnGross" value="${d.loadingOnGross === 'Yes' ? 'Yes' : 'No'}">Loading on Gross</label></div>`)}
+      <label class="order-check"><input type="checkbox" data-loading-gross${d.loadingOnGross === 'No' ? '' : ' checked'}><input type="hidden" name="loadingOnGross" value="${d.loadingOnGross === 'No' ? 'No' : 'Yes'}">Landing on Gross</label></div>`)}
     </div></div>
-    <div class="order-record">${icons.layers}<strong>Record Information</strong>
-      <span>Creation Date <b>${esc(stamp({ day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-'))}</b></span>
-      <span>Creation Time <b>${esc(stamp({ hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase())}</b></span>
-      <span>Created By <b>${esc(actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div>
     ${card('material', 'Material Details', `<div class="order-table"><table><thead><tr><th>#</th><th>Particular (Material Name)</th><th>HSN Code</th><th>Diesel Qty (L)${star}</th>
       <th>Rate Before Disc.${star}</th><th>Rate After Disc.${star}</th><th>Net Rate</th><th>Amount</th><th>Landed Rate</th><th>Material In No.</th><th>GRN No.</th></tr></thead>
       <tbody><tr><td>1</td><td><input type="text" readonly tabindex="-1" aria-label="Particular" value="${esc(itemName)}"></td>
@@ -116,9 +123,9 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
       <div class="order-grid three">${input('advanceAmount', 'Advance Amount (₹)')}${input('paymentAdviceLocation', 'Payment Advice Location', { attrs: 'maxlength="100" autocomplete="off"' })}
       ${input('paymentAdviceNo', 'Payment Advice No.', { attrs: 'maxlength="100" autocomplete="off" placeholder="Enter advice number"' })}</div>`, 'pay')}
     </div>
-    ${card('schedule', 'Delivery Schedule', `<p class="order-hint plain">Delivery rows must total the Diesel Qty. Each date must fall between the PO date and the delivery date.</p>
-      <input type="hidden" name="deliveries" value="${esc(JSON.stringify(deliveries))}">
-      <datalist id="order-transporters">${transporterNames.map(name => `<option value="${esc(name)}">`).join('')}</datalist>
-      <div class="order-table"><table data-deliveries data-site="${esc(doc.site)}"><thead><tr><th>Delivery Date${star}</th><th>Location${star}</th><th>Delivery Address</th><th>DSL Qty (L)${star}</th><th>Vehicle No.</th><th>Transporter Name</th><th><span class="sr-only">Remove</span></th></tr></thead><tbody></tbody></table></div>
-      <div class="order-schedule-foot"><button type="button" data-add-delivery>+ Add delivery row</button><output data-scheduled aria-live="polite"></output></div>`, 'truck')}`;
+<input type="hidden" name="deliveries" value="${esc(JSON.stringify(deliveries))}">
+    <div class="order-record">${icons.layers}<strong>Record Information</strong>
+      <span>Creation Date <b>${esc(stamp({ day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-'))}</b></span>
+      <span>Creation Time <b>${esc(stamp({ hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase())}</b></span>
+      <span>Created By <b>${esc(actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div>`;
 }
