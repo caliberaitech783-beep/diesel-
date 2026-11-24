@@ -13,6 +13,8 @@ export function commercialMastersFor(data) {
     pan:(attributes??[]).some(row=>row.name==='PAN'&&row.value),
     bankVerified:Boolean(v['Bank details verified by']&&v['Account No']&&v['IFSC Code']&&v['Y/N']!=='No'),
     recovery:v['Recovery rate basis (hire parties, contractors)'],
+    address:[v['Office Address 1'],v['Office Address 2'],v['Office City'],v['Office State'],v['Office Pin Code']].filter(Boolean).join(', '),
+    contact:v['Contact No.']||v['Office Mobile No']||v['Office Phone No'],
   }));
   return {
     accounts,
