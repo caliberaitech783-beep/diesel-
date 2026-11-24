@@ -234,6 +234,20 @@ test('the administrator page says exactly why the bot is not connected, without 
   assert.match(await page(), /Telegram does not recognise the token/);
   reply = () => { throw Error('offline'); };
   assert.match(await page(), /could not reach Telegram just now/);
+
+  // Telegram limiting the bot's name lookup must not stop the bot working: the webhook is what matters.
+  const methods = [];
+  reply = method => { methods.push(method); return method === 'getMe' ? Response.json({ ok: false, error_code: 429, description: 'Too Many Requests: retry after 32' })
+    : Response.json({ ok: true, result: true }); };
+  const limited = await start({ DIESEL_INDENT_BOT_TOKEN: token });
+  assert.match(await limited(), /<p class="bot">Telegram bot connected<\/p>/);
+  assert.deepEqual(methods, ['setWebhook', 'getMe']);
+  await limited(); await limited();
+  assert.deepEqual(methods, ['setWebhook', 'getMe'], 'a refused call is retried on Telegram’s timer, not on every page view');
+
+  reply = method => Response.json(method === 'setWebhook' ? { ok: false, error_code: 429, description: 'Too Many Requests: retry after 32' } : { ok: true, result: { username: 'dieselindent_bot' } });
+  const waiting = await (await start({ DIESEL_INDENT_BOT_TOKEN: token }))();
+  assert.match(waiting, /Telegram has not accepted the connection yet. Details: Telegram refused setWebhook \(429\): Too Many Requests: retry after 32. Diesel has called Telegram 1 time since it started and retries by itself/);
   reply = method => Response.json({ ok: true, result: method === 'getMe' ? { username: 'dieselindent_bot' } : true });
-  assert.match(await page(), /Telegram bot connected: <strong>@dieselindent_bot<\/strong><\/p>/, 'a later page view connects without a restart');
+  assert.match(await (await start({ DIESEL_INDENT_BOT_TOKEN: token }))(), /Telegram bot connected: <strong>@dieselindent_bot<\/strong><\/p>/);
 });

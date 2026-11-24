@@ -8,7 +8,7 @@ export function createTelegram(token, fetcher = fetch) {
   async function call(method, options) {
     let reply;
     try {
-      const response = await fetcher(url(method), { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15_000), ...options });
+      const response = await fetcher(url(method), { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(25_000), ...options });
       reply = await response.json();
     } catch (error) {
       // The cause names the kind of network failure only (timeout, DNS, refused connection).
