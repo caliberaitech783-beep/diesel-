@@ -141,8 +141,9 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       // It never touches the live ledger, and live Entry opens for them once Pulse assigns a role at an approved site.
       const live = assigned && (!siteStock || locations.length) ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context) : null;
       const trial = siteStock && !live;
+      const directory = readEntrySiteDirectory(siteMasterDb,locations);
       req.dieselActor = live ?? (assigned && !trial ? null
-        : reviewActor(sites.includes(site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
+        : reviewActor(sites.includes(site)||directory.some(row=>row.site===site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
       req.dieselActor.requestedBy=profile.name||profile.login;
@@ -151,7 +152,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         const employees=readEmployees?await readEmployees(req):siteMasterDb?createPulseMasterStore(siteMasterDb).read('employee').records:[];
         req.dieselActor.employee=indentRequester(profile,employees);
       }
-      req.dieselActor.entrySites=readEntrySiteDirectory(siteMasterDb,locations);
+      req.dieselActor.entrySites=directory;
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
       else if (siteStock) req.dieselActor.siteEntryTypes = siteEntryTypes;
       if (siteStock && !trial && approvalOptions) req.dieselActor.approvalContact = approvalContact(profile);
