@@ -61,7 +61,8 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const vendorChoices = supplierField.options.map(value => ({ value, label: supplierField.optionLabels?.get(value) ?? value }));
   const vendorDetails = meta.accountDetails ?? Object.fromEntries(accountVendors.map(vendor => [vendor.name, { address: vendor.address, contact: vendor.contact }]));
 
-  const employee = actor.employee ? actor.employee.name + ' · ' + actor.employee.empId : '';
+  // The undersigned is the signed-in person: their Employee Master name and ID, or their Pulse name when no employee record matches.
+  const employee = actor.employee ? actor.employee.name + ' · ' + actor.employee.empId : actor.requestedBy ?? '';
   const item = meta.orderItem, itemName = item ? item.code + ' · ' + item.name : review.item;
   const created = new Date(doc.created ?? Date.now());
   const stamp = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options }).format(created);
@@ -86,7 +87,7 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
       ${readOnly('PO No.', formatIndentNumber(doc.number) || '', 'placeholder="Auto-generated"')}
       ${input('deliveryDate', 'Delivery Date', { attrs: `min="${esc(doc.day)}"` })}
       <div class="span-two">${search('indent', 'Indent No.', indentChoices, d.indent, indents.length ? 'Search indent number' : 'No approved indent with a balance')}</div>
-      <label class="span-three"><span>Undersigned (Employee)${star}</span><input name="undersigned" type="text" data-required="true" maxlength="200" autocomplete="off" value="${esc(d.undersigned ?? employee)}"></label>
+      <label class="span-three"><span>Undersigned (Employee)${star}</span><input name="undersigned" type="text" readonly tabindex="-1" data-required="true" maxlength="200" value="${esc(d.undersigned || employee)}"></label>
     </div>`, 'order')}
     ${card('vendor', 'Vendor Details', `${search('supplier', 'Party / Vendor Name', vendorChoices, d.supplier, 'Search the Account Master')}
       <div class="vendor-contact" data-accounts="${esc(JSON.stringify(vendorDetails))}">${icon('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.800 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>')}

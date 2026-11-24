@@ -102,7 +102,9 @@ test('New entry on Purchase order opens the one-page form', t => {
   assert.match(html,/name="deliveryDate" type="date" min=/);
   assert.ok(html.indexOf('Record Information')>html.indexOf('Is Full Payment as Advance?'),'record information comes last');
   assert.match(html,/id="rail-toggle"/);
-  assert.match(html,/name="undersigned"[^>]*value="Pratik Ashok Bisen · E100"/);
+  assert.match(html,/name="undersigned" type="text" readonly[^>]*value="Pratik Ashok Bisen · E100"/);
+  const {employee:_none,...unmatched}=buyer;
+  assert.match(detailPage({...unmatched,requestedBy:'SIDDHARTH HOONKA'},draft,[indent],[],null,store.definition('E2','Jayant')),/name="undersigned" type="text" readonly[^>]*value="SIDDHARTH HOONKA"/);
   assert.match(html,/<option value="Ex-depot">To Pay<\/option>/);
   assert.doesNotMatch(html,/name="kl"/);
   assert.doesNotMatch(html,/data-step/);
