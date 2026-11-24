@@ -2,7 +2,7 @@ import express from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createIndentApprovalStore } from './approval-store.mjs';
-import { approversDenied, approversPage, approversPath } from './approver-page.mjs';
+import { approvalsDenied, approvalsPage, approvalsPath, approversDenied, approversPage, approversPath } from './approver-page.mjs';
 import { createIndentApproval, decisionView } from './indent-approval.mjs';
 import { createTelegram, validBotToken } from './telegram.mjs';
 
@@ -19,7 +19,7 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
   const failures = [];
   // Categories only, for the administrator page and logs: never a token, chat or message.
   const report = error => { failures.push(String(error?.message ?? error).slice(0, 120)); if (failures.length > 20) failures.shift(); };
-  const approval = telegram && createIndentApproval({ store, telegram, now, report });
+  const approval = createIndentApproval({ store, telegram, now, report });
 
   // Tells Telegram where to deliver button presses and replies, then learns the bot's name. Telegram limits
   // these calls hard on shared hosting addresses, so a refusal is retried after the wait Telegram asks for,
@@ -99,9 +99,35 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
     response.redirect(303, approversPath);
   }));
 
+  // Approval inside Diesel, for an approver at a computer. Only a person whose Pulse username is on the list gets in.
+  const approver = handler => async (request, response, next) => {
+    try {
+      const profile = await getProfile(request);
+      if (!profile) return request.method === 'GET' ? startSignIn(response, approvalsPath) : response.sendStatus(401);
+      const person = store.approverByLogin(profile.login);
+      if (!person) return response.status(403).type('html').send(approvalsDenied(profile.name || profile.login));
+      if (request.method !== 'GET' && (request.get('origin') !== publicOrigin || request.get('sec-fetch-site') === 'cross-site')) return response.sendStatus(403);
+      response.set('Cache-Control', 'no-store');
+      await handler(request, response, person);
+    } catch (error) { next(error); }
+  };
+  const list = (response, person, error) => response.status(error ? 422 : 200).type('html')
+    .send(approvalsPage({ name: person.name, pending: store.pending(), recent: store.recent(), error }));
+  app.get(approvalsPath, approver((_request, response, person) => list(response, person)));
+  app.post(approvalsPath + '/decide', form, approver(async (request, response, person) => {
+    const { doc, decision, sanctioned, reason, back } = request.body ?? {};
+    try { await approval.decide(String(doc ?? ''), { decision, sanctioned, reason }, person); }
+    catch (error) { return list(response, person, error.message); }
+    response.redirect(303, typeof back === 'string' && /^\/entries\/record\/[\w-]{1,64}$/.test(back) ? back : approvalsPath);
+  }));
+
   return {
+    // Whether this Pulse username may approve indents, and what is waiting, for the Entry screens.
+    mayDecide: login => Boolean(login && store.approverByLogin(login)),
+    waiting: doc => store.request(doc),
     // Sends the saved indent for approval. Resolves to how many people received it; never rejects into the save.
-    requested: doc => approval ? approval.requested(doc).catch(error => { report(error); return 0; }) : Promise.resolve(null),
+    // With no bot and nobody on the list there is no one to ask, so the indent simply stays Saved.
+    requested: doc => telegram || store.approvers().length ? approval.requested(doc).catch(error => { report(error); return 0; }) : Promise.resolve(null),
     decision: doc => decisionView(store.request(doc)),
     status: () => ({ bot: { ...bot }, failures: [...failures] }),
   };

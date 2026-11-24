@@ -4,13 +4,14 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
 export const approversPath = '/indent-approvers';
+export const approvalsPath = '/indent-approvals';
 const istDay = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' });
 
-function shell(name, body) {
+function shell(name, body, title = 'Indent approvers') {
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Indent approvers · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
+  <title>${title} · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
   ${themeHead}
   <link rel="stylesheet" href="/masters/assets/workspace.css">
   <link rel="stylesheet" href="${approversPath}/assets/approvers.css">
@@ -50,7 +51,7 @@ export function approversPage({ name, approvers, bot, error }) {
     <td>${person.chat_id ? `<span class="linked">Linked</span> · ${escape(istDay.format(new Date(person.linked_at)))}` : '<span class="waiting">Waiting for Start in the bot</span>'}</td>
     <td><form method="post" action="${approversPath}/remove"><input type="hidden" name="id" value="${person.id}"><button aria-label="Remove ${escape(person.name)}">Remove</button></form></td></tr>`).join('');
   return shell(name, `<h1>Indent approvers</h1>
-    <p>When someone selects <strong>Save indent</strong>, each linked person below gets the indent as a PDF on Telegram with Approve and Decline buttons. The first decision stands and the others see who decided.</p>
+    <p>When someone selects <strong>Save indent</strong>, each linked person below gets the indent as a PDF on Telegram with Approve and Decline buttons. To approve they give the sanction quantity. On a computer they can decide in Diesel instead, on the indent itself or under <a href="${approvalsPath}">Indents for my approval</a>. The first decision stands and the others see who decided.</p>
     ${botLine}
     <h2>Add a person</h2>
     ${error ? `<p role="alert">${escape(error)}</p>` : ''}
@@ -67,4 +68,37 @@ export function approversPage({ name, approvers, bot, error }) {
     <ol><li>Add them above with the mobile number their Telegram account uses.</li>
       <li>They open ${bot.username ? `<strong>@${escape(bot.username)}</strong>` : 'the Diesel indent bot'} in Telegram and press <strong>Start</strong>.</li>
       <li>They press <strong>Share my mobile number</strong>. The status above changes to Linked.</li></ol>`);
+}
+
+const istTime = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+const litres = value => Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+// The Approve and Decline controls an approver uses in Diesel, on the list below and on the indent itself.
+export function decisionForm(request, back) {
+  return `<form class="indent-decision" method="post" action="${approvalsPath}/decide">
+    <input type="hidden" name="doc" value="${escape(request.doc)}"><input type="hidden" name="back" value="${escape(back)}">
+    <label>Sanction quantity (litres)<input name="sanctioned" type="number" inputmode="decimal" step="any" min="0.01"${request.litres != null ? ` max="${request.litres}" placeholder="Up to ${escape(litres(request.litres))}"` : ''} autocomplete="off"></label>
+    <label>Reason if declining (optional)<input name="reason" maxlength="500" autocomplete="off"></label>
+    <button name="decision" value="approve" class="approve">Approve</button><button name="decision" value="decline" class="decline" formnovalidate>Decline</button>
+  </form>`;
+}
+
+export const approvalsDenied = name => shell(name, `<h1>Indents for my approval</h1>
+  <p role="alert">Your Pulse username is not on the Diesel indent approver list. Ask a Diesel administrator to add it.</p>`, 'Indents for my approval');
+
+export function approvalsPage({ name, pending, recent, error }) {
+  const cards = pending.map(request => `<article class="approval-card" id="indent-${escape(request.doc)}">
+    <h3><a href="/entries/record/${escape(request.doc)}">${escape(request.number)}</a></h3>
+    <p>${escape(request.caption).split('\n').slice(1).join('<br>')}</p><p class="asked">Sent for approval ${escape(istTime.format(new Date(request.requested_at)))}</p>
+    ${decisionForm(request, approvalsPath)}</article>`).join('');
+  const rows = recent.map(request => `<tr><td>${escape(request.number)}</td><td>${request.status === 'approved' ? '<span class="linked">Approved</span>' : '<span class="declined">Declined</span>'}</td>
+    <td>${request.sanctioned != null ? escape(litres(request.sanctioned)) + ' L' : '—'}</td><td>${escape(request.decided_by)}</td><td>${escape(istTime.format(new Date(request.decided_at)))}</td><td>${escape(request.reason ?? '')}</td></tr>`).join('');
+  return shell(name, `<h1>Indents for my approval</h1>
+    <p>Enter the sanction quantity and select <strong>Approve</strong>, or select <strong>Decline</strong>. The first decision stands, here or on Telegram.</p>
+    ${error ? `<p role="alert">${escape(error)}</p>` : ''}
+    <h2>Waiting (${pending.length})</h2>
+    ${pending.length ? cards : '<p>Nothing is waiting for approval.</p>'}
+    <h2>Recently decided</h2>
+    ${recent.length ? `<table><thead><tr><th>Indent</th><th>Decision</th><th>Sanctioned</th><th>By</th><th>When</th><th>Reason</th></tr></thead><tbody>${rows}</tbody></table>` : '<p>No decisions yet.</p>'}`,
+    'Indents for my approval');
 }

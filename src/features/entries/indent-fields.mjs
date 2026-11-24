@@ -37,7 +37,7 @@ export function indentFields(actor,doc,meta,render) {
       ${readOnly('Item name',selectedSite?(item?.name??review.item):'Select a location first')}
     </div></fieldset>
     <fieldset class="indent-card"><legend>Quantity &amp; delivery</legend><div class="indent-delivery-grid">
-      ${take('litres')}<label>Sanction quantity<input type="text" readonly value="" placeholder="To be added later"></label><label>Unit<input name="unit" type="text" readonly value="Litre"></label>
+      ${take('litres')}<label>Sanction quantity<input type="text" readonly value="${esc(doc.approval?.sanctioned??'')}" placeholder="Filled by the approver"></label><label>Unit<input name="unit" type="text" readonly value="Litre"></label>
       ${take('priority')}${take('requiredBy')}<label>Required date<span class="indent-date-picker"><output data-indent-due aria-live="polite">${formatIndentDate(due)||'DD/MM/YYYY'}</output><input type="date" required data-indent-date aria-label="Required date" min="${esc(doc.day)}" max="${requiredDate(doc.day,3650)}" value="${due}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></span></label>
     </div></fieldset>
     <fieldset class="indent-card"><legend>Reason &amp; remarks</legend><div class="indent-reason-grid">${take('reason')}
@@ -49,7 +49,7 @@ export function indentReadDetails(doc,meta,actor) {
   const item=doc.indentItem??meta.indentItem;
   return [['Location',doc.site],['Indent number',formatIndentNumber(doc.number)],['Date',doc.day],
     ['Requested by',doc.requester?`${doc.requester.name} · ${doc.requester.empId}`:doc.requestedBy??'Employee details unavailable'],
-    ['Item name',item?.name??doc.result.item??review.item],['Sanction quantity','—'],
+    ['Item name',item?.name??doc.result.item??review.item],['Sanction quantity',doc.approval?.sanctioned!=null?doc.approval.sanctioned+' litres':'— (filled by the approver)'],
     ['Required date',formatIndentDate(indentDueDate(doc))]]
     .map(([label,value])=>`<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('');
 }

@@ -17,30 +17,43 @@ export function indentSummary(doc) {
     ['Required date', due], ['Reason', data.reason ?? ''], ['Remarks', data.remarks ?? '']];
   const caption = ['Diesel indent ' + number, 'Site: ' + doc.site, 'Quantity: ' + quantity + (data.priority ? ' · ' + data.priority : ''),
     due && 'Required: ' + due, requester && 'Requested by: ' + requester].filter(Boolean).join('\n').slice(0, 700);
-  return { number, rows, caption };
+  return { number, rows, caption, litres: Number.isFinite(litres) && litres > 0 ? litres : null };
+}
+
+export const litresText = value => Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' litres';
+// The sanction quantity an approver gave, as litres, or the reason it cannot stand.
+export function sanctionQuantity(text, request) {
+  const value = Number(String(text ?? '').trim().replace(/,/g, '').replace(/\s*(l|ltr|ltrs|litres?|liters?)\.?$/i, ''));
+  if (!Number.isFinite(value) || value <= 0) return { error: 'Enter the sanction quantity as a number of litres.' };
+  if (request.litres != null && value > request.litres) return { error: 'The sanction quantity cannot be more than the requested ' + litresText(request.litres) + '.' };
+  return { value: Math.round(value * 100) / 100 };
 }
 
 export const decisionLine = request => request.status === 'approved' ? '✅ Approved by ' + request.decided_by + ' · ' + when(request.decided_at)
+    + (request.sanctioned != null ? '\nSanctioned: ' + litresText(request.sanctioned) : '')
   : '❌ Declined by ' + request.decided_by + ' · ' + when(request.decided_at) + (request.reason ? '\nReason: ' + request.reason : '');
 
 // What the Entry screens show for an indent: null until an approval has been requested.
 export function decisionView(request) {
   if (!request) return null;
   if (request.status === 'pending') return { status: 'pending', label: 'Awaiting approval', detail: request.sent ? 'Sent to ' + request.sent + ' approver' + (request.sent === 1 ? '' : 's') + ' on Telegram'
-    : 'Not delivered yet: no approver has linked Telegram' };
-  return { status: request.status, label: request.status === 'approved' ? 'Approved' : 'Declined',
-    detail: 'by ' + request.decided_by + ' · ' + when(request.decided_at) + (request.reason ? ' · ' + request.reason : '') };
+    : 'Waiting for an approver in Diesel' };
+  return { status: request.status, label: request.status === 'approved' ? 'Approved' : 'Declined', sanctioned: request.sanctioned ?? undefined,
+    detail: 'by ' + request.decided_by + ' · ' + when(request.decided_at) + (request.sanctioned != null ? ' · sanctioned ' + litresText(request.sanctioned) : '')
+      + (request.reason ? ' · ' + request.reason : '') };
 }
 
 export function createIndentApproval({ store, telegram, now = () => new Date().toISOString(), report = () => {} }) {
   const quietly = promise => promise.catch(error => report(error));
   // Every copy of the message loses its buttons and gains the outcome, so nobody decides twice.
-  const close = (doc, request, text) => Promise.all(store.messages(doc).map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
+  // Without a bot, approval still works inside Diesel: there are simply no messages to send or close.
+  const close = (doc, request, text) => !telegram ? Promise.resolve() : Promise.all(store.messages(doc).map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
     chat_id, message_id, caption: (request.caption + '\n\n' + text).slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
 
   async function requested(doc) {
-    const { number, rows, caption } = indentSummary(doc);
-    const earlier = store.open({ doc: doc.id, rev: doc.rev, number, caption }, now());
+    const { number, rows, caption, litres } = indentSummary(doc);
+    const earlier = store.open({ doc: doc.id, rev: doc.rev, number, caption, litres }, now());
+    if (!telegram) return 0;
     await Promise.all(earlier.map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
       chat_id, message_id, caption: (caption + '\n\n✏️ This indent was edited. A new approval request follows.').slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
     const approvers = store.linkedApprovers();
@@ -57,8 +70,16 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
     const answer = text => quietly(telegram.send('answerCallbackQuery', { callback_query_id: query.id, text, show_alert: true }));
     const approver = chatId === undefined ? null : store.approverByChat(chatId);
     if (!action || !approver) return answer('You are not on the Diesel indent approver list.');
-    const result = store.decide(doc, action === 'approve' ? 'approved' : 'declined', approver, now());
-    if (!result) return answer('This indent is no longer waiting for approval.');
+    const waiting = store.request(doc);
+    if (!waiting) return answer('This indent is no longer waiting for approval.');
+    if (action === 'approve' && waiting.status === 'pending') {
+      // Approval needs the sanction quantity, so the decision is taken when the approver sends it.
+      await quietly(telegram.send('sendMessage', { chat_id: chatId, text: 'Approving ' + waiting.number + (waiting.litres != null ? ' · requested ' + litresText(waiting.litres) : '')
+        + '.\nSend the sanction quantity in litres to approve.', reply_markup: { force_reply: true, input_field_placeholder: 'Sanction quantity (litres)' } })
+        .then(message => store.promptQuantity(chatId, doc, message.message_id)));
+      return quietly(telegram.send('answerCallbackQuery', { callback_query_id: query.id, text: 'Send the sanction quantity to approve.' }));
+    }
+    const result = store.decide(doc, 'declined', approver, now());
     const { request, decided } = result;
     if (!decided) {
       await quietly(telegram.send('editMessageCaption', { chat_id: chatId, message_id: query.message.message_id,
@@ -85,6 +106,20 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
         : 'This number is not on the Diesel indent approver list. Ask the administrator to add it, then send /start again.', { reply_markup: { remove_keyboard: true } });
     }
     const replied = message.reply_to_message?.message_id;
+    const asked = store.quantityPrompt(chatId), approver = store.approverByChat(chatId);
+    if (asked && approver && typeof message.text === 'string' && !message.text.startsWith('/') && (replied === undefined || replied === asked.message_id)) {
+      const request = store.request(asked.doc);
+      if (!request || request.status !== 'pending') {
+        store.clearQuantityPrompt(chatId);
+        return say(request ? 'Already ' + request.status + ' by ' + request.decided_by + '.' : 'This indent is no longer waiting for approval.');
+      }
+      const quantity = sanctionQuantity(message.text, request);
+      if (quantity.error) return say(quantity.error + ' Send it again.');
+      const result = store.decide(asked.doc, 'approved', approver, now(), { sanctioned: quantity.value });
+      if (!result.decided) return say('Already ' + result.request.status + ' by ' + result.request.decided_by + '.');
+      await close(asked.doc, result.request, decisionLine(result.request));
+      return say('Approved ' + result.request.number + '. Sanctioned ' + litresText(quantity.value) + '.');
+    }
     if (replied !== undefined && typeof message.text === 'string' && message.text.trim()) {
       const request = store.answerReason(chatId, replied, message.text.trim().slice(0, 500));
       if (request) { await close(request.doc, request, decisionLine(request)); return say('Reason recorded.'); }
@@ -94,8 +129,26 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
       { reply_markup: { keyboard: [[{ text: 'Share my mobile number', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
   }
 
+  // A decision taken inside Diesel by a listed approver. Throws the message to show when it cannot stand.
+  async function decide(doc, { decision, sanctioned, reason }, approver) {
+    const request = store.request(doc);
+    if (!request) throw Error('This indent is not waiting for approval.');
+    if (request.status !== 'pending') throw Error('Already ' + request.status + ' by ' + request.decided_by + '.');
+    let extra = { reason: String(reason ?? '').trim().slice(0, 500) || null };
+    if (decision === 'approve') {
+      const quantity = sanctionQuantity(sanctioned, request);
+      if (quantity.error) throw Error(quantity.error);
+      extra = { sanctioned: quantity.value };
+    } else if (decision !== 'decline') throw Error('Choose Approve or Decline.');
+    const result = store.decide(doc, decision === 'approve' ? 'approved' : 'declined', approver, now(), extra);
+    if (!result.decided) throw Error('Already ' + result.request.status + ' by ' + result.request.decided_by + '.');
+    await close(doc, result.request, decisionLine(result.request));
+    return result.request;
+  }
+
   return {
     requested,
+    decide,
     decision: doc => decisionView(store.request(doc)),
     update: update => update?.callback_query ? pressed(update.callback_query) : update?.message ? messaged(update.message) : undefined,
   };

@@ -72,7 +72,7 @@ test('a saved indent goes to every linked approver as a PDF, and the first decis
   const { store, telegram, approval, contact, press } = setup();
   const indent = doc();
   assert.equal(await approval.requested(indent), 0, 'nobody has linked Telegram yet');
-  assert.deepEqual(approval.decision(indent.id), { status: 'pending', label: 'Awaiting approval', detail: 'Not delivered yet: no approver has linked Telegram' });
+  assert.deepEqual(approval.decision(indent.id), { status: 'pending', label: 'Awaiting approval', detail: 'Waiting for an approver in Diesel' });
   await contact(11, '9876543210'); await contact(22, '9123456780'); telegram.take();
 
   assert.equal(await approval.requested(indent), 2);
@@ -88,14 +88,28 @@ test('a saved indent goes to every linked approver as a PDF, and the first decis
   assert.match(telegram.take()[0].text, /not on the Diesel indent approver list/);
   assert.equal(store.request(indent.id).status, 'pending');
 
+  // Approve asks for the sanction quantity first; nothing is decided until a valid quantity arrives.
+  const text = (chat, words, to) => approval.update({ message: { chat: { id: chat, type: 'private' }, from: { id: chat }, text: words, ...(to ? { reply_to_message: { message_id: to } } : {}) } });
   await press(22, 'approve', indent.id);
+  const ask = telegram.take().find(call => call.method === 'sendMessage');
+  assert.match(ask.text, /Approving CMLL\/JOC\/IND\/26-27\/001 · requested 12,000 litres\.\nSend the sanction quantity in litres to approve\./);
+  assert.equal(store.request(indent.id).status, 'pending');
+  await text(22, 'ok');
+  assert.match(telegram.take()[0].text, /Enter the sanction quantity as a number of litres/);
+  await text(22, '15000', ask.result.message_id);
+  assert.match(telegram.take()[0].text, /cannot be more than the requested 12,000 litres/);
+  assert.equal(store.request(indent.id).status, 'pending');
+  await text(22, '10,000 litres');
   const closed = telegram.take();
   const edits = closed.filter(call => call.method === 'editMessageCaption');
   assert.equal(edits.length, 2, 'both copies lose their buttons');
-  assert.ok(edits.every(call => /✅ Approved by Bina Rao · 24 Nov 2026/.test(call.caption) && call.reply_markup.inline_keyboard.length === 0));
-  assert.equal(closed.find(call => call.method === 'answerCallbackQuery').text, 'Approved.');
+  assert.ok(edits.every(call => /✅ Approved by Bina Rao · 24 Nov 2026.*\nSanctioned: 10,000 litres/.test(call.caption) && call.reply_markup.inline_keyboard.length === 0));
+  assert.equal(closed.find(call => call.method === 'sendMessage').text, 'Approved CMLL/JOC/IND/26-27/001. Sanctioned 10,000 litres.');
   assert.equal(approval.decision(indent.id).label, 'Approved');
-  assert.match(approval.decision(indent.id).detail, /^by Bina Rao · /);
+  assert.equal(approval.decision(indent.id).sanctioned, 10000);
+  assert.match(approval.decision(indent.id).detail, /^by Bina Rao · .* · sanctioned 10,000 litres$/);
+  await text(22, '500');
+  assert.doesNotMatch(telegram.take()[0].text, /Approved/, 'a later number decides nothing');
 
   await press(11, 'decline', indent.id);
   assert.equal(telegram.take().find(call => call.method === 'answerCallbackQuery').text, 'Already approved by Bina Rao.');
@@ -250,4 +264,66 @@ test('the administrator page says exactly why the bot is not connected, without 
   assert.match(waiting, /Telegram has not accepted the connection yet. Details: Telegram refused setWebhook \(429\): Too Many Requests: retry after 32. Diesel has called Telegram 1 time since it started and retries by itself/);
   reply = method => Response.json({ ok: true, result: method === 'getMe' ? { username: 'dieselindent_bot' } : true });
   assert.match(await (await start({ DIESEL_INDENT_BOT_TOKEN: token }))(), /Telegram bot connected: <strong>@dieselindent_bot<\/strong><\/p>/);
+});
+
+test('an approver at a computer decides inside Diesel, and only a listed Pulse username can', async () => {
+  const { store, telegram, approval, contact, press } = setup();
+  await contact(11, '9876543210'); await contact(22, '9123456780');
+  const indent = doc();
+  await approval.requested(indent); telegram.take();
+  const bina = store.approverByLogin(' Bina.Rao ');
+  assert.equal(bina.name, 'Bina Rao');
+  assert.equal(store.approverByLogin('stranger'), undefined);
+  await assert.rejects(approval.decide(indent.id, { decision: 'approve', sanctioned: '' }, bina), /Enter the sanction quantity/);
+  await assert.rejects(approval.decide(indent.id, { decision: 'approve', sanctioned: '12001' }, bina), /cannot be more than the requested/);
+  assert.deepEqual(store.pending().map(request => request.doc), [indent.id]);
+  const decided = await approval.decide(indent.id, { decision: 'approve', sanctioned: '8000.5' }, bina);
+  assert.deepEqual([decided.status, decided.sanctioned, decided.decided_login], ['approved', 8000.5, 'bina.rao']);
+  assert.equal(telegram.take().filter(call => call.method === 'editMessageCaption' && /Approved by Bina Rao[^]*Sanctioned: 8,000.5 litres/.test(call.caption)).length, 2, 'Telegram copies close too');
+  await assert.rejects(approval.decide(indent.id, { decision: 'decline' }, bina), /Already approved by Bina Rao/);
+  await press(11, 'approve', indent.id);
+  assert.equal(telegram.take().find(call => call.method === 'answerCallbackQuery').text, 'Already approved by Bina Rao.');
+  assert.deepEqual([store.pending().length, store.recent().length], [0, 1]);
+
+  const second = { ...doc(), number: 'JOC/IND/26-27/002' };
+  await approval.requested(second); telegram.take();
+  const declined = await approval.decide(second.id, { decision: 'decline', reason: ' Stock is enough ' }, bina);
+  assert.deepEqual([declined.status, declined.reason, declined.sanctioned], ['declined', 'Stock is enough', null]);
+});
+
+test('the approval page in Diesel opens only for listed approvers and takes the decision without a bot', async t => {
+  const shared = new DatabaseSync(':memory:');
+  const app = express();
+  let login = 'admin';
+  const approval = registerIndentApproval(app, { db: shared, env: {}, publicOrigin: 'https://diesel.test',
+    getProfile: async () => login ? { login, name: login } : null, isAdmin: profile => profile.login === 'admin', startSignIn: response => response.redirect(303, '/pulse') });
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); shared.close(); });
+  const origin = 'http://127.0.0.1:' + server.address().port;
+  const formPost = (path, fields, from = 'https://diesel.test') => fetch(origin + path, { method: 'POST', redirect: 'manual', body: new URLSearchParams(fields), headers: { Origin: from } });
+  const indent = doc();
+  assert.equal(await approval.requested(indent), null, 'with no bot and no approver the indent stays Saved');
+  assert.equal((await formPost('/indent-approvers', { name: 'Bina Rao', phone: '9123456780', pulseLogin: 'Bina.Rao' })).status, 303);
+  assert.equal(await approval.requested(indent), 0);
+  assert.equal(approval.decision(indent.id).detail, 'Waiting for an approver in Diesel');
+  assert.deepEqual([approval.mayDecide('bina.rao'), approval.mayDecide('admin'), approval.mayDecide(undefined)], [true, false, false]);
+
+  assert.equal((await fetch(origin + '/indent-approvals')).status, 403, 'an administrator who is not an approver does not get in');
+  login = 'bina.rao';
+  const page = await (await fetch(origin + '/indent-approvals')).text();
+  assert.match(page, /Waiting \(1\)/);
+  assert.match(page, /CMLL\/JOC\/IND\/26-27\/001<\/a>/);
+  assert.match(page, /name="sanctioned" type="number"[^>]* max="12000"/);
+  const fields = { doc: indent.id, decision: 'approve', sanctioned: '13000', back: '/entries/record/' + indent.id };
+  assert.equal((await formPost('/indent-approvals/decide', fields, 'https://elsewhere.test')).status, 403);
+  const refused = await formPost('/indent-approvals/decide', fields);
+  assert.equal(refused.status, 422);
+  assert.match(await refused.text(), /cannot be more than the requested 12,000 litres/);
+  const done = await formPost('/indent-approvals/decide', { ...fields, sanctioned: '11000' });
+  assert.deepEqual([done.status, done.headers.get('location')], [303, '/entries/record/' + indent.id]);
+  assert.deepEqual([approval.decision(indent.id).label, approval.decision(indent.id).sanctioned], ['Approved', 11000]);
+  assert.match(await (await fetch(origin + '/indent-approvals')).text(), /Waiting \(0\)[^]*Recently decided[^]*11,000 L/);
+  login = 'stranger';
+  assert.equal((await formPost('/indent-approvals/decide', fields)).status, 403);
 });

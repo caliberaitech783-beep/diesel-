@@ -6,6 +6,7 @@ import { sourceChoices } from './entry-choices.mjs';
 import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { approvalCard } from './approval-inbox.mjs';
+import { decisionForm } from '../indent-approval/approver-page.mjs';
 import { filterRegister, registerFilters, traceEntries, isRegisterRecord } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
@@ -30,7 +31,7 @@ const approvalTones = {pending:'waiting',approved:'posted',declined:'returned'};
 function statusCell(r) {
   if (!r.approval) return `<span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span>`;
   return `<span class="status-pill ${approvalTones[r.approval.status]}">${esc(r.approval.label)}</span>
-    <small class="approval-detail">${esc(r.approval.detail)}</small>${r.canEdit?` <a class="approval-edit" href="${recordPath(r)}">Edit</a>`:''}`;
+    <small class="approval-detail">${esc(r.approval.detail)}</small>${r.decide?` <a class="approval-edit" href="${recordPath(r)}#indent-decision">Approve / decline</a>`:''}${r.canEdit?` <a class="approval-edit" href="${recordPath(r)}">Edit</a>`:''}`;
 }
 function table(rows, sources = rows, transport = true) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
@@ -215,6 +216,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
     <div class="actions${order?' order-actions':''}">${order?`<a class="order-cancel" href="/entries/type/E2">✕ Cancel</a>`:''}${editable?(['Draft','Returned'].includes(d.status)?submitButton('Save draft'):'')+submitButton(indent?'Save indent':'Submit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
+    ${indent&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this indent</h2><p>Requested ${esc(d.data.litres??'')} litres. Enter the sanction quantity and select Approve, or select Decline.</p>${decisionForm(d.decide,recordPath(d))}</section>`:''}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${!indent&&history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>

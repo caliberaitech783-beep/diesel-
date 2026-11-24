@@ -146,6 +146,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
       req.dieselActor.offlineScope = owner;
       req.dieselActor.requestedBy=profile.name||profile.login;
+      req.dieselActor.login=profile.login.trim().toLowerCase();
       if (['/new/E1','/new/E2'].includes(req.path) || req.path.startsWith('/record/')) {
         const employees=readEmployees?await readEmployees(req):siteMasterDb?createPulseMasterStore(siteMasterDb).read('employee').records:[];
         req.dieselActor.employee=indentRequester(profile,employees);
