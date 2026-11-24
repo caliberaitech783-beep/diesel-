@@ -24,7 +24,7 @@ function setup(t) {
     deliveryDate:day,undersigned:'Pratik Ashok Bisen',transactionType:'Inter State',supplyNature:'Non-GST Supplies',freightRate:6.2,loadingOnGross:'Yes',
     litres:40000,rateBefore:107.95274,rateAfter:107.95274,exciseRate:7.8,vatPercent:14.9,tolerance:0,shortageFrom:'Transporter',shortageMethod:'None',
     advanceAmount:1000000,deliveries:JSON.stringify([{date:day,location:'Jayant',litres:20000,vehicle:'MH34BZ4428'},{date:day,location:'Jayant',litres:'20000',vehicle:'mh 34 bz 5172',transporter:'Shree Vinayak Transport'}])};
-  return {store,submit,approve,indent,order};
+  return {store,submit,approve,indent,order,db};
 }
 
 test('purchase order totals follow excise per litre, VAT on amount plus excise, and a whole-rupee round-off', () => {
@@ -95,7 +95,7 @@ test('New entry on Purchase order opens the one-page form', t => {
 });
 
 test('the maker reopens a purchase order awaiting approval, edits it and sends it again', t => {
-  const {store,submit,order}=setup(t);
+  const {store,submit,approve,order,db}=setup(t);
   let po=submit('E2',order);
   assert.equal(po.status,'Awaiting approval');
   const maker=actor('Procurement Executive'), number=po.number;
@@ -114,4 +114,16 @@ test('the maker reopens a purchase order awaiting approval, edits it and sends i
   }
   const posted=submit('E1',{litres:100,requiredBy:0,reason:review.reasons[0]});
   assert.throws(()=>store.write(posted.id,actor('Site In-charge'),{action:'Edit',rev:posted.rev}),/Only a purchase order awaiting approval/);
+
+  // After approval the order can still be edited, until another entry uses it.
+  po=approve(po.status==='Draft'?store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:order}):po);
+  assert.equal(po.status,'Posted');
+  assert.match(detailPage(maker,po,store.list('Jayant'),[]),/value="Edit">Edit PO<\/button>/);
+  po=store.write(po.id,maker,{action:'Edit',rev:po.rev});
+  assert.deepEqual([po.status,po.number],['Draft',number]);
+  po=approve(store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:order}));
+  assert.equal(po.status,'Posted');
+  const using=store.write(randomUUID(),actor('Site Store'),{type:'E16',rev:0,day,action:'Save draft',data:{}});
+  db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify({...using,number:'E3-JAY-2026-0009',data:{po:po.id}}),using.id);
+  assert.throws(()=>store.write(po.id,maker,{action:'Edit',rev:po.rev}),/already used by E3-JAY-2026-0009, so it cannot be edited/);
 });
