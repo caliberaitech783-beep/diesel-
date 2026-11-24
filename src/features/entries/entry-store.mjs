@@ -255,6 +255,11 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           } else if (doc.result.approvals.length) doc.status='Awaiting approval'; else finish(doc);
         }
         if (doc.type==='E1') assignNumber(doc);
+      } else if (action==='Edit') {
+        // The maker takes a purchase order back from approval to change it. Saving it again restarts the approvals.
+        check(doc.type==='E2' && doc.status==='Awaiting approval','Only a purchase order awaiting approval can be reopened for editing.');
+        checkMaker(doc,actor);checkLocks(doc);
+        doc.status='Draft';doc.stage=0;log='Reopened for editing';
       } else if (action==='Approve' || action==='Return') {
         check(mayApproveEntry(doc,actor),'This action belongs to another reviewer or stage.');
         checkLocks(doc);

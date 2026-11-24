@@ -93,3 +93,25 @@ test('New entry on Purchase order opens the one-page form', t => {
   assert.doesNotMatch(html,/name="kl"/);
   assert.doesNotMatch(html,/data-step/);
 });
+
+test('the maker reopens a purchase order awaiting approval, edits it and sends it again', t => {
+  const {store,submit,order}=setup(t);
+  let po=submit('E2',order);
+  assert.equal(po.status,'Awaiting approval');
+  const maker=actor('Procurement Executive'), number=po.number;
+  assert.match(detailPage(maker,po,store.list('Jayant'),[]),/value="Edit">Edit PO<\/button>/);
+  const other=detailPage(actor('Site Store'),po,store.list('Jayant'),[]);
+  assert.doesNotMatch(other,/value="Edit"/);
+  assert.match(other,/<button>Edit as Procurement Executive<\/button>/);
+  assert.throws(()=>store.write(po.id,actor('Site Store'),{action:'Edit',rev:po.rev}),/original maker/);
+  po=store.write(po.id,actor(po.result.approvals[0]),{action:'Approve',rev:po.rev});
+  if (po.status==='Awaiting approval') {
+    po=store.write(po.id,maker,{action:'Edit',rev:po.rev});
+    assert.deepEqual([po.status,po.stage,po.number],['Draft',0,number]);
+    assert.match(detailPage(maker,po,store.list('Jayant'),[]),/value="Submit">Save PO<\/button>/);
+    po=store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:{...order,tolerance:1}});
+    assert.deepEqual([po.status,po.stage,po.number,Number(po.data.tolerance)],['Awaiting approval',0,number,1]);
+  }
+  const posted=submit('E1',{litres:100,requiredBy:0,reason:review.reasons[0]});
+  assert.throws(()=>store.write(posted.id,actor('Site In-charge'),{action:'Edit',rev:posted.rev}),/Only a purchase order awaiting approval/);
+});
