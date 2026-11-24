@@ -10,7 +10,7 @@ export const receiving = {
     const po=c.linked('po','E2');
     const confirmed=c.sum(c.posted('E3').filter(r=>r.data.po===po.id),'amount');
     check((c.siteConfig && po.data.terms==='Credit')||confirmed>=po.result.value,'Treasury must confirm payment for the PO before gate entry.');
-    if (po.data.basis==='Ex-depot') check(d.transporter===po.data.transporter,'Use the transporter on the PO.');
+    if (po.data.basis==='Ex-depot' && po.data.transporter) check(d.transporter===po.data.transporter,'Use the transporter on the PO.');
     check(/^[A-Z0-9 -]{5,16}$/i.test(d.truck) && /^\d{10}$/.test(d.mobile),'Check the registration and 10-digit driver mobile.');
     check(d.fitness>=c.doc.day && d.licence>=c.doc.day && d.invoiceDate<=c.doc.day,'Check invoice and licence validity dates.');
     const fy = day => Number(day.slice(0,4))-(day.slice(5,7)<'04'?1:0);

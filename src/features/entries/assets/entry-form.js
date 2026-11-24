@@ -54,6 +54,22 @@ indentRemarks?.addEventListener('input',()=>{
 });
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
+// The menu on the left can be hidden to give the form the full width. The choice is remembered on this device.
+const railToggle = document.querySelector('#rail-toggle');
+if (railToggle) {
+  const remembered = () => { try { return localStorage.getItem('diesel-entry-menu') === 'hidden'; } catch { return false; } };
+  const apply = hidden => {
+    document.body.classList.toggle('rail-hidden', hidden);
+    railToggle.setAttribute('aria-pressed', String(hidden));
+    railToggle.textContent = hidden ? '☰ Show menu' : '☰ Hide menu';
+  };
+  apply(remembered());
+  railToggle.addEventListener('click', () => {
+    const hidden = !document.body.classList.contains('rail-hidden');
+    try { localStorage.setItem('diesel-entry-menu', hidden ? 'hidden' : 'shown'); } catch { /* The choice simply lasts for this page. */ }
+    apply(hidden);
+  });
+}
 const navigationToggle = document.querySelector('#nav-toggle');
 if (navigationToggle) {
   navigationToggle.hidden = false;
