@@ -191,3 +191,51 @@ test('Master Data lists the Pulse Location, Region, Equipment, Employee and Driv
   assert.match(recovered, /FMX Live/);
   assert.equal(fetched, 7, 'automatically recovers without a manual refresh');
 });
+
+test('a Pulse master takes records added by hand or from a file, keeps them across fetches, and starts with the CMPL locations', async t => {
+  const { pulseImportRows } = await import('../master-data/assets/pulse-import-rows.mjs');
+  const dir = await mkdtemp(join(tmpdir(), 'diesel-pulse-additions-'));
+  const db = openHostedMasterDatabase(join(dir, 'masters.sqlite'));
+  const itemSubmissions = await openItemSubmissions(join(dir, 'previous'));
+  let clock = Date.parse('2026-11-24T10:00:00Z');
+  const app = createApp({
+    env: { WEBSITE_SITE_NAME: 'diesel', DIESEL_PUBLIC_ORIGIN: origin, DIESEL_SSO_CLIENT_SECRET: 's'.repeat(43), DIESEL_ALLOWED_PULSE_LOGINS: 'admin', DIESEL_PULSE_ACCESS: 'listed' },
+    itemSubmissions, sharedMasterDb: db, pulseMasterClock: () => clock,
+    fetcher: async url => url.pathname.endsWith('/masters') ? Response.json(feed()) : Response.json({ profile: { login: 'admin', name: 'Admin' } }),
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); db.close(); await rm(dir, { recursive: true, force: true }); });
+  const address = 'http://127.0.0.1:' + server.address().port;
+  const req = (path, options = {}) => fetch(address + path, { redirect: 'manual', ...options,
+    headers: { cookie: '__Host-diesel_session=' + 'a'.repeat(43), Origin: origin, ...options.headers } });
+  const sites = async () => await (await req('/pulse-masters?master=site')).text();
+
+  const first = await sites();
+  for (const name of ['CMPL Madhya Pradesh', 'CMPL Nagpur', 'CMPL Chandrapur', 'Sasti OC']) assert.match(first, new RegExp('<th scope="row">' + name));
+  assert.match(first, /Add a record manually/);
+  assert.match(first, /id="pulse-import-file"/);
+
+  const add = fields => req('/pulse-masters/add', { method: 'POST', body: new URLSearchParams({ master: 'site', ...fields }) });
+  assert.equal((await req('/pulse-masters/add', { method: 'POST', body: new URLSearchParams({ master: 'site', name: 'Head Office' }), headers: { Origin: 'https://elsewhere.test' } })).status, 403);
+  assert.match(decodeURIComponent((await add({ name: 'Head Office', region: 'Corporate', state: 'MH', secret: 'x' })).headers.get('location')), /done=1\+record\+added\./);
+  assert.match(decodeURIComponent((await add({ name: 'sasti oc' })).headers.get('location')), /0\+records\+added,\+1\+already\+listed/);
+  assert.match(decodeURIComponent((await add({ name: ' ', region: 'X' })).headers.get('location')), /Every\+record\+needs\+Location/);
+
+  const rows = pulseImportRows([['', ''], ['Region', 'LOCATION', 'Unknown'], ['WCL', 'Depot One', 'x'], ['', '', ''], ['NCL', 'Depot Two', 'y']], pulseMaster('site').columns);
+  assert.deepEqual(rows, [{ region: 'WCL', name: 'Depot One' }, { region: 'NCL', name: 'Depot Two' }]);
+  assert.throws(() => pulseImportRows([['Region'], ['WCL']], pulseMaster('site').columns), /include "Location"/);
+  const imported = await req('/pulse-masters/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ master: 'site', records: [...rows, { name: 'Head Office' }] }) });
+  assert.deepEqual(await imported.json(), { message: '2 records added, 1 already listed and skipped.' });
+  assert.equal((await req('/pulse-masters/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ master: 'site', records: [] }) })).status, 422);
+
+  clock += 60_000;
+  const later = await sites();
+  assert.match(later, /<th scope="row">Depot Two <small class="record-incomplete" title="Added in Diesel by Admin">Added in Diesel<\/small>/, 'kept after Pulse is fetched again');
+  assert.doesNotMatch(later, /Sasti OC <small/);
+  const id = /name="id" value="(\d+)"><button class="pulse-remove" aria-label="Remove CMPL Nagpur"/.exec(later)[1];
+  await req('/pulse-masters/remove', { method: 'POST', body: new URLSearchParams({ master: 'site', id }) });
+  assert.doesNotMatch(await sites(), /CMPL Nagpur/);
+  assert.match(await (await req('/pulse-masters/download?master=site')).text(), /Depot One,WCL/);
+});

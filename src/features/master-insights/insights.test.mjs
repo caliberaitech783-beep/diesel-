@@ -108,7 +108,7 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.equal((await get('/api/master-insights/counts', 'x'.repeat(43), 'application/json')).status, 401);
 
   const counts = await (await get('/api/master-insights/counts', undefined, 'application/json')).json();
-  assert.deepEqual(counts.pulse, { site: 2, region: 1, equipment: 3, employee: 0, driver: 1, shift: 1, company: 0 });
+  assert.deepEqual(counts.pulse, { site: 5, region: 1, equipment: 3, employee: 0, driver: 1, shift: 1, company: 0 });
   assert.equal(counts.masters['storage-location-master'], 71);
   assert.equal(counts.masters['account-master'], 165);
   assert.equal(counts.masters['gst-master'], 4);
