@@ -49,13 +49,13 @@ function switcher(actor, back) {
 
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
-    <link rel="stylesheet" href="/entries/assets/entries.css">${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
+    <link rel="stylesheet" href="/entries/assets/entries.css">${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
     ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>
     ${active==='E11' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/fuel-issue-form.js"></script>' : ''}
     ${active==='E10A' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/home-tank.js"></script>' : ''}
     ${['E5','E6','E10A','E10B','E11','E12','E14'].includes(active) ? '<script defer src="/entries/assets/qr-decoder.js"></script><script defer src="/entries/assets/phone-capture.js"></script>' : ''}
-    </head><body class="${active==='E1'?'indent-workspace':''}" data-actor="${esc(actor.actionContext ?? actor.id)}" data-hosted="${Boolean(actor.hosted)}" data-offline-scope="${esc(actor.offlineScope)}">
+    </head><body class="${active==='E1'?'indent-workspace':active==='E2'?'order-workspace':''}" data-actor="${esc(actor.actionContext ?? actor.id)}" data-hosted="${Boolean(actor.hosted)}" data-offline-scope="${esc(actor.offlineScope)}">
     <a href="#workspace" class="skip-link">Skip to workspace</a>
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>

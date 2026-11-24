@@ -80,7 +80,9 @@ export function siteDefinition(type, config) {
     E17:[{key:'clearingAccount',label:'Approved diesel clearing account',type:'select'},
       {key:'consumptionAccount',label:'Approved diesel consumption account',type:'select'}],
   };
-  return { ...standard, ...(type==='E1'?{indentItem:config.item}:{}), receiptReasons:entryReasons('E12',config.reasons).map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
+  const orderDetails = type==='E2' ? { orderItem:config.item,
+    accountDetails:Object.fromEntries(config.accounts.map(account=>[account.code,{address:account.address,contact:account.contact}])) } : {};
+  return { ...standard, ...(type==='E1'?{indentItem:config.item}:{}), ...orderDetails, receiptReasons:entryReasons('E12',config.reasons).map(row=>[row.code,row.name]), fields:[...standard.fields,...(extra[type]??[])].map(field=>{
     if (type==='E12' && field.key==='to') {
       const targets = transferOptions(config);
       const counts = new Map();

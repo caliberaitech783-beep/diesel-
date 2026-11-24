@@ -2,6 +2,7 @@ import { review, ratePerKL } from './review-masters.mjs';
 import { requireValue as check, round, money, dayBefore } from './entry-rules.mjs';
 import { effectiveRecord } from './site-commercial.mjs';
 import { requiredDate, indentLitres, formatIndentNumber } from './indent-details.mjs';
+import { singlePageOrder } from './purchase-order.mjs';
 import { calculatedDeduction, financialYearStart, tdsRuleFor } from './tds-deduction.mjs';
 
 function siteOrder(data,c) {
@@ -70,8 +71,10 @@ export const purchasing = {
       otherOpenIndents:openIndents.length, ...(openIndents.length ? {openIndentNumbers:openIndents.map(r=>r.number).filter(Boolean).join(', ')} : {}), approvals };
   },
   E2(d,c) {
-    const indent = c.linked('indent','E1'), litres=round(d.kl*1000);
+    const indent = c.linked('indent','E1');
     const allocated = c.sum(c.reserved('E2').filter(p=>p.data.indent===indent.id),'litres');
+    if (d.kl===undefined) return singlePageOrder(d,c,indent,allocated);
+    const litres=round(d.kl*1000);
     check(litres>0 && litres<=round(indent.result.litres-allocated),'PO quantity exceeds the remaining indent balance.');
     check(d.basis!=='Ex-depot' || d.transporter,'Select the transporter for an ex-depot purchase.');
     if (!c.siteConfig) check((d.type==='Retail')===(d.supplier===review.pump),'Select the supplier that matches the PO type.');
