@@ -41,7 +41,7 @@ function seedWalkthrough(db) {
   } catch (error) { db.exec('ROLLBACK');throw error; }
 }
 
-export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees }) {
+export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, indentApproval }) {
   const routers = new Map();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
@@ -139,7 +139,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         const trial = Boolean(req.dieselActor.trial);
         if (!assigned || trial) seedWalkthrough(db);
         const stock = siteStock && !trial ? siteEntryWorkspace(db,siteMasterDb) : {};
-        router = createEntriesRouter(db,trial ? {hosted:true} : {hosted:true,assigned,...stock,approvalOptions});
+        router = createEntriesRouter(db,trial ? {hosted:true,indentApproval} : {hosted:true,assigned,...stock,approvalOptions,indentApproval});
         routers.set(req.reviewOwner,router);
         req.socket.server.once('close',()=>{routers.delete(req.reviewOwner);db.close();});
       } catch (error) { db.close();throw error; }

@@ -6,6 +6,7 @@ import { registerHostedReview } from '../entries/hosted-review.mjs';
 import { entryAssignments } from '../entries/entry-access.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
 import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
+import { registerIndentApproval } from '../indent-approval/approval-routes.mjs';
 import { telegramApprovalPath } from '../entries/remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
 import { registerEntrySetup } from '../entries/entry-setup.mjs';
@@ -163,7 +164,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     });
   } else if (entryReviewDirectory) {
     const delivery = siteStock && configured && createApprovalDelivery(env, publicUrl.origin, fetcher);
-    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,
+    // Saved indents go to the people an administrator lists, on the Diesel indent Telegram bot.
+    const indentApproval = sharedMasterDb ? registerIndentApproval(app, { db: sharedMasterDb, env, fetcher, publicOrigin: publicUrl.origin, startSignIn,
+      async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
+      isAdmin: profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase()),
+    }) : undefined;
+    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,indentApproval,
       siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
       readEmployees:pulseMasterCopies?async request=>(await pulseMasterCopies.read('employee',{
         grant:readCookie(request,sessionCookie),sites:[],

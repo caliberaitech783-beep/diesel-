@@ -30,7 +30,7 @@ export function registerEntries(app,masterDb,siteDb) {
   app.use('/entries',createEntriesRouter(siteDb??masterDb,options));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions } = {}) {
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions,indentApproval } = {}) {
   const store=createEntryStore(db,{policyFor,siteFor,calendarFor});
   // Telegram notices were withdrawn. Remove the chat IDs they stored.
   db.exec('DROP TABLE IF EXISTS entry_notice_contacts');
@@ -40,6 +40,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   const router=express.Router();
   const enforceVisibility = Boolean(assigned && opening);
   const canRead = (doc, actor) => !enforceVisibility || mayViewEntry(doc,actor);
+  // Each indent carries its Telegram approval outcome to the screens, and whether this person may edit it.
+  const withApproval = (docs, actor) => {
+    if (indentApproval) for (const doc of docs) if (doc.type==='E1') { doc.approval=indentApproval.decision(doc.id); doc.canEdit=doc.maker===actor.id; }
+    return docs;
+  };
   const visibleRecords = actor => store.list(actor.site).filter(doc=>canRead(doc,actor));
   const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor,dayFor:store.dayFor});
   if (remoteApproval) registerRemoteApproval(router, remoteApproval);
@@ -65,7 +70,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     next();
   });
   router.get('/',(req,res)=>{
-    const actor=req.dieselActor, sources=store.list(actor.site);
+    const actor=req.dieselActor, sources=withApproval(store.list(actor.site),actor);
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,actor)),null,req.query,sources));
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
@@ -96,7 +101,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   router.get('/home',withAlerts(roleHomePage, true));
   router.get('/type/:type',(req,res)=>{
     if (!allowedType(req.params.type)) return res.sendStatus(404);
-    const actor=req.dieselActor, sources=store.list(actor.site), rows=sources.filter(doc=>canRead(doc,actor));
+    const actor=req.dieselActor, sources=withApproval(store.list(actor.site),actor), rows=sources.filter(doc=>canRead(doc,actor));
     if (enforceVisibility && !mayViewEntryType(req.params.type,actor) && !rows.some(row=>row.type===req.params.type)) {
       return res.sendStatus(403);
     }
@@ -136,6 +141,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     try {
       const doc = store.read(req.params.id,a.site);
       if (!canRead(doc,a)) return res.sendStatus(404);
+      withApproval([doc],a);
       let picture=null;
       if(doc.type==='E1') {
         // Historical records remain readable if their date predates the site's opening stock.
@@ -196,7 +202,12 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     if ((req.body.action==='Save indent'||(req.body.type==='E1'&&req.body.action==='Save draft')) && req.body.site!==actor.site) {
       return res.status(422).json({error:'Select a location before saving this indent.'});
     }
-    try { const doc=store.write(req.params.id,actor,req.body);res.json({url:'/entries/record/'+doc.id,status:doc.status}); }
+    try {
+      const doc=store.write(req.params.id,actor,req.body);
+      // A saved indent goes to its approvers on Telegram. Delivery never holds up or fails the save.
+      if (req.body.action==='Save indent' && doc.type==='E1') indentApproval?.requested(doc);
+      res.json({url:'/entries/record/'+doc.id,status:doc.status});
+    }
     catch (e) { res.status(422).json({error:e.message}); }
   });
   return router;

@@ -25,12 +25,19 @@ function traceLinks({truck, vehicle}) {
   return Object.entries({truck, vehicle}).filter(([, value]) => value).map(([key, value]) =>
     `<a href="/entries?${key}=${encodeURIComponent(value)}">${esc(value)}</a>`).join(' · ');
 }
+// An indent sent for approval shows the outcome and who decided, with a way back in to edit it.
+const approvalTones = {pending:'waiting',approved:'posted',declined:'returned'};
+function statusCell(r) {
+  if (!r.approval) return `<span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span>`;
+  return `<span class="status-pill ${approvalTones[r.approval.status]}">${esc(r.approval.label)}</span>
+    <small class="approval-detail">${esc(r.approval.detail)}</small>${r.canEdit?` <a class="approval-edit" href="${recordPath(r)}">Edit</a>`:''}`;
+}
 function table(rows, sources = rows, transport = true) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
   const trace = traceEntries(sources);
   return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}<th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
-    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td><span class="status-pill ${tones[indentStatus(r)]??'draft'}">${esc(indentStatus(r))}</span></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
   const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
@@ -187,7 +194,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const state=indentStatus(d);
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
-  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span></div>`
+  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
     : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
