@@ -20,3 +20,17 @@
 :root[data-theme=dark] .approvers .waiting { color: #f0b75a; }
 .approvers [role=alert] { color: #b42318; font-weight: 600; }
 @media (max-width: 720px) { .approver-form { grid-template-columns: 1fr; } }
+
+.approval-card { margin: 0 0 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.approval-card h3 { margin: 0 0 6px; font-size: 16px; }
+.approval-card p { margin: 0 0 8px; }
+.approval-card .asked { font-size: 12px; }
+.indent-decision { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto auto; gap: 10px; align-items: end; margin: 0; }
+.indent-decision label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.indent-decision input { min-height: 40px; padding: 8px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+.indent-decision button { min-height: 40px; padding: 8px 16px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+.indent-decision .approve { background: #1a7050; color: #fff; }
+.indent-decision .decline { background: transparent; border-color: #b42318; color: #b42318; }
+:root[data-theme=dark] .indent-decision .decline { border-color: #f3a79f; color: #f3a79f; }
+.approvers .declined { color: #b42318; font-weight: 600; }
+@media (max-width: 720px) { .indent-decision { grid-template-columns: 1fr; } }

@@ -42,7 +42,13 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   const canRead = (doc, actor) => !enforceVisibility || mayViewEntry(doc,actor);
   // Each indent carries its Telegram approval outcome to the screens, and whether this person may edit it.
   const withApproval = (docs, actor) => {
-    if (indentApproval) for (const doc of docs) if (doc.type==='E1') { doc.approval=indentApproval.decision(doc.id); doc.canEdit=doc.maker===actor.id; }
+    if (!indentApproval) return docs;
+    // Only a person on the approver list sees the sanction quantity and the Approve and Decline controls.
+    const approver = Boolean(indentApproval.mayDecide?.(actor.login));
+    for (const doc of docs) if (doc.type==='E1') {
+      doc.approval=indentApproval.decision(doc.id); doc.canEdit=doc.maker===actor.id;
+      if (approver && doc.approval?.status==='pending') doc.decide=indentApproval.waiting(doc.id);
+    }
     return docs;
   };
   const visibleRecords = actor => store.list(actor.site).filter(doc=>canRead(doc,actor));
