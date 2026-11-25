@@ -169,3 +169,16 @@ test('deleting an original item submission keeps its legacy attachment available
   await store.delete(maker,'item-master',item.id,{revision:1,reason:'Remove duplicate item'});
   assert.deepEqual((await store.attachment(maker,'item-master',item.id,item.values.Attachment.id)).bytes,pdf);
 });
+
+test('a submitted master searches the Account Master for a field that names an account', async () => {
+  const { recordsPage } = await import('./records-page.mjs');
+  const { masterDefinition } = await import('./records-fields.mjs');
+  const actor = { id: 'm', name: 'Maker', site: 'S', canEditMasters: true };
+  const form = recordsPage({ master: masterDefinition('diesel-rate-master'), actor, rows: [], creating: true, editingAllowed: true, submissionsOnly: true, dialog: true });
+  assert.match(form, /<input [^>]*name="Supplier"[^>]*list="(field-\d+)-options"[^>]*><datalist id="\1-options">/);
+  assert.match(form, /<option value="SANDEEP GASOLENES" label="A\/C \d+"><\/option>/);
+  assert.match(form, /Type a name or A\/C code to search the Account Master\./);
+  assert.doesNotMatch(form, /name="Depot"[^>]*list=/);
+  const depot = recordsPage({ master: masterDefinition('supplier-depot-master'), actor, rows: [], creating: true, editingAllowed: true, submissionsOnly: true, dialog: true });
+  assert.match(depot, /name="Supplier \(A\/C Code\)"[^>]*list="field-\d+-options"/);
+});

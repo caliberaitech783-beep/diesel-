@@ -11,6 +11,14 @@ import { masterDataSearch } from '../master-data/search.mjs';
 import { itemFormContent } from './item-form-page.mjs';
 import { legacyTaxSections } from '../tax-masters/rules.mjs';
 
+import accounts from '../company-records/account-master-data.mjs';
+import { masterReferences } from './master-references.mjs';
+
+// Active Account Master parties, by name, with the A/C code shown beside each in the search list.
+const accountCodes = new Map(accounts.filter(account => account.Status !== 'Inactive' && account['A/C Name'])
+  .map(account => [String(account['A/C Name']).trim(), 'A/C ' + account['A/C Code']]));
+const accountNames = [...accountCodes.keys()].sort((first, second) => first.localeCompare(second));
+
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
@@ -33,7 +41,7 @@ function recordField(field, value, index, base, editable, enhanced = false, prev
   } else {
     const list = Array.isArray(field.suggestions) ? `list="${id}-options"` : '';
     control = `<input ${attributes} type="${field.type ?? 'text'}" value="${escape(value)}" ${list} ${field.type === 'number' ? 'step="' + (field.step ?? 'any') + '"' : ''}>`;
-    if (list) control += `<datalist id="${id}-options">${field.suggestions.map(option => `<option value="${escape(option)}"></option>`).join('')}</datalist>`;
+    if (list) control += `<datalist id="${id}-options">${field.suggestions.map(option => `<option value="${escape(option)}"${field.suggestionLabels?.has(option) ? ` label="${escape(field.suggestionLabels.get(option))}"` : ''}></option>`).join('')}</datalist>`;
   }
   const hint = field.hint ? `<small class="field-hint" id="${id}-hint">${escape(field.hint)}</small>` : '';
   if (enhanced) {
@@ -77,6 +85,11 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
       const labels = new Map(locations.map(location => [location.code, location.name + ' · ' + location.code]));
       if (value && !labels.has(value)) labels.set(value, value);
       return recordField({ ...field, options: [...labels.keys()], optionLabels: labels }, value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
+    }
+    // A field that names an account is typed into a box that searches the Account Master by name or code.
+    if (submissionsOnly && masterReferences[master.slug]?.[field.key]?.master === 'account-master') {
+      return recordField({ ...field, suggestions: accountNames, suggestionLabels: accountCodes, hint: field.hint ?? 'Type a name or A/C code to search the Account Master.' },
+        value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
     }
     const choices = !submissionsOnly && references?.get(field.key);
     if (choices) {
