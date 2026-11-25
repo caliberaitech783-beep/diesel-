@@ -246,7 +246,11 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           check(action==='Submit' || !actor.hosted || actor.employee,'Could not read your employee details from Pulse. Refresh the page and try again.');
           if (actor.employee) doc.requester={empId:actor.employee.empId,name:actor.employee.name};
         }
-        check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status),'This entry is already submitted.');
+        // An approved indent may still be changed and sent for approval again, until a purchase order uses it.
+        const approvedIndent=saveIndent && doc.status==='Posted' && doc.result?.sanctioned!==undefined;
+        if (approvedIndent) check(!all().some(row=>row.type==='E2' && row.data?.indent===doc.id && !['Draft','Superseded','Returned'].includes(row.status)),
+          'A purchase order already uses this indent, so it cannot be changed.');
+        check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status) || approvedIndent,'This entry is already submitted.');
         check(validDate(body.day) && body.day<=dayFor(doc.site,now),'Choose today’s business date or an earlier date.');
         const config=siteConfig(doc.type,doc.site,body.day);
         doc.day=body.day;checkLocks(doc);doc.data=collect(doc,body.data);
@@ -356,7 +360,16 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     return (config?.storage??[]).map(location=>({code:location.code,
       litres:round(booked.filter(move=>move.storage===location.code).reduce((total,move)=>total+move.litres,location.opening))}));
   }
-  return {read,write,fresh,openIndent,definition,stockPicture,storageBalances,dayFor,
+  // An indent approved on Telegram or in Diesel becomes available to purchase orders, for the quantity the approver sanctioned.
+  function approveIndent(id,{sanctioned,by}) {
+    const doc=get(id);
+    if (!doc || doc.type!=='E1' || doc.status!=='Saved' || !(sanctioned>0)) return false;
+    doc.result={...doc.result,requested:doc.result.requested??doc.result.litres,litres:sanctioned,sanctioned,approvedBy:by};
+    doc.status='Posted';
+    persist(doc,by||'Approver','Approved · sanctioned '+sanctioned+' L');
+    return true;
+  }
+  return {read,write,fresh,openIndent,definition,stockPicture,storageBalances,dayFor,approveIndent,
     currentShift:(site,now=new Date())=>calendarFor?.(site).shift(now)?.name,list:site=>all().filter(r=>visible(r,site)),history:id=>
     db.prepare('SELECT actor,action,stamp,snapshot FROM entry_review_history WHERE doc=? ORDER BY seq').all(id)
       .map(({snapshot,...row})=>{

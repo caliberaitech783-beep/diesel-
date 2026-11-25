@@ -158,7 +158,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   if(indent) d={...d,data:indentFormData(d)};
   if (indent) remoteApproval=false;
   const role=entryRole(actor);
-  const editable=(['Draft','Returned'].includes(d.status)||(indent&&['Saved','Awaiting approval'].includes(d.status)))&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
+  const editable=(['Draft','Returned'].includes(d.status)||(indent&&(['Saved','Awaiting approval'].includes(d.status)||(d.status==='Posted'&&d.result?.sanctioned!==undefined&&!rows.some(row=>row.type==='E2'&&row.data?.indent===d.id&&!['Draft','Superseded','Returned'].includes(row.status))))))&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=indent?undefined:d.result.approvals?.[d.stage];
   const reviewable=!indent&&mayApproveEntry(d,actor);
   const receipt=d.type==='E12'&&actor.site===d.result.destination;
