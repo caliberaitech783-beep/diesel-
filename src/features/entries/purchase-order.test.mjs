@@ -248,7 +248,7 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
 
   const buyer={...actor('Procurement Executive'),businessDay:day};
   const form=detailPage(buyer,store.fresh('E4',buyer),store.list('Jayant'),[],null,store.definition('E4','Jayant'));
-  for (const label of ['Dispatch Management','Create a new Diesel Dispatch Schedule','Dispatch Details','Location','Date','Purchase Order No.','Delivery Schedule No.','Delivery Date','Delivery Location',
+  for (const label of ['<h1>Delivery Schedule</h1>','Create a new Diesel Delivery Schedule','Dispatch Details','Location','Date','Purchase Order No.','Delivery Schedule No.','Delivery Date','Delivery Location',
     'Delivery Address','Item Name','DSL Qty (L)','Vehicle No.','Transporter','Save as Draft','Save Dispatch','✕ Cancel']) assert.ok(form.includes(label),label);
   assert.match(form,/placeholder="Generated on save" value="">/);
   assert.match(form,/name="vehicleNo"[^>]*list="dispatch-vehicles"/);
@@ -257,4 +257,16 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
   assert.match(form,/href="\/entries\/type\/E4">✕ Cancel<\/a>/);
   assert.doesNotMatch(form,new RegExp('value="'+po.id+'"'),'a fully scheduled order is no longer offered');
   assert.match(registerPage(buyer,store.list('Jayant'),'E4'),/E4-JAY-2026-0002/);
+});
+
+test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up one by one', t => {
+  const {store,order}=setup(t);
+  const maker=actor('Procurement Executive');
+  const save=()=>store.write(randomUUID(),maker,{type:'E2',action:'Submit',rev:0,day,data:{...order,litres:1000,deliveries:'',advanceAmount:undefined}}).number;
+  const first=save();
+  assert.match(first,/^CMLL\/JOC\/PO\/\d{2}-\d{2}\/001$/);
+  assert.deepEqual([save(),save()],[first.replace(/001$/,'002'),first.replace(/001$/,'003')]);
+  const draft=store.write(randomUUID(),maker,{type:'E2',action:'Save draft',rev:0,day,data:{}});
+  assert.equal(draft.number,'','a draft takes no number');
+  assert.match(detailPage(maker,store.list('Jayant').find(row=>row.number===first),store.list('Jayant'),[]),new RegExp(first.replaceAll('/','\\/')));
 });
