@@ -29,7 +29,8 @@ test('a saved diesel rate shows in the Diesel Rate Master list, one per Location
     headers: { cookie, origin: 'https://diesel.test', 'content-type': 'application/json' }, body: JSON.stringify({ values }) });
 
   const form = await (await fetch(base + '/records?master=' + slug + '&new=1', { headers: { cookie } })).text();
-  assert.match(form, /data-saved-list="\/master-data\?master=diesel-rate-master"/);
+  // After a save the page stays on a blank form; the record is still listed in Diesel Rate Master data (checked below).
+  assert.match(form, /data-stay-after-save="\/records\?master=diesel-rate-master&amp;new=1&amp;saved=1"/);
 
   assert.equal((await save({ ...rate, Location: 'CMPL Nagpur' })).status, 201);
   assert.equal((await save({ ...rate, Location: 'CMPL Chandrapur' })).status, 201);
