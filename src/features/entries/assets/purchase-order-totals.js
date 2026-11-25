@@ -18,6 +18,9 @@ export function footerRowsOf(input) {
   return [{ ...defaultFooterRows[0], rate: input.exciseRate }, { ...defaultFooterRows[1], rate: input.vatPercent }, defaultFooterRows[2]];
 }
 
+// Freight is paid apart from the diesel on To Pay (Ex-depot) and To Bill orders.
+export const freightAdded = basis => basis === 'Ex-depot' || basis === 'To Bill';
+
 export function purchaseOrderTotals(input) {
   const litres = num(input.litres), rateAfter = num(input.rateAfter);
   const amount = paise(litres * rateAfter);
@@ -37,8 +40,13 @@ export function purchaseOrderTotals(input) {
   const total = rounds ? Math.round(running) : running;
   const roundOff = paise(total - running);
   for (const row of rows) if (row.round) { row.value = roundOff; break; }
+  // Landed rate per litre is the order amount per litre plus the freight rate. On a To Pay or To Bill order the freight is
+  // paid apart from the diesel; on FOR (Delivered) the price already includes delivery, so any freight rate typed is left out.
+  const four = value => Math.round((value + Number.EPSILON) * 10000) / 10000;
+  const dieselRate = litres > 0 ? four(total / litres) : 0;
+  const freightRate = freightAdded(input.basis) ? num(input.freightRate) : 0;
   return { litres, netRate: rateAfter, amount, excise, vatBase: vatBase ?? paise(amount + excise), vat, roundOff, footer: paise(total - amount), total,
-    landedRate: litres > 0 ? Math.round((total / litres + Number.EPSILON) * 10000) / 10000 : 0, rows };
+    landedRate: litres > 0 ? four(dieselRate + freightRate) : 0, dieselRate, freightRate, rows };
 }
 
 const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',

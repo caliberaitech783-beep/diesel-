@@ -75,7 +75,7 @@ export function singlePageOrder(d,c,indent,allocated) {
     parties=siteParties(d,c);
     const master=parties.master;
     if (!(master?.rate>0)) flags.noApprovedDieselRate=true;
-    else if (Math.abs(master.rate-totals.landedRate*1000)>0.5) flags.rateDiffersFromDieselRateMaster=true;
+    else if (Math.abs(master.rate-totals.dieselRate*1000)>0.5) flags.rateDiffersFromDieselRateMaster=true;
   } else check(accountVendor(d.supplier) || (d.type==='Retail')===(d.supplier===review.pump),'Select the supplier that matches the PO type.');
 
   // Later entries work in ₹ per KL: the rate includes excise and VAT, as in the Diesel Rate Master.
