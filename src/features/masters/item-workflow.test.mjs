@@ -195,7 +195,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
           assert.deepEqual(Buffer.from(await (await restarted(path, other)).arrayBuffer()), pdf);
         }
       }
-      if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/KL), worked out'], '400');
+      if (slug === 'diesel-rate-master') assert.equal(submitted.values['Diesel rate (₹/Ltr), worked out'], '400');
     }
     const exportUrl = '/api/master-data/records?master=item-master';
     const exported = await (await restarted(exportUrl, maker)).json();

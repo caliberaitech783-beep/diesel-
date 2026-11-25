@@ -10,10 +10,10 @@ export const transportFreightMaster = [
   {
     name: 'Freight rate and validity',
     fields: [
-      { label: 'Freight (₹/KL)', required: true, type: 'number' },
+      { label: 'Freight (₹/Ltr)', required: true, type: 'number' },
       { label: 'Effective from', required: true, type: 'date' },
       { label: 'Effective to', required: false, type: 'date' },
-      { label: 'Shortage deduction rate (₹/KL)', required: true, type: 'number' },
+      { label: 'Shortage deduction rate (₹/Ltr)', required: true, type: 'number' },
       { label: 'Approved by', required: true },
     ],
   },

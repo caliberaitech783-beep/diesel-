@@ -73,10 +73,10 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   }
   master('account-master',{'A/C Code':'PUMP','A/C Name':'Retail pump','Is Market Petrol Pump':'Yes','TDS / TCS Applicable':'No'});
   master('supplier-depot-master',{'Supplier (A/C Code)':'SUP-10','Depot name':'DEP-1'});
-  master('diesel-rate-master',{Supplier:'SUP-10',Depot:'DEP-1','Price basis (Ex-depot / Delivered)':'Ex-depot',
-    'VAT (%) by state':'0','Basic rate (₹/KL)':'98750','Excise duty (₹/KL)':'0','Effective from':'2020-01-01'});
+  master('diesel-rate-master',{Supplier:'SUP-10',Depot:'DEP-1','Price basis (EXMI / Delivered)':'EXMI',
+    'VAT (%) by state':'0','Basic rate (₹/Ltr)':'98.75','Excise duty (₹/Ltr)':'0','Effective from':'2020-01-01'});
   master('transport-freight-master',{Transporter:'LORRY-1','From depot':'DEP-1','To site':'J-01',
-    'Freight (₹/KL)':'1500','Shortage deduction rate (₹/KL)':'98750','Effective from':'2020-01-01'});
+    'Freight (₹/Ltr)':'1.5','Shortage deduction rate (₹/Ltr)':'98.75','Effective from':'2020-01-01'});
   master('measuring-instrument-master',{'Instrument ID':'DIP-1','Fitted on (tank, bowser)':'T-1',
     'Calibration date':'2020-01-01','Calibration due date':'2099-12-31'});
   master('gst-master',{'GST code':'FREIGHT','Applies to (freight, services)':'Freight','GST rate (%)':'18','Effective from':'2020-01-01'});

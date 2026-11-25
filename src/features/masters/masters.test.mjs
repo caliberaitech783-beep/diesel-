@@ -66,7 +66,7 @@ const templateCounts = [
   ['location-master', 18, 7],
   ['gst-master', 17, 2],
   ['supplier-depot-master', 5, 4],
-  ['diesel-rate-master', 14, 10],
+  ['diesel-rate-master', 14, 8],
   ['transport-freight-master', 8, 7],
   ['measuring-instrument-master', 7, 7],
   ['volume-correction-table', 3, 3],
@@ -119,7 +119,7 @@ for (const [slug, fieldCount, requiredCount] of templateCounts) {
 
 test('the worked-out Diesel rate is read-only and the next document number is an integer', () => {
   const fieldsFor = slug => masters.find(master => master.slug === slug).sections.flatMap(section => section.fields);
-  const rate = fieldsFor('diesel-rate-master').find(field => field.label === 'Diesel rate (₹/KL), worked out');
+  const rate = fieldsFor('diesel-rate-master').find(field => field.label === 'Diesel rate (₹/Ltr), worked out');
   assert.equal(rate.required, true);
   assert.equal(rate.readOnly, true);
   const nextNumber = fieldsFor('document-numbering-master').find(field => field.label === 'Next number');
