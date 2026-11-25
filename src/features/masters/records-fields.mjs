@@ -21,7 +21,8 @@ const identityFields = {
   'tax-master-tds': ['TDS_Code', 'Nature_of_Payment'],
   'gst-master': ['Tax_Code', 'Tax_Description'],
   'supplier-depot-master': ['Supplier (A/C Code)', 'Depot name', 'Depot name'],
-  'diesel-rate-master': ['Supplier', 'Depot', 'Depot', 'Price basis (EXMI / Delivered)', 'Effective from'],
+  // Location is part of the identity so each Location can hold its own rate for the same supplier, depot and date.
+  'diesel-rate-master': ['Supplier', 'Depot', 'Depot', 'Price basis (EXMI / Delivered)', 'Effective from', 'Location'],
   'transport-freight-master': ['Transporter', 'Transporter', 'From depot', 'To site', 'Effective from'],
   'measuring-instrument-master': ['Instrument ID', 'Type'],
   'volume-correction-table': ['Observed temperature (°C)', 'Correction factor', 'Observed density (kg/m³)'],

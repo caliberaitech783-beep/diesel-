@@ -29,6 +29,7 @@ async function save(action) {
     if (!action && !form.reportValidity()) return;
   }
   for (const button of buttons) button.disabled = true;
+  delete status.dataset.error;
   status.textContent = action === 'delete' ? 'Submitting deletion…' : 'Saving…';
   notify({type:'master-record-busy',busy:true});
   try {
@@ -61,9 +62,12 @@ async function save(action) {
       notify({type:'master-record-saved',message:action === 'delete' ? (result.status === 'deleted' ? 'Record deleted.' : 'Deletion sent for review.') : 'Record saved for review.'});
     } else if (action === 'delete') {
       location.assign(recordHome);
-    } else location.assign(target);
+    } else location.assign(!action && form.dataset.savedList ? form.dataset.savedList : target);
   } catch (error) {
-    status.textContent = error.message;
+    // A save that did not go through must be impossible to miss.
+    status.dataset.error = 'true';
+    status.textContent = (action ? '' : 'Not saved: ') + error.message;
+    status.scrollIntoView({ block: 'center' });
     notify({type:'master-record-busy',busy:false});
     for (const button of buttons) button.disabled = false;
   }
