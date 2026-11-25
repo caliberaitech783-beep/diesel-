@@ -9,7 +9,7 @@ const defaultMaster = 'item-master';
 const api = '/api/masters/:master/records';
 const requiredOrigin = 'Open Diesel to make changes.';
 
-export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory, homeOverview, costCentres }) {
+export function registerItemSubmissions(app, { store, getProfile, publicOrigin, itemDirectory, homeOverview, costCentres, locationNames }) {
   async function signedInActor(request) {
     const profile = await getProfile(request);
     return profile ? { id: profile.login.trim().toLowerCase(), name: profile.name || profile.login } : null;
@@ -76,7 +76,7 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
     const rows = record || creating ? [] : (await listWithCompany(actor,slug,search,{ request:req })).slice(offset,offset+limit);
     res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'`);
     res.type('html').send(recordsPage({
-      master, rows, actor, record, creating, search, status: '', offset, limit,
+      master, rows, actor, record, creating, search, status: '', offset, limit, locationNames: slug === 'diesel-rate-master' ? locationNames?.() : undefined,
       comparison: slug === 'item-master' ? (current?.changes ?? []).findLast(event => event.revision < record?.revision)?.snapshot ?? (record?.revision === 1 ? null : record) : undefined,
       dialog: req.query.dialog === '1', historical, revisions: [...(current?.changes ?? [])].filter(event => !historical || event.revision <= record.revision).reverse(),
       editingAllowed: !historical && record?.status !== 'deleted' && current?.canEdit !== false, masterSelected: true, submissionsOnly: true,

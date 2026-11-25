@@ -14,6 +14,7 @@ import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { indentFields, indentReadDetails, indentHeading } from './indent-fields.mjs';
 import { purchaseOrderFields, purchaseOrderHeading } from './purchase-order-fields.mjs';
+import { dispatchFields, dispatchHeading } from './dispatch-fields.mjs';
 import { indentStatus, formatIndentNumber, formatIndentDate, indentFormData } from './indent-details.mjs';
 
 const recordPath=d=>'/entries/record/'+d.id;
@@ -141,6 +142,7 @@ function display(value) {
 function editableFields(meta, doc, rows, actor) {
   if (doc.type==='E1') return indentFields(actor,doc,meta,(fields,d)=>fields.map(field=>fieldControl(field,d,rows,actor)).join(''));
   if (doc.type==='E2') return purchaseOrderFields(actor,doc,meta,rows);
+  if (doc.type==='E4') return dispatchFields(actor,doc,meta,rows);
   const readingControl = actor.siteEntryTypes && ['E11','E15'].includes(doc.type)
     ? `<label>Reading time (IST)<input name="readingTime" type="datetime-local" value="${localReadingTime(doc.readingAt)}"></label>` : '';
   const dateControl = `<label>Business day<input name="day" type="date" max="${actor.businessDay??businessDay()}" value="${doc.day}"></label>`+readingControl;
@@ -180,8 +182,9 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     const needed=d.status==='In transit'?'Site Store':'Project Manager';
     if(!receipt||role!==needed) switchForm=switchTo(roleKey(needed),d.result.destination,back,'Open at '+d.result.destination+' as '+needed);
   }
-  const order=d.type==='E2'&&editable;
-  const orderLabels={'Save draft':'Save as Draft',Submit:'Save PO',Edit:'Edit PO'};
+  // The purchase order and the delivery schedule have their own one-page forms.
+  const order=['E2','E4'].includes(d.type)&&editable;
+  const orderLabels={'Save draft':'Save as Draft',Submit:d.type==='E4'?'Save Dispatch':'Save PO',Edit:'Edit PO'};
   const submitButton=name=>`<button class="${(indent||order)&&name==='Save draft'?'secondary':'primary'}" type="submit" value="${name}"${indent&&name==='Save draft'?' formnovalidate':''}>${order||name==='Edit'?orderLabels[name]??name:name}</button>`;
   const displayValue=v=>{
     const source = typeof v==='string' && rows.find(row=>row.id===v);
@@ -221,12 +224,12 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${creditOpen?`<section><h2>Post-sale discount credit note</h2><p>₹${esc(money(pending))} of ₹${esc(money(d.result.expectedPostSaleDiscount))} is still awaiting a credit note.</p>
       <div class="fields"><label>Credit note number<input name="creditNote" autocomplete="off"></label><label>Amount (₹)<input type="number" step="0.01" min="0.01" name="creditAmount"></label><label>Credit note date<input type="date" name="creditDate"></label></div></section>`:''}
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
-    <div class="actions${order?' order-actions':''}">${order?`<a class="order-cancel" href="/entries/type/E2">✕ Cancel</a>`:''}${editable?(['Draft','Returned'].includes(d.status)?submitButton('Save draft'):'')+submitButton(indent?'Save indent':'Submit'):''}${mayReopen?submitButton('Edit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
+    <div class="actions${order?' order-actions':''}">${order?`<a class="order-cancel" href="/entries/type/${d.type}">✕ Cancel</a>`:''}${editable?(['Draft','Returned'].includes(d.status)?submitButton('Save draft'):'')+submitButton(indent?'Save indent':'Submit'):''}${mayReopen?submitButton('Edit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
     ${indent&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this indent</h2><p>Requested ${esc(d.data.litres??'')} litres. Enter the sanction quantity and select Approve, or select Decline.</p>${decisionForm(d.decide,recordPath(d))}</section>`:''}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${!indent&&history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
-      </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?purchaseOrderHeading(d):undefined, remoteApproval,indent&&editable);
+      </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?(d.type==='E4'?dispatchHeading(d):purchaseOrderHeading(d)):undefined, remoteApproval,indent&&editable);
 }

@@ -52,7 +52,7 @@ function recordField(field, value, index, base, editable, enhanced = false, prev
   return `<div class="master-field"><label for="${id}">${escape(field.label)}${field.required ? ' <span class="required-mark" aria-hidden="true">*</span>' : ''}</label>${control}${hint}</div>`;
 }
 
-export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, comparison, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
+export function recordsPage({ prefix = '', master, rows, actor, record, project, locations = [], hasLocation, references, comparison, locationNames, revisions = [], creating, historical, editingAllowed, approvingAllowed, search, status, offset = 0, limit, masterSelected, submissionsOnly, dialog = false }) {
   if (legacyTaxSections(master.slug, record?.values)) master = masterDefinition(master.slug, record.values);
   const base = prefix + '/api/masters/' + master.slug + '/records';
   const endpoint = base + (record ? '/' + record.id : '');
@@ -89,6 +89,11 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     // A field that names an account is typed into a box that searches the Account Master by name or code.
     if (submissionsOnly && masterReferences[master.slug]?.[field.key]?.master === 'account-master') {
       return recordField({ ...field, suggestions: accountNames, suggestionLabels: accountCodes, hint: field.hint ?? 'Type a name or A/C code to search the Account Master.' },
+        value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
+    }
+    // The rate master's location is searched from the Location Master: Pulse sites and the locations added in Diesel.
+    if (master.slug === 'diesel-rate-master' && field.key === 'Location' && locationNames?.length) {
+      return recordField({ ...field, suggestions: locationNames, hint: field.hint ?? 'Type to search the Location Master.' },
         value, index, endpoint, allowEdit, itemEditing, comparison?.values[field.key]);
     }
     const choices = !submissionsOnly && references?.get(field.key);
