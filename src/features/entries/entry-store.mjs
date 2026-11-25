@@ -7,6 +7,7 @@ import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 import { siteDocumentSeries } from './site-document-number.mjs';
 import { indentSeries, requiredDays, formatIndentNumber } from './indent-details.mjs';
+import { locationOf } from './site-locations.mjs';
 import { transferTarget } from './transfer-destination.mjs';
 import { readingMoment } from './entry-calendar.mjs';
 import { entryReasons, reasonError } from './entry-reasons.mjs';
@@ -69,7 +70,9 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     }
     if (doc.type==='E2') {
       // Purchase orders run in their own series per site and financial year: CMLL/JOC/PO/26-27/001, 002, 003…
-      const series=indentSeries(doc), label=series.label.replace('/IND/','/PO/');
+      // The series belongs to the site's location, the office that buys: CMLL/CMP/PO/26-27/001. A site under no location keeps its own.
+      const site=indentSeries(doc), place=locationOf(doc.site);
+      const series=place?{scope:place.code,year:site.year,label:'CMLL/'+place.code+'/IND/'+site.year}:site, label=series.label.replace('/IND/','/PO/');
       let number;
       do {
         const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,'E2',series.year);

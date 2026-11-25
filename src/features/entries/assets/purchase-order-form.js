@@ -37,6 +37,28 @@ if (form) {
     out('words').textContent = rupeesInWords(t.total);
   }
 
+  // Location, then site. The site list shows the sites under the chosen location; choosing a site reopens the form
+  // for that site, so its indents are the ones offered.
+  const place = form.querySelector('[data-order-location]'), siteBox = form.querySelector('[data-order-site]');
+  if (place && siteBox) {
+    const narrow = () => {
+      for (const option of siteBox.options) if (option.value) option.hidden = option.disabled = Boolean(place.value) && option.dataset.location !== place.value;
+      if (siteBox.selectedOptions[0]?.disabled) siteBox.value = '';
+    };
+    narrow();
+    const opened = siteBox.value;
+    place.addEventListener('change', narrow);
+    siteBox.addEventListener('change', () => {
+      if (!siteBox.value || siteBox.value === opened) return;
+      const change = Object.assign(document.createElement('form'), { method: 'post', action: '/workspace/role', hidden: true });
+      for (const [name, value] of [['site', siteBox.value], ['role', siteBox.dataset.role], ['returnTo', '/entries/new/E2']]) {
+        change.append(Object.assign(document.createElement('input'), { type: 'hidden', name, value }));
+      }
+      document.body.append(change);
+      change.submit();
+    });
+  }
+
   // Vendor address and contact from the approved Account Master.
   const vendor = form.querySelector('.vendor-contact'), accounts = JSON.parse(vendor.dataset.accounts || '{}');
   function showVendor() {

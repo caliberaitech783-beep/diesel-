@@ -2,10 +2,13 @@ import { esc } from './entry-shell.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { indentFormData, indentDueDate, requiredDate, formatIndentDate, formatIndentNumber } from './indent-details.mjs';
 import { review, entryRole } from './review-masters.mjs';
+import { locationName } from './site-locations.mjs';
 
 export function indentLocationControl(actor,selectedSite='') {
   const siteOptions=entrySiteDirectory(actor).map(row=>`<option value="${esc(row.site)}"${row.site===selectedSite?' selected':''}${row.allowed?'':' disabled'}>${esc(row.name)}</option>`).join('');
-  return `<label for="indent-site">Site / Location<select id="indent-site" name="site" form="indent-site-switch"><option value=""${selectedSite?'':' selected'}>Select a location</option>${siteOptions}</select><noscript><button type="submit" form="indent-site-switch">Change location</button></noscript></label>`;
+  // The site is chosen; its location, the regional office that buys for it, follows from the site.
+  return `<label for="indent-site">Site<select id="indent-site" name="site" form="indent-site-switch"><option value=""${selectedSite?'':' selected'}>Select a location</option>${siteOptions}</select><noscript><button type="submit" form="indent-site-switch">Change location</button></noscript></label>
+    <label>Location<input type="text" readonly tabindex="-1" value="${esc(locationName(selectedSite))}" placeholder="${selectedSite?'Not under a location yet':'Filled from the site'}"></label>`;
 }
 
 export function indentSiteForm(actor,inForm=false) {

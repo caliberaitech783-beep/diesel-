@@ -64,7 +64,7 @@ test('opening or refreshing a new indent keeps location and number blank without
     assert.doesNotMatch(html,/value="Jayant" selected|HSN code|CMLL\/JOC\/IND/);
   }
   const html=pages[0];
-  const labels=['Indent number<input','Indent date<input','Site / Location<select','Item name<input','Quantity<input','Sanction quantity<input','Unit<input','Priority<select','Required by (days)<input'];
+  const labels=['Indent number<input','Indent date<input','Site<select','Location<input','Item name<input','Quantity<input','Sanction quantity<input','Unit<input','Priority<select','Required by (days)<input'];
   let prior=-1;
   for(const label of labels) { const at=html.indexOf(label);assert.ok(at>prior,label+' follows the preceding field');prior=at; }
   assert.doesNotMatch(html,/<option value="KL"|<select name="unit"/);
