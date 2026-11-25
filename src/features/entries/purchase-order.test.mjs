@@ -74,7 +74,7 @@ test('a single-page purchase order is checked before it is saved', t => {
   assert.throws(()=>submit('E2',{...order,tolerance:2}),/can only be lowered/);
   assert.throws(()=>submit('E2',{...order,shortageMethod:'Fixed'}),/freight deduction rate/);
   assert.throws(()=>submit('E2',{...order,advanceAmount:6000000}),/advance amount/);
-  assert.throws(()=>submit('E2',{...order,terms:'Credit'}),/Leave the advance amount blank/);
+  assert.throws(()=>submit('E2',{...order,terms:'Credit'}),/Leave the advance amount and the payment advice details blank/);
   const fixed=submit('E2',{...order,shortageMethod:'Fixed',freightDeductionRate:95});
   assert.equal(fixed.result.shortageRate,95000);
   // The delivery date, the transporter and the delivery schedule are no longer needed, and a vendor comes from the Account Master.
@@ -391,4 +391,23 @@ test('landed rate is the order amount per litre plus the freight rate on To Pay 
   assert.equal(po.result.landedRate,Math.round((5319996/40000+2)*10000)/10000);
   const sheet=purchaseOrderSheet(po,store.list('Jayant'));
   assert.deepEqual(sheet.totals[3],['Landed Rate (per Litre)',po.result.landedRate.toFixed(4)]);
+});
+
+test('a round off can be typed in, and payment advice details stay blank when payment is not an advance', t => {
+  const rows=head=>[{head:'Basic Excise Duty',legend:'OQA',rate:7.8},head];
+  const total=round=>purchaseOrderTotals({litres:500,rateAfter:92.555,footerRows:rows(round)});
+  assert.deepEqual([total({head:'Round Off',legend:'LSA'}).total,total({head:'Round Off',legend:'LSA'}).roundOff],[50178,0.5],'blank still rounds to a whole rupee');
+  assert.deepEqual([total({head:'Round Off',legend:'LSA',rate:'0.25'}).total,total({head:'Round Off',legend:'LSA',rate:'0.25'}).rows[1].value],[50177.75,0.25]);
+  assert.deepEqual([total({head:'Round Off',legend:'LSD',rate:0.5}).total,total({head:'Round Off',legend:'LSD',rate:0.5}).rows[1].value],[50177,-0.5]);
+  assert.equal(total({head:'Round Off',legend:'LSD',rate:0}).total,50177.5,'a typed zero means no rounding');
+
+  const {submit,order,store}=setup(t);
+  const {exciseRate,vatPercent,advanceAmount,...base}=order;
+  const footerRows=JSON.stringify([{head:'Round Off',legend:'LSD',rate:0.6}]);
+  assert.throws(()=>submit('E2',{...base,footerRows,terms:'Credit',paymentAdviceNo:'PA/1'}),/payment advice details blank/);
+  const po=submit('E2',{...base,footerRows,terms:'Credit'});
+  assert.deepEqual([po.result.value,po.result.roundOff],[4318109,0]);
+  const buyer={...actor('Procurement Executive'),businessDay:day};
+  const form=detailPage(buyer,{...po,status:'Draft'},store.list('Jayant'),[],null,store.definition('E2','Jayant'));
+  assert.match(form,/<option selected>Round Off<\/option>[^]*?data-foot="rate"[^>]*value=""[^]*?data-foot="round"[^>]*placeholder="Auto" value="0.6">/);
 });

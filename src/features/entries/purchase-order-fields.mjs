@@ -77,8 +77,8 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const pickFrom = (kind, list, value, label) => `<select data-foot="${kind}" aria-label="${label}"><option value="">Select…</option>${list.map(item => `<option${item === value ? ' selected' : ''}>${esc(item)}</option>`).join('')}</select>`;
   const footerRows = Array.from({ length: Math.max(5, saved.length) }, (_, index) => saved[index] ?? {}).map((row, index) => `      <tr${index < shown ? '' : ' hidden'}><td>${index + 1}</td>
         <td>${pickFrom('head', footerHeads, row.head, 'Footer head ' + (index + 1))}</td><td>${pickFrom('legend', footerLegends, row.legend, 'Legend ' + (index + 1))}</td>
-        <td><input data-foot="rate" type="number" step="any" min="0" inputmode="decimal" aria-label="Rate or percent ${index + 1}" value="${esc(row.rate ?? '')}"></td>
-        <td><output data-foot="on"></output></td><td><output data-foot="value"></output></td></tr>`).join('\n')
+        <td><input data-foot="rate" type="number" step="any" min="0" inputmode="decimal" aria-label="Rate or percent ${index + 1}" value="${esc(row.head === 'Round Off' ? '' : row.rate ?? '')}"></td>
+        <td><output data-foot="on"></output></td><td><output data-foot="value"></output><input data-foot="round" type="number" step="0.01" min="0" inputmode="decimal" hidden aria-label="Round off value ${index + 1}" placeholder="Auto" value="${esc(row.head === 'Round Off' ? row.rate ?? '' : '')}"></td></tr>`).join('\n')
     + `\n<input type="hidden" name="footerRows" value="${esc(JSON.stringify(saved.filter(row => row.head)))}">`;
   const advance = (d.terms ?? 'Advance') === 'Advance';
   // A purchase order belongs to a location, the office that buys, and is raised for one site under it.
