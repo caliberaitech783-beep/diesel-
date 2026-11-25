@@ -11,7 +11,10 @@ export const defaultFooterRows = [{ head: 'Basic Excise Duty', legend: 'OQA' }, 
 
 // The footer rows of an order: its own rows, or the excise and VAT an earlier order was saved with.
 export function footerRowsOf(input) {
-  if (Array.isArray(input.footerRows) && input.footerRows.length) return input.footerRows;
+  // A draft keeps its rows as the text the form sent; a saved order keeps them as a list.
+  let rows = input.footerRows;
+  if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch { rows = null; } }
+  if (Array.isArray(rows) && rows.length) return rows;
   return [{ ...defaultFooterRows[0], rate: input.exciseRate }, { ...defaultFooterRows[1], rate: input.vatPercent }, defaultFooterRows[2]];
 }
 

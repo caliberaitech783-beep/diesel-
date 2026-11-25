@@ -11,7 +11,7 @@ import { createLocalApproval } from './local-approval.mjs';
 import { pilotEntry } from './entry-access.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { entryAlerts } from './entry-alerts.mjs';
-import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows } from './entry-register.mjs';
+import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows, purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
@@ -183,12 +183,12 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     } catch(e) {res.status(422).json({error:e.message});}
   });
   for (const [extension,mime,serialize] of [
-    ['csv','text/csv',rows=>entryCsv(entryCsvRows(rows))],
-    ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(entryExportRows(rows,sources))],
+    ['csv','text/csv',(rows,sources)=>entryCsv(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryCsvRows(rows))],
+    ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryExportRows(rows,sources))],
   ]) router.get('/export.'+extension,(req,res)=>{
     const actor=req.dieselActor,sources=store.list(actor.site);
     const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
-    res.attachment('diesel-entries.'+extension).type(mime).send(serialize(rows,sources));
+    res.attachment((purchaseOrdersOnly(rows)?'diesel-purchase-orders.':'diesel-entries.')+extension).type(mime).send(serialize(rows,sources));
   });
   router.get('/accounting/:id.csv',(req,res)=>{
     const actor = req.dieselActor;

@@ -134,5 +134,5 @@ ${footerRows}
     <div class="order-record">${icons.layers}<strong>Record Information</strong>
       <span>Creation Date <b>${esc(stamp({ day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-'))}</b></span>
       <span>Creation Time <b>${esc(stamp({ hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase())}</b></span>
-      <span>Created By <b>${esc(actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div>`;
+      <span>Created By <b>${esc(doc.createdBy ?? actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div>`;
 }

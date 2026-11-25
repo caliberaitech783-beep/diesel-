@@ -229,6 +229,8 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         const saveIndent=action==='Save indent';
         check(!saveIndent || doc.type==='E1','Save indent is only available for Diesel indent.');
         checkMaker(doc,actor);
+        // The person who first saves a record is kept as its creator, whoever opens it later.
+        if (!doc.createdBy) { const by=actor.employee?.name??actor.requestedBy; if (by) doc.createdBy=String(by).slice(0,200); }
         if (doc.type==='E1' && !doc.requester) {
           check(action==='Submit' || !actor.hosted || actor.employee,'Could not read your employee details from Pulse. Refresh the page and try again.');
           if (actor.employee) doc.requester={empId:actor.employee.empId,name:actor.employee.name};
