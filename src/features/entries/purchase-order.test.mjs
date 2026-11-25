@@ -318,3 +318,38 @@ test('location and site are separate: indents go by site, purchase orders by the
   const sheet=Object.fromEntries(purchaseOrderSheet(po,store.list('Jayant')).sections[0][1]);
   assert.deepEqual([sheet.Location,sheet.Site],['CMPL Madhya Pradesh','Jayant']);
 });
+
+test('E7 Goods receipt note is the merged gate entry and GRN form, and Gate entry is off the menu', async t => {
+  const {store,submit,approve,order}=setup(t);
+  assert.deepEqual([byId.E7.name,byId.E7.group,byId.E7.maker],['Goods receipt note','Receive','Site Store']);
+  const po=approve(submit('E2',order));
+  const keeper={...actor('Site Store'),businessDay:day};
+  const form=detailPage(keeper,store.fresh('E7',keeper),store.list('Jayant'),[],null,store.definition('E7','Jayant'));
+  for (const label of ['<h1>GRN</h1>','Gate Entry + GRN (Merged)','Site Location','Doc Type','GRN Date','GRN No.','Party Details','Party / Vendor Name','PO No.','DS No.','Reference Document','Ref Doc Type','Ref Doc No.',
+    'Ref Doc Date','Transport &amp; Vehicle Details','Transporter','Vehicle No.','Vehicle Type','LR No.','LR Date','Freight Type','Freight Contract','Freight Rate','Material Details','Material Name',
+    'Diesel Invoice Qty (L)','Diesel Received Qty (L)','Discrepancy Type','Diesel Rate (₹/L)','Amount (₹)','+ Add Material','Total Qty (L)','Total Amount (₹)','Storage Allocation','Storage Location',
+    'Diesel Qty (L)','+ Add Allocation','Allocated Qty (L)','Diesel Inspection','Inspection No.','Inspection Date','Accepted Qty (L)','Inspector','Attachments','Unloading Slip','Invoice',
+    'Save as Draft','✓ Save &amp; Generate GRN','✕ Cancel','placeholder="Generated on save"','<option>Inter Unit Transfer Order</option>','<option value="Tanker">Tanker</option>']) {
+    assert.ok(form.includes(label)||form.includes(label.replace('<option>','<option value="Inter Unit Transfer Order">')),label);
+  }
+  assert.match(form,new RegExp('<option value="'+po.id+'">'),'an approved purchase order can be chosen');
+  assert.match(form,/<option value="JCS 1">JCS 1 · JAYANT CAMP STORAGE 1<\/option>/,'storage comes from the Storage Location Master for the site');
+  assert.doesNotMatch(form,/href="\/entries\/type\/E5"/);
+  assert.match(form,/href="\/entries\/type\/E7"/);
+
+  const file=name=>[{name,base64:Buffer.from('%PDF-1.4\n%%EOF').toString('base64')}];
+  const grn={docType:'Purchase',supplier:'SANDEEP GASOLENES',po:po.id,transporter:'SANDEEP GASOLENES',vehicleNo:'mh34 bz 4428',vehicleType:'Tanker',freightType:'To Pay',freightRate:1.5,refDocNo:'INV-77',
+    materials:JSON.stringify([{material:review.item,invoiceQty:12000,receivedQty:11950,rate:92.5}]),storage:JSON.stringify([{storage:'JCS 1',litres:7000},{storage:'JCS 2',litres:4900}]),
+    acceptedQty:11900,inspector:'R. Verma',unloadingSlip:file('slip.pdf'),invoiceFile:file('invoice.pdf')};
+  const save=data=>store.write(randomUUID(),keeper,{type:'E7',action:'Submit',rev:0,day,data});
+  assert.throws(()=>save({...grn,acceptedQty:12000,storage:JSON.stringify([{storage:'JCS 1',litres:12000}])}),/accepted quantity cannot be more than the 11,950 L received/);
+  assert.throws(()=>save({...grn,storage:JSON.stringify([{storage:'JCS 1',litres:7000}])}),/Storage rows total 7,000 L\. They must total the accepted quantity of 11,900 L/);
+  assert.throws(()=>save({...grn,vehicleNo:'TANKER'}),/vehicle number like MH34BZ4428/);
+  assert.throws(()=>save({...grn,invoiceFile:undefined}),/Add invoice/);
+  const saved=save(grn);
+  assert.deepEqual([saved.status,saved.number,saved.result.invoiceLitres,saved.result.received,saved.result.accepted,saved.result.shortage,saved.result.discrepancy,saved.result.rate,saved.result.freight,saved.result.landed,saved.result.value,saved.result.vehicle,saved.result.basis],
+    ['Posted','E7-JAY-2026-0001',12000,11950,11900,100,'Shortage',92500,1500,94000,1105375,'MH34BZ4428',po.data.basis]);
+  assert.deepEqual(saved.result.stockBookedTo,['JCS 1','JCS 2']);
+  const { correctionTypes }=await import('./catalog.mjs');
+  assert.ok(!correctionTypes.includes('E7'));
+});

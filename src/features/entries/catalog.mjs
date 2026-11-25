@@ -45,7 +45,17 @@ export const entries = [
     text('vehicleNo','Vehicle No.'),pick('transporter','Transporter',accountVendors.map(vendor=>vendor.name))]],
   ['E5','Gate entry','Receive','Site Store',[po,pick('scenario','Receipt scenario',['UG tank','Direct to bowsers']),pick('transporter','Transporter',[review.transporter]),text('truck','Truck registration'),text('driver','Driver name'),text('mobile','Driver mobile'),date('fitness','Fitness valid until'),date('licence','Explosive licence valid until'),text('invoice','Supplier invoice number'),date('invoiceDate','Invoice date'),number('litres','Invoice quantity (L)'),text('eway','E-way bill number'),text('seals','Compartment seal numbers (comma-separated)'),pick('intact','Seals intact',['Yes','No']),photo('sealPhotos','Compartment seal photos'),photo('billPhoto','Bill photo')]],
   ['E6','Inspection','Receive','Site Store',[gate,number('density','Observed density (kg/m³)'),number('temperature','Temperature (°C)'),pick('instrument','Measuring instrument',[review.instrument]),{...tank,optional:true},{...before,optional:true},{...after,optional:true},pick('decision','Decision',['Accept','Accept with shortage','Accept part, reject part','Reject']),number('rejected','Rejected litres sent back with the tanker',true),reason,photo('evidence','Inspection note and dip photos')]],
-  ['E7','Goods receipt note','Receive',null,[]],
+  // Gate entry and goods receipt in one entry, raised by the store. An older note generated from a gate entry keeps its own details.
+  ['E7','Goods receipt note','Receive','Site Store',[pick('docType','Doc type',['Inter Unit Transfer Order','Purchase']),
+    pick('supplier','Party / vendor name',accountVendors.map(vendor=>vendor.name)),{...po,optional:true},{...link('ds','Delivery schedule','E4'),optional:true},
+    pick('refDocType','Ref doc type',['Invoice','Delivery Challan','LR','Other'],true),text('refDocNo','Ref doc No.',true),{...date('refDocDate','Ref doc date'),optional:true},
+    pick('transporter','Transporter',accountVendors.map(vendor=>vendor.name)),text('vehicleNo','Vehicle No.'),pick('vehicleType','Vehicle type',['Tanker','Truck','Other']),
+    text('lrNo','LR No.',true),{...date('lrDate','LR date'),optional:true},pick('freightType','Freight type',['FOR','To Pay','To Bill'],true),
+    text('freightContract','Freight contract',true),number('freightRate','Freight rate',true),
+    {key:'materials',label:'Material details',type:'rows',columns:[text('material','Material name'),number('invoiceQty','Diesel invoice qty (L)'),number('receivedQty','Diesel received qty (L)'),number('rate','Diesel rate (₹/L)')]},
+    {key:'storage',label:'Storage allocation',type:'rows',columns:[text('storage','Storage location'),number('litres','Diesel qty (L)')]},
+    text('inspectionNo','Inspection No.',true),{...date('inspectionDate','Inspection date'),optional:true},number('acceptedQty','Accepted qty (L)'),text('inspector','Inspector'),
+    photo('unloadingSlip','Unloading slip'),photo('invoiceFile','Invoice')]],
   ['E8','Supplier bill match','Money','Accounts Executive',[grn,text('bill','Supplier bill number'),date('billDate','Bill date'),number('litres','Bill quantity (L)'),number('rate','Bill rate (₹/KL)'),number('vat','VAT (%)'),number('discount','Invoice discount (₹/KL)',true)]],
   ['E9','Debit note and freight bill','Money','Accounts Executive',[grn,text('bill','Freight bill number',true),{...date('billDate','Freight bill date'),optional:true}]],
   ['E10A','UG tank to bowser','Store and issue','Point operator',[tank,bowser,before,after,start,end,photo('evidence','Meter photos'),reason]],
@@ -63,7 +73,7 @@ export const byId = Object.fromEntries(entries.map(entry=>[entry.id,entry]));
 
 // A correction may change any typed value or the reason code on an entry its maker posted.
 // Paid payment advices, generated GRNs, month closes and corrections themselves are not corrected this way.
-export const correctionTypes = entries.filter(entry=>entry.maker && !['E3','E16','E17'].includes(entry.id)).map(entry=>entry.id);
+export const correctionTypes = entries.filter(entry=>entry.maker && !['E3','E7','E16','E17'].includes(entry.id)).map(entry=>entry.id);
 export const correctableFields = type => (byId[type]?.fields ?? [])
   .filter(field=>['number','text','date'].includes(field.type) || field.key==='reason');
 // Values that change litres or rupees also need Head – Accounts.
