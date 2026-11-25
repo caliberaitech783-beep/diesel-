@@ -4,6 +4,7 @@ import { footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purch
 import { accountVendor } from './account-vendors.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
+import { locationName } from './site-locations.mjs';
 
 // The built-in PDF fonts cover Latin text only; anything else is shown as "?" so the file always opens.
 const latin = value => String(value ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/₹/g, 'Rs.')
@@ -23,7 +24,7 @@ export function purchaseOrderSheet(doc, sources = []) {
   return {
     number: doc.number || 'Draft', status: doc.status,
     sections: [
-      ['Purchase Order Details', [['Location', doc.site], ['PO Date', date(doc.day)], ['PO No.', doc.number || 'Draft'], ['Delivery Date', date(d.deliveryDate)],
+      ['Purchase Order Details', [['Location', locationName(doc.site)], ['Site', doc.site], ['PO Date', date(doc.day)], ['PO No.', doc.number || 'Draft'], ['Delivery Date', date(d.deliveryDate)],
         ['Indent No.', formatIndentNumber(indent?.number ?? '')], ['Undersigned (Employee)', d.undersigned]]],
       ['Vendor Details', [['Party / Vendor Name', d.supplier], ['Address', vendor?.address], ['Contact', vendor?.contact]]],
       ['Tax & Supply', [['Transaction Type', d.transactionType], ['Supply Nature', d.supplyNature], ['PO Type', d.type]]],

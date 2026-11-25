@@ -265,7 +265,7 @@ test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up 
   const maker=actor('Procurement Executive');
   const save=()=>store.write(randomUUID(),maker,{type:'E2',action:'Submit',rev:0,day,data:{...order,litres:1000,deliveries:'',advanceAmount:undefined}}).number;
   const first=save();
-  assert.match(first,/^CMLL\/JOC\/PO\/\d{2}-\d{2}\/001$/);
+  assert.match(first,/^CMLL\/CMP\/PO\/\d{2}-\d{2}\/001$/,"numbered by the location Jayant sits under");
   assert.deepEqual([save(),save()],[first.replace(/001$/,'002'),first.replace(/001$/,'003')]);
   const draft=store.write(randomUUID(),maker,{type:'E2',action:'Save draft',rev:0,day,data:{}});
   assert.equal(draft.number,'','a draft takes no number');
@@ -294,4 +294,27 @@ test('an indent approved on Telegram or in Diesel can be ordered against, up to 
   assert.ok(!choices().includes(indent.id),'fully ordered');
   const used=store.read(indent.id,'Jayant');
   assert.throws(()=>store.write(indent.id,inCharge,{type:'E1',action:'Save indent',rev:used.rev,day,data:{litres:900,requiredBy:0,reason:review.reasons[0],remarks:'x'}}),/purchase order already uses this indent/);
+});
+
+test('location and site are separate: indents go by site, purchase orders by the site’s location', async t => {
+  const { locations, locationOf, locationName } = await import('./site-locations.mjs');
+  assert.deepEqual(locations.map(location=>[location.name,location.code,location.sites.length]),[['CMPL Chandrapur','CCH',0],['CMPL Madhya Pradesh','CMP',3],['CMPL Nagpur','CNG',5]]);
+  assert.deepEqual(['Jayant','Jayant OC','Dudhichua OC','Dudhichua East OC'].map(locationName),Array(4).fill('CMPL Madhya Pradesh'));
+  assert.deepEqual(['Sasti','Majri OC','Dhoptala OC (2nd)','Gauri Pauni OC (2nd)','Lalpeth OC','CMPL Nagpur'].map(locationName),Array(6).fill('CMPL Nagpur'));
+  assert.equal(locationName('CMPL Chandrapur'),'CMPL Chandrapur');
+  assert.equal(locationOf('Somewhere new'),undefined);
+
+  const {store,order}=setup(t);
+  const buyer={...actor('Procurement Executive'),businessDay:day};
+  const form=detailPage(buyer,store.fresh('E2',buyer),store.list('Jayant'),[],null,store.definition('E2','Jayant'));
+  assert.match(form,/<select data-order-location><option value="">Select location<\/option><option value="CMPL Chandrapur">CMPL Chandrapur<\/option><option value="CMPL Madhya Pradesh" selected>CMPL Madhya Pradesh<\/option><option value="CMPL Nagpur">CMPL Nagpur<\/option><\/select>/);
+  assert.match(form,/<select data-order-site data-role="[^"]+"><option value="">Select site<\/option><option value="Jayant" data-location="CMPL Madhya Pradesh" selected>Jayant OC<\/option><option value="Sasti" data-location="CMPL Nagpur">Sasti OC<\/option>/);
+  const po=store.write(randomUUID(),buyer,{type:'E2',action:'Submit',rev:0,day,data:{...order,litres:1000,deliveries:'',advanceAmount:undefined}});
+  const saved=detailPage(buyer,{...po,status:'Draft'},store.list('Jayant'),[],null,store.definition('E2','Jayant'));
+  assert.match(saved,/Location<input type="text" readonly tabindex="-1"  value="CMPL Madhya Pradesh">/);
+  assert.match(saved,/Site<input type="text" readonly tabindex="-1"  value="Jayant OC">/);
+  const [head,row]=purchaseOrderExportRows([po],store.list('Jayant'));
+  assert.deepEqual([row[head.indexOf('Location')],row[head.indexOf('Site')]],['CMPL Madhya Pradesh','Jayant']);
+  const sheet=Object.fromEntries(purchaseOrderSheet(po,store.list('Jayant')).sections[0][1]);
+  assert.deepEqual([sheet.Location,sheet.Site],['CMPL Madhya Pradesh','Jayant']);
 });

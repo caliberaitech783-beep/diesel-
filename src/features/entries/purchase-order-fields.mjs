@@ -5,6 +5,8 @@ import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
 import { accountVendors } from './account-vendors.mjs';
+import { entrySiteDirectory } from './entry-sites.mjs';
+import { locations, locationOf, locationName } from './site-locations.mjs';
 import { footerHeads, footerLegends, footerRowsOf, purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const star = '<b class="req" aria-hidden="true">*</b>';
@@ -79,10 +81,19 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
         <td><output data-foot="on"></output></td><td><output data-foot="value"></output></td></tr>`).join('\n')
     + `\n<input type="hidden" name="footerRows" value="${esc(JSON.stringify(saved.filter(row => row.head)))}">`;
   const advance = (d.terms ?? 'Advance') === 'Advance';
+  // A purchase order belongs to a location, the office that buys, and is raised for one site under it.
+  // A new order chooses both; choosing the site opens that site's indents. A saved order keeps its site.
+  const directory = entrySiteDirectory(actor).filter(row => row.allowed);
+  const current = locationOf(doc.site);
+  const placeFields = doc.rev ? readOnly('Location', locationName(doc.site)) + readOnly('Site', directory.find(row => row.site === doc.site)?.name ?? doc.site)
+    : `<label><span>Location${star}</span><select data-order-location><option value="">Select location</option>${locations.map(location =>
+        `<option value="${esc(location.name)}"${location === current ? ' selected' : ''}>${esc(location.name)}</option>`).join('')}</select></label>
+      <label><span>Site${star}</span><select data-order-site data-role="${esc(actor.profile)}"><option value="">Select site</option>${directory.map(row =>
+        `<option value="${esc(row.site)}" data-location="${esc(locationName(row.site))}"${row.site === doc.site ? ' selected' : ''}>${esc(row.name)}</option>`).join('')}</select></label>`;
 
   return `<div class="order-top">
     ${card('details', 'Purchase Order Details', `<div class="order-grid three">
-      ${readOnly('Location', doc.site)}
+      ${placeFields}
       <label><span>PO Date${star}</span><input name="day" type="date" data-required="true" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       ${readOnly('PO No.', formatIndentNumber(doc.number) || '', 'placeholder="Auto-generated"')}
       ${input('deliveryDate', 'Delivery Date', { attrs: `min="${esc(doc.day)}"` })}
