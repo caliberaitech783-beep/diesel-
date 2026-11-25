@@ -199,11 +199,11 @@ test('the Diesel Rate Master works per litre, with a transportation rate and a l
   const master = masterDefinition('diesel-rate-master');
   const labels = master.fields.map(field => field.label);
   assert.deepEqual(labels.filter(label => /₹/.test(label)), ['Basic rate (₹/Ltr)', 'Excise duty (₹/Ltr)', 'Discount (₹/Ltr)', 'Diesel rate (₹/Ltr), worked out',
-    'Transportation rate (₹/Ltr)', 'Landed cost per litre (₹/Ltr)']);
+    'Transportation rate (₹/Ltr)', 'Gross landed cost (₹/Ltr)', 'Net landed cost (₹/Ltr)']);
   assert.deepEqual(master.fields.find(field => field.label === 'Price basis (EXMI / Delivered)').options, ['EXMI', 'Delivered']);
   assert.ok(!labels.includes('Notification copy') && !labels.includes('Approved by'));
   assert.ok(!master.sections.some(section => section.name === 'Notification and approval'));
-  assert.equal(master.fields.find(field => field.label === 'Landed cost per litre (₹/Ltr)').readOnly, true);
+  for (const label of ['Gross landed cost (₹/Ltr)', 'Net landed cost (₹/Ltr)']) assert.equal(master.fields.find(field => field.label === label).readOnly, true);
   assert.deepEqual(masterDefinition('transport-freight-master').fields.map(field => field.label).filter(label => /₹/.test(label)), ['Freight (₹/Ltr)', 'Shortage deduction rate (₹/Ltr)']);
 
   // Entry still works per KL: per-litre master rates are multiplied by 1,000, and EXMI is the ex-depot basis.

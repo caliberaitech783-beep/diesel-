@@ -180,7 +180,11 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       // The landed cost is the worked-out rate plus what it costs to bring the diesel in.
       const transport = values['Transportation rate (₹/Ltr)'];
       if (transport !== undefined && transport !== '' && !(Number(transport) >= 0)) throw new MasterRecordError('Transportation rate cannot be negative.');
-      values['Landed cost per litre (₹/Ltr)'] = String(Math.round((rate.perKilolitre + Number(transport || 0) + Number.EPSILON) * 10000) / 10000);
+      const gross = Math.round((rate.perKilolitre + Number(transport || 0) + Number.EPSILON) * 10000) / 10000;
+      values['Gross landed cost (₹/Ltr)'] = String(gross);
+      // A post-sale discount comes back later by credit note, so it lowers the net cost but not the gross.
+      const later = values['Discount type (invoice discount / post-sale discount)'] === 'Post-sale discount' ? Number(values['Discount (₹/Ltr)'] || 0) : 0;
+      values['Net landed cost (₹/Ltr)'] = String(Math.round((gross - later + Number.EPSILON) * 10000) / 10000);
     }
     if (master.slug !== 'item-master') return values;
     const minimum = Number(values['Density minimum (kg/m³)']);
