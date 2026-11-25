@@ -193,3 +193,24 @@ test('the Diesel Rate Master asks for a location before the supplier and searche
   assert.match(form, /<input [^>]*name="Location"[^>]*list="(field-\d+)-options"[^>]*><datalist id="\1-options"><option value="CMPL Nagpur"><\/option><option value="Jayant OC"><\/option><\/datalist>/);
   assert.doesNotMatch(form, /name="Location"[^>]*required/);
 });
+
+test('the Diesel Rate Master works per litre, with a transportation rate and a landed cost, and no notification section', async () => {
+  const { masterDefinition } = await import('./records-fields.mjs');
+  const master = masterDefinition('diesel-rate-master');
+  const labels = master.fields.map(field => field.label);
+  assert.deepEqual(labels.filter(label => /₹/.test(label)), ['Basic rate (₹/Ltr)', 'Excise duty (₹/Ltr)', 'Discount (₹/Ltr)', 'Diesel rate (₹/Ltr), worked out',
+    'Transportation rate (₹/Ltr)', 'Landed cost per litre (₹/Ltr)']);
+  assert.deepEqual(master.fields.find(field => field.label === 'Price basis (EXMI / Delivered)').options, ['EXMI', 'Delivered']);
+  assert.ok(!labels.includes('Notification copy') && !labels.includes('Approved by'));
+  assert.ok(!master.sections.some(section => section.name === 'Notification and approval'));
+  assert.equal(master.fields.find(field => field.label === 'Landed cost per litre (₹/Ltr)').readOnly, true);
+  assert.deepEqual(masterDefinition('transport-freight-master').fields.map(field => field.label).filter(label => /₹/.test(label)), ['Freight (₹/Ltr)', 'Shortage deduction rate (₹/Ltr)']);
+
+  // Entry still works per KL: per-litre master rates are multiplied by 1,000, and EXMI is the ex-depot basis.
+  const { commercialMastersFor } = await import('../entries/site-commercial.mjs');
+  const empty = Object.fromEntries(['account-master', 'supplier-depot-master', 'diesel-rate-master', 'transport-freight-master', 'measuring-instrument-master', 'gst-master', 'tax-master-tds', 'cost-centre-vehicle-master', 'item-master', 'document-numbering-master'].map(slug => [slug, []]));
+  const rate = values => commercialMastersFor({ ...empty, 'diesel-rate-master': [{ id: 'r', revision: 1, values }] }).rates?.[0];
+  const fresh = rate({ 'Price basis (EXMI / Delivered)': 'EXMI', 'Diesel rate (₹/Ltr), worked out': '98.75', 'Discount (₹/Ltr)': '0.5', 'Discount type (invoice discount / post-sale discount)': 'Invoice discount' });
+  const older = rate({ 'Price basis (Ex-depot / Delivered)': 'Ex-depot', 'Diesel rate (₹/KL), worked out': '98750', 'Discount (₹/KL)': '500', 'Discount type (invoice discount / post-sale discount)': 'Invoice discount' });
+  assert.deepEqual([fresh.basis, fresh.rate, fresh.invoiceDiscount, older.basis, older.rate, older.invoiceDiscount], ['Ex-depot', 98750, 500, 'Ex-depot', 98750, 500]);
+});

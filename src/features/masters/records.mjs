@@ -173,10 +173,14 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
     }
     if (master.slug === 'storage-location-master') validateStorage(values);
     if (master.slug === 'diesel-rate-master') {
-      const rate = dieselRate({ basic: values['Basic rate (₹/KL)'], excise: values['Excise duty (₹/KL)'], vatPercent: values['VAT (%) by state'],
-        discount: values['Discount (₹/KL)'], discountType: values['Discount type (invoice discount / post-sale discount)'] });
+      const rate = dieselRate({ basic: values['Basic rate (₹/Ltr)'], excise: values['Excise duty (₹/Ltr)'], vatPercent: values['VAT (%) by state'],
+        discount: values['Discount (₹/Ltr)'], discountType: values['Discount type (invoice discount / post-sale discount)'] });
       if (!rate) throw new MasterRecordError('Enter a positive basic rate, excise duty, VAT from 0 to 100 and a discount type for any discount to work out the diesel rate.');
-      values['Diesel rate (₹/KL), worked out'] = String(rate.perKilolitre);
+      values['Diesel rate (₹/Ltr), worked out'] = String(rate.perKilolitre);
+      // The landed cost is the worked-out rate plus what it costs to bring the diesel in.
+      const transport = values['Transportation rate (₹/Ltr)'];
+      if (transport !== undefined && transport !== '' && !(Number(transport) >= 0)) throw new MasterRecordError('Transportation rate cannot be negative.');
+      values['Landed cost per litre (₹/Ltr)'] = String(Math.round((rate.perKilolitre + Number(transport || 0) + Number.EPSILON) * 10000) / 10000);
     }
     if (master.slug !== 'item-master') return values;
     const minimum = Number(values['Density minimum (kg/m³)']);

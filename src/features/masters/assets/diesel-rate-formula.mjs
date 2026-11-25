@@ -10,6 +10,7 @@ export function dieselRate({ basic, excise, vatPercent, discount, discountType }
   const beforeVat = Number(basic) + Number(excise) - invoiceDiscount;
   const vat = Number(vatPercent);
   if (!(Number(basic) > 0 && Number(excise) >= 0 && vat >= 0 && vat <= 100 && beforeVat > 0)) return null;
-  const perKilolitre = Math.round((beforeVat * (1 + vat / 100) + Number.EPSILON) * 100) / 100;
+  // Rates are entered per litre, so the result keeps four decimals. The field is still called perKilolitre for older callers.
+  const perKilolitre = Math.round((beforeVat * (1 + vat / 100) + Number.EPSILON) * 10000) / 10000;
   return Number.isFinite(perKilolitre) ? { beforeVat, perKilolitre, perLitre: perKilolitre / 1000 } : null;
 }

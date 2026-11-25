@@ -4,6 +4,11 @@ export const commercialMasters = ['account-master','supplier-depot-master','dies
 
 const effective = values => ({ from:values['Effective from'], to:values['Effective to'] });
 const amount = value => value===undefined || value==='' ? undefined : Number(value);
+// Entry works in ₹ per KL. The masters now take ₹ per litre; a record saved under the earlier per-KL label is read as it was.
+const perKl = (values,label) => {
+  const litre=amount(values[label.replace('(₹/KL)','(₹/Ltr)')]);
+  return litre===undefined ? amount(values[label]) : Math.round((litre*1000+Number.EPSILON)*100)/100;
+};
 
 export function commercialMastersFor(data) {
   const accounts = data['account-master'].map(({code,name,values:v,attributes})=>({
@@ -23,15 +28,15 @@ export function commercialMastersFor(data) {
       code:v['Depot name'],name:v['Depot location (city, state)'],supplier:v['Supplier (A/C Code)'],
     })),
     rates:data['diesel-rate-master'].map(({id,revision,values:v})=>({
-      id,revision,supplier:v.Supplier,depot:v.Depot,basis:v['Price basis (Ex-depot / Delivered)'],
-      rate:amount(v['Diesel rate (₹/KL), worked out']),vat:amount(v['VAT (%) by state']),
-      invoiceDiscount:v['Discount type (invoice discount / post-sale discount)']==='Invoice discount'?amount(v['Discount (₹/KL)'])??0:0,
-      postSaleDiscount:v['Discount type (invoice discount / post-sale discount)']==='Post-sale discount'?amount(v['Discount (₹/KL)'])??0:0,
+      id,revision,supplier:v.Supplier,depot:v.Depot,basis:v['Price basis (Ex-depot / Delivered)']??(v['Price basis (EXMI / Delivered)']==='EXMI'?'Ex-depot':v['Price basis (EXMI / Delivered)']),
+      rate:perKl(v,'Diesel rate (₹/KL), worked out'),vat:amount(v['VAT (%) by state']),
+      invoiceDiscount:v['Discount type (invoice discount / post-sale discount)']==='Invoice discount'?perKl(v,'Discount (₹/KL)')??0:0,
+      postSaleDiscount:v['Discount type (invoice discount / post-sale discount)']==='Post-sale discount'?perKl(v,'Discount (₹/KL)')??0:0,
       ...effective(v),
     })),
     freightRates:data['transport-freight-master'].map(({values:v})=>({
-      transporter:v.Transporter,depot:v['From depot'],destination:v['To site'],rate:amount(v['Freight (₹/KL)']),
-      shortageRate:amount(v['Shortage deduction rate (₹/KL)']),...effective(v),
+      transporter:v.Transporter,depot:v['From depot'],destination:v['To site'],rate:perKl(v,'Freight (₹/KL)'),
+      shortageRate:perKl(v,'Shortage deduction rate (₹/KL)'),...effective(v),
     })),
     instruments:data['measuring-instrument-master'].map(({code,values:v})=>({
       code,name:v.Type,storage:v['Fitted on (tank, bowser)'],start:v['Calibration date'],due:v['Calibration due date'],

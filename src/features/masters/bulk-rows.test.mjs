@@ -9,16 +9,16 @@ const importable = slug => masterDefinition(slug).fields.filter(field => field.t
 test('a templates workbook sheet with title rows imports one record per row', () => {
   const rows = [
     ['DIESEL RATE MASTER  —  New for Pulse'], ['Price notification per supplier and depot; rates are per KL.'], [], ['New in Pulse'],
-    ['Supplier *', 'Depot *', 'Price basis (Ex-depot / Delivered) *', 'Effective from *', 'Effective to', 'Basic rate (₹/KL) *', 'Excise duty (₹/KL) *',
-      'VAT (%) by state *', 'Discount (₹/KL)', 'Diesel rate (₹/KL), worked out *', 'Old iBoss column'],
-    ['SUP-1', 'Jamnagar', 'ex-depot', '19-11-2026', '', '1,00,000', '20000', '25', '', '150000', 'ignored'],
+    ['Supplier *', 'Depot *', 'Price basis (EXMI / Delivered) *', 'Effective from *', 'Effective to', 'Basic rate (₹/Ltr) *', 'Excise duty (₹/Ltr) *',
+      'VAT (%) by state *', 'Discount (₹/Ltr)', 'Diesel rate (₹/Ltr), worked out *', 'Old iBoss column'],
+    ['SUP-1', 'Jamnagar', 'exmi', '19-11-2026', '', '1,00,000', '20000', '25', '', '150000', 'ignored'],
     [], ['SUP-2', 'Nagpur', 'Delivered', '2026-12-01', '1/3/2027', '90000.50', '0', '0', '', '', ''],
   ];
   const { records, unused } = readRecordRows(rows, importable('diesel-rate-master'));
-  assert.deepEqual(unused, ['Diesel rate (₹/KL), worked out *', 'Old iBoss column']);
+  assert.deepEqual(unused, ['Diesel rate (₹/Ltr), worked out *', 'Old iBoss column']);
   assert.deepEqual(records.map(record => record.row), [6, 8]);
-  assert.deepEqual(Object.fromEntries(records[0].values), { Supplier: 'SUP-1', Depot: 'Jamnagar', 'Price basis (Ex-depot / Delivered)': 'Ex-depot',
-    'Effective from': '2026-11-19', 'Basic rate (₹/KL)': '100000', 'Excise duty (₹/KL)': '20000', 'VAT (%) by state': '25' });
+  assert.deepEqual(Object.fromEntries(records[0].values), { Supplier: 'SUP-1', Depot: 'Jamnagar', 'Price basis (EXMI / Delivered)': 'EXMI',
+    'Effective from': '2026-11-19', 'Basic rate (₹/Ltr)': '100000', 'Excise duty (₹/Ltr)': '20000', 'VAT (%) by state': '25' });
   assert.equal(Object.fromEntries(records[1].values)['Effective to'], '2027-03-01');
 });
 
