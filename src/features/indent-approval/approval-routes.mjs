@@ -2,7 +2,8 @@ import express from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createIndentApprovalStore } from './approval-store.mjs';
-import { approvalsDenied, approvalsPage, approvalsPath, approversDenied, approversPage, approversPath } from './approver-page.mjs';
+import { approvalsDenied, approvalsPage, approversDenied, approversPage } from './approver-page.mjs';
+import { indentKind } from './approval-kinds.mjs';
 import { createIndentApproval, decisionView } from './indent-approval.mjs';
 import { createTelegram, validBotToken } from './telegram.mjs';
 
@@ -11,15 +12,17 @@ export const indentWebhookPath = '/telegram/indent-approval';
 
 // getProfile(request) → the signed-in Pulse profile or null; isAdmin(profile) → may change the approver list.
 // Returns what Entry needs: requested(doc) after Save indent, and decision(docId) for its screens.
-export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, getProfile, isAdmin, startSignIn, now = () => new Date().toISOString() }) {
-  const store = createIndentApprovalStore(db);
-  const token = env.DIESEL_INDENT_BOT_TOKEN?.trim();
+// `kind` says what is being approved: indents by default, or purchase orders with their own approvers, bot and pages.
+export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, getProfile, isAdmin, startSignIn, now = () => new Date().toISOString() }, kind = indentKind) {
+  const { approversPath, approvalsPath } = kind, webhookPath = kind.webhookPath;
+  const store = createIndentApprovalStore(db, kind.tables);
+  const token = env[kind.tokenName]?.trim();
   const telegram = validBotToken(token) ? createTelegram(token, fetcher) : null;
   const bot = { configured: Boolean(token), username: '', webhook: undefined, calls: 0, since: now() };
   const failures = [];
   // Categories only, for the administrator page and logs: never a token, chat or message.
   const report = error => { failures.push(String(error?.message ?? error).slice(0, 120)); if (failures.length > 20) failures.shift(); };
-  const approval = createIndentApproval({ store, telegram, now, report });
+  const approval = createIndentApproval({ store, telegram, now, report, kind });
 
   // Tells Telegram where to deliver button presses and replies, then learns the bot's name. Telegram limits
   // these calls hard on shared hosting addresses, so a refusal is retried after the wait Telegram asks for,
@@ -45,7 +48,7 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
     try {
       // Telegram delivers only to a public HTTPS address; without one the bot can still send.
       if (bot.webhook !== true && publicOrigin.startsWith('https:')) {
-        const set = await attempt('setWebhook', { url: publicOrigin + indentWebhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] },
+        const set = await attempt('setWebhook', { url: publicOrigin + webhookPath, secret_token: telegram.webhookSecret, allowed_updates: ['message', 'callback_query'] },
           () => { bot.webhook = true; });
         if (!set) return;
       }
@@ -57,7 +60,7 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
 
   if (telegram) {
     connect();
-    app.post(indentWebhookPath, express.json({ limit: '256kb' }), async (request, response) => {
+    app.post(webhookPath, express.json({ limit: '256kb' }), async (request, response) => {
       const given = Buffer.from(String(request.get('x-telegram-bot-api-secret-token') ?? '')), expected = Buffer.from(telegram.webhookSecret);
       if (given.length !== expected.length || !timingSafeEqual(given, expected)) return response.sendStatus(403);
       // Always acknowledged, so one bad update is not redelivered for hours.
@@ -72,14 +75,14 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
       const profile = await getProfile(request);
       if (!profile) return request.method === 'GET' ? startSignIn(response, approversPath) : response.sendStatus(401);
       const name = profile.name || profile.login;
-      if (!isAdmin(profile)) return response.status(403).type('html').send(approversDenied(name));
+      if (!isAdmin(profile)) return response.status(403).type('html').send(approversDenied(name, kind));
       if (request.method !== 'GET' && (request.get('origin') !== publicOrigin || request.get('sec-fetch-site') === 'cross-site')) return response.sendStatus(403);
       response.set('Cache-Control', 'no-store');
       await handler(request, response, { name, login: profile.login.trim().toLowerCase() });
     } catch (error) { next(error); }
   };
   const show = (response, person, error) => response.status(error ? 422 : 200).type('html')
-    .send(approversPage({ name: person.name, approvers: store.approvers(), bot, error }));
+    .send(approversPage({ name: person.name, approvers: store.approvers(), bot, error, kind }));
   const form = express.urlencoded({ extended: false, limit: '2kb' });
   app.get(approversPath, admin(async (_request, response, person) => {
     // The page shows the current state at once; a retry already waiting is left to its own time.
@@ -105,14 +108,14 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
       const profile = await getProfile(request);
       if (!profile) return request.method === 'GET' ? startSignIn(response, approvalsPath) : response.sendStatus(401);
       const person = store.approverByLogin(profile.login);
-      if (!person) return response.status(403).type('html').send(approvalsDenied(profile.name || profile.login));
+      if (!person) return response.status(403).type('html').send(approvalsDenied(profile.name || profile.login, kind));
       if (request.method !== 'GET' && (request.get('origin') !== publicOrigin || request.get('sec-fetch-site') === 'cross-site')) return response.sendStatus(403);
       response.set('Cache-Control', 'no-store');
       await handler(request, response, person);
     } catch (error) { next(error); }
   };
   const list = (response, person, error) => response.status(error ? 422 : 200).type('html')
-    .send(approvalsPage({ name: person.name, pending: store.pending(), recent: store.recent(), error }));
+    .send(approvalsPage({ name: person.name, pending: store.pending(), recent: store.recent(), error, kind }));
   app.get(approvalsPath, approver((_request, response, person) => list(response, person)));
   app.post(approvalsPath + '/decide', form, approver(async (request, response, person) => {
     const { doc, decision, sanctioned, reason, back } = request.body ?? {};
@@ -127,7 +130,11 @@ export function registerIndentApproval(app, { db, env, fetcher, publicOrigin, ge
     waiting: doc => store.request(doc),
     // Sends the saved indent for approval. Resolves to how many people received it; never rejects into the save.
     // With no bot and nobody on the list there is no one to ask, so the indent simply stays Saved.
-    requested: doc => telegram || store.approvers().length ? approval.requested(doc).catch(error => { report(error); return 0; }) : Promise.resolve(null),
+    requested: (doc, sources) => telegram || store.approvers().length ? approval.requested(doc, sources).catch(error => { report(error); return 0; }) : Promise.resolve(null),
+    // Whether anyone can be asked at all. With no bot and no approvers, nothing is sent for approval.
+    active: () => Boolean(telegram || store.approvers().length),
+    withdraw: doc => approval.withdraw(doc).catch(report),
+    kind,
     decision: doc => decisionView(store.request(doc)),
     status: () => ({ bot: { ...bot }, failures: [...failures] }),
   };

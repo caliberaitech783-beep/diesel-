@@ -80,7 +80,7 @@ function gatherPrivateTrials(db, directory) {
   }
 }
 
-export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, indentApproval }) {
+export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, indentApproval, orderApproval }) {
   const routers = new Map();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
@@ -180,7 +180,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
         if (!assigned || trial) seedWalkthrough(db);
         if (trial) gatherPrivateTrials(db,directory);
         const stock = siteStock && !trial ? siteEntryWorkspace(db,siteMasterDb) : {};
-        router = createEntriesRouter(db,trial ? {hosted:true,indentApproval} : {hosted:true,assigned,...stock,approvalOptions,indentApproval});
+        router = createEntriesRouter(db,trial ? {hosted:true,indentApproval,orderApproval} : {hosted:true,assigned,...stock,approvalOptions,indentApproval,orderApproval});
         routers.set(req.reviewOwner,router);
         req.socket.server.once('close',()=>{routers.delete(req.reviewOwner);db.close();});
       } catch (error) { db.close();throw error; }

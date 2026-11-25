@@ -1,9 +1,10 @@
 import { formatIndentDate, formatIndentNumber, indentDueDate, indentFormData } from '../entries/indent-details.mjs';
 import { indentPdf } from './indent-pdf.mjs';
+import { indentKind } from './approval-kinds.mjs';
 
 const istTime = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
 const when = stamp => istTime.format(new Date(stamp)) + ' IST';
-const buttons = doc => [[{ text: '✅ Approve', callback_data: 'indent:approve:' + doc }, { text: '❌ Decline', callback_data: 'indent:decline:' + doc }]];
+const buttons = (kind, doc) => [[{ text: '✅ Approve', callback_data: kind.callback + ':approve:' + doc }, { text: '❌ Decline', callback_data: kind.callback + ':decline:' + doc }]];
 
 // The indent as the rows of its PDF and the caption under it.
 export function indentSummary(doc) {
@@ -43,43 +44,43 @@ export function decisionView(request) {
       + (request.reason ? ' · ' + request.reason : '') };
 }
 
-export function createIndentApproval({ store, telegram, now = () => new Date().toISOString(), report = () => {} }) {
+export function createIndentApproval({ store, telegram, now = () => new Date().toISOString(), report = () => {}, kind = indentKind }) {
   const quietly = promise => promise.catch(error => report(error));
   // Every copy of the message loses its buttons and gains the outcome, so nobody decides twice.
   // Without a bot, approval still works inside Diesel: there are simply no messages to send or close.
   const close = (doc, request, text) => !telegram ? Promise.resolve() : Promise.all(store.messages(doc).map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
     chat_id, message_id, caption: (request.caption + '\n\n' + text).slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
 
-  async function requested(doc) {
-    const { number, rows, caption, litres } = indentSummary(doc);
+  async function requested(doc, sources) {
+    const { number, rows, caption, litres } = kind.summary ? kind.summary(doc, sources) : indentSummary(doc);
     const earlier = store.open({ doc: doc.id, rev: doc.rev, number, caption, litres }, now());
     if (!telegram) return 0;
     await Promise.all(earlier.map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
-      chat_id, message_id, caption: (caption + '\n\n✏️ This indent was edited. A new approval request follows.').slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
+      chat_id, message_id, caption: (caption + '\n\n✏️ This ' + kind.noun + ' was edited. A new approval request follows.').slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
     const approvers = store.linkedApprovers();
     if (!approvers.length) return 0;
-    const bytes = await indentPdf({ title: 'Diesel indent', number, rows, footer: 'Sent for approval ' + when(now()) + ' · Diesel, Caliber Pulse' });
+    const bytes = kind.pdf ? await kind.pdf(doc, sources) : await indentPdf({ title: 'Diesel indent', number, rows, footer: 'Sent for approval ' + when(now()) + ' · Diesel, Caliber Pulse' });
     const fileName = number.replace(/[^\w-]+/g, '-') + '.pdf';
-    await Promise.all(approvers.map(approver => quietly(telegram.sendDocument({ chatId: approver.chat_id, bytes, fileName, caption, keyboard: buttons(doc.id) })
+    await Promise.all(approvers.map(approver => quietly(telegram.sendDocument({ chatId: approver.chat_id, bytes, fileName, caption, keyboard: buttons(kind, doc.id) })
       .then(message => store.sent(doc.id, approver.chat_id, message.message_id)))));
     return store.request(doc.id).sent;
   }
 
   async function pressed(query) {
-    const chatId = query.message?.chat?.id, [, action, doc] = /^indent:(approve|decline):([\w-]{1,64})$/.exec(query.data ?? '') ?? [];
+    const chatId = query.message?.chat?.id, [, action, doc] = new RegExp('^' + kind.callback + ':(approve|decline):([\\w-]{1,64})$').exec(query.data ?? '') ?? [];
     const answer = text => quietly(telegram.send('answerCallbackQuery', { callback_query_id: query.id, text, show_alert: true }));
     const approver = chatId === undefined ? null : store.approverByChat(chatId);
-    if (!action || !approver) return answer('You are not on the Diesel indent approver list.');
+    if (!action || !approver) return answer('You are not on the ' + kind.label + ' approver list.');
     const waiting = store.request(doc);
-    if (!waiting) return answer('This indent is no longer waiting for approval.');
-    if (action === 'approve' && waiting.status === 'pending') {
+    if (!waiting) return answer('This ' + kind.noun + ' is no longer waiting for approval.');
+    if (kind.quantity && action === 'approve' && waiting.status === 'pending') {
       // Approval needs the sanction quantity, so the decision is taken when the approver sends it.
       await quietly(telegram.send('sendMessage', { chat_id: chatId, text: 'Approving ' + waiting.number + (waiting.litres != null ? ' · requested ' + litresText(waiting.litres) : '')
         + '.\nSend the sanction quantity in litres to approve.', reply_markup: { force_reply: true, input_field_placeholder: 'Sanction quantity (litres)' } })
         .then(message => store.promptQuantity(chatId, doc, message.message_id)));
       return quietly(telegram.send('answerCallbackQuery', { callback_query_id: query.id, text: 'Send the sanction quantity to approve.' }));
     }
-    const result = store.decide(doc, 'declined', approver, now());
+    const result = store.decide(doc, action === 'approve' ? 'approved' : 'declined', approver, now());
     const { request, decided } = result;
     if (!decided) {
       await quietly(telegram.send('editMessageCaption', { chat_id: chatId, message_id: query.message.message_id,
@@ -102,8 +103,8 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
       // Telegram only vouches for a contact that is the sender's own.
       if (message.contact.user_id !== message.from?.id) return say('Share your own number using the button below.');
       const approver = store.link(message.contact.phone_number, chatId, now());
-      return say(approver ? 'Linked, ' + approver.name + '. Diesel indents will come here for your approval.'
-        : 'This number is not on the Diesel indent approver list. Ask the administrator to add it, then send /start again.', { reply_markup: { remove_keyboard: true } });
+      return say(approver ? 'Linked, ' + approver.name + '. ' + kind.label + 's will come here for your approval.'
+        : 'This number is not on the ' + kind.label + ' approver list. Ask the administrator to add it, then send /start again.', { reply_markup: { remove_keyboard: true } });
     }
     const replied = message.reply_to_message?.message_id;
     const asked = store.quantityPrompt(chatId), approver = store.approverByChat(chatId);
@@ -111,7 +112,7 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
       const request = store.request(asked.doc);
       if (!request || request.status !== 'pending') {
         store.clearQuantityPrompt(chatId);
-        return say(request ? 'Already ' + request.status + ' by ' + request.decided_by + '.' : 'This indent is no longer waiting for approval.');
+        return say(request ? 'Already ' + request.status + ' by ' + request.decided_by + '.' : 'This ' + kind.noun + ' is no longer waiting for approval.');
       }
       const quantity = sanctionQuantity(message.text, request);
       if (quantity.error) return say(quantity.error + ' Send it again.');
@@ -124,21 +125,24 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
       const request = store.answerReason(chatId, replied, message.text.trim().slice(0, 500));
       if (request) { await close(request.doc, request, decisionLine(request)); return say('Reason recorded.'); }
     }
-    if (store.approverByChat(chatId)) return say('You are linked as ' + store.approverByChat(chatId).name + '. Diesel indents will come here for your approval.');
-    return say('To approve Diesel indents here, share your mobile number. It must match the number on the approver list.',
+    if (store.approverByChat(chatId)) return say('You are linked as ' + store.approverByChat(chatId).name + '. ' + kind.label + 's will come here for your approval.');
+    return say('To approve ' + kind.label.toLowerCase() + 's here, share your mobile number. It must match the number on the approver list.',
       { reply_markup: { keyboard: [[{ text: 'Share my mobile number', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } });
   }
 
   // A decision taken inside Diesel by a listed approver. Throws the message to show when it cannot stand.
   async function decide(doc, { decision, sanctioned, reason }, approver) {
     const request = store.request(doc);
-    if (!request) throw Error('This indent is not waiting for approval.');
+    if (!request) throw Error('This ' + kind.noun + ' is not waiting for approval.');
     if (request.status !== 'pending') throw Error('Already ' + request.status + ' by ' + request.decided_by + '.');
     let extra = { reason: String(reason ?? '').trim().slice(0, 500) || null };
     if (decision === 'approve') {
-      const quantity = sanctionQuantity(sanctioned, request);
-      if (quantity.error) throw Error(quantity.error);
-      extra = { sanctioned: quantity.value };
+      extra = {};
+      if (kind.quantity) {
+        const quantity = sanctionQuantity(sanctioned, request);
+        if (quantity.error) throw Error(quantity.error);
+        extra = { sanctioned: quantity.value };
+      }
     } else if (decision !== 'decline') throw Error('Choose Approve or Decline.');
     const result = store.decide(doc, decision === 'approve' ? 'approved' : 'declined', approver, now(), extra);
     if (!result.decided) throw Error('Already ' + result.request.status + ' by ' + result.request.decided_by + '.');
@@ -146,9 +150,18 @@ export function createIndentApproval({ store, telegram, now = () => new Date().t
     return result.request;
   }
 
+  // The record is being edited, so its request is taken back and every copy of the message says so.
+  async function withdraw(doc) {
+    const taken = store.withdraw(doc);
+    if (!taken || !telegram) return;
+    await Promise.all(taken.messages.map(({ chat_id, message_id }) => quietly(telegram.send('editMessageCaption', {
+      chat_id, message_id, caption: (taken.request.caption + '\n\n✏️ This ' + kind.noun + ' is being edited. A new request follows when it is saved.').slice(0, 1000), reply_markup: { inline_keyboard: [] } }))));
+  }
+
   return {
     requested,
     decide,
+    withdraw,
     decision: doc => decisionView(store.request(doc)),
     update: update => update?.callback_query ? pressed(update.callback_query) : update?.message ? messaged(update.message) : undefined,
   };

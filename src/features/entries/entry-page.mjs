@@ -7,6 +7,7 @@ import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { approvalCard } from './approval-inbox.mjs';
 import { decisionForm } from '../indent-approval/approver-page.mjs';
+import { orderKind } from '../indent-approval/approval-kinds.mjs';
 import { filterRegister, registerFilters, traceEntries, isRegisterRecord } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
@@ -163,19 +164,21 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const role=entryRole(actor);
   const editable=(['Draft','Returned'].includes(d.status)||(indent&&(['Saved','Awaiting approval'].includes(d.status)||(d.status==='Posted'&&d.result?.sanctioned!==undefined&&!rows.some(row=>row.type==='E2'&&row.data?.indent===d.id&&!['Draft','Superseded','Returned'].includes(row.status))))))&&d.maker===actor.id&&(meta.maker===role||d.type==='E16'||(d.type==='E15'&&role==='Site Store'));
   const back=d.rev?recordPath(d):'/entries/type/'+d.type, next=indent?undefined:d.result.approvals?.[d.stage];
-  const reviewable=!indent&&mayApproveEntry(d,actor);
+  // A purchase order sent to the listed approvers is decided by them, so the review roles get no Approve or Return here.
+  const listed=d.type==='E2'&&Boolean(d.approval);
+  const reviewable=!indent&&!listed&&mayApproveEntry(d,actor);
   const receipt=d.type==='E12'&&actor.site===d.result.destination;
   const pending=d.type==='E8'&&d.status==='Posted' ? Number(d.result.expectedPostSaleDiscount??0)-Number(d.result.creditReceived??0) : 0;
   const creditOpen=pending>0.004 && d.site===actor.site && ['Accounts Executive','Head – Accounts'].includes(role);
   let switchForm='';
-  if (!indent&&d.status==='Awaiting approval'&&!reviewable) {
+  if (!indent&&!listed&&d.status==='Awaiting approval'&&!reviewable) {
     const profile=next==='Site In-charge'&&d.maker===d.site+'-'+roleKey(next)?'entry-deputy':roleKey(next);
     if ((!actor.assignments || d.maker!==actor.id) && canChooseRole(actor,d.site,profile)) {
       switchForm=switchTo(profile,d.site,back,'Review as '+(profile==='entry-deputy'?'Deputy Site In-charge':next));
     }
   }
-  // A purchase order awaiting approval or approved can be taken back and edited by the role that made it.
-  const reopen=d.type==='E2'&&['Awaiting approval','Posted'].includes(d.status);
+  // A purchase order still awaiting approval can be taken back and edited by the role that made it. Once approved it is final.
+  const reopen=d.type==='E2'&&d.status==='Awaiting approval';
   const mayReopen=reopen&&d.maker===actor.id&&meta.maker===role;
   if (reopen&&!mayReopen&&(!actor.assignments||d.maker===actor.id)&&canChooseRole(actor,d.site,roleKey(meta.maker))) {
     switchForm+=switchTo(roleKey(meta.maker),d.site,back,'Edit as '+meta.maker);
@@ -210,7 +213,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
     : `<p><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
-      <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
+      <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(listed&&d.approval.status!=='pending'?d.approval.label:d.status)}</strong>${listed?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}<span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent&&!order?`<section><h2>Site stock</h2>${stock}</section>`:''}
@@ -221,7 +224,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${indent?`<details class="indent-secondary" open><summary>Site stock</summary>${picture&&Object.keys(picture).length?stock:`<p>${d.rev||d.selectedSite?'Site stock is currently unavailable.':'Select a location to see its stock.'}</p>`}</details>`:''}
     ${resultRows&&!indent&&!order&&d.type!=='E2'?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
     ${d.type==='E17'&&d.status==='Posted'&&['Head – Accounts','CFO'].includes(role)?`<p><a href="/entries/accounting/${d.id}.csv">Download month-end journal</a></p>`:''}
-    ${next&&d.status==='Awaiting approval'?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
+    ${next&&d.status==='Awaiting approval'&&!listed?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
     ${d.status==='Awaiting Treasury'&&role==='Treasury'?`<p><a href="/entries/bank-file/${d.id}">Download payment advice</a></p><label>Bank UTR<input name="utr"></label><label>Payment date<input type="date" name="paymentDate"></label>`:''}
     ${creditOpen?`<section><h2>Post-sale discount credit note</h2><p>₹${esc(money(pending))} of ₹${esc(money(d.result.expectedPostSaleDiscount))} is still awaiting a credit note.</p>
@@ -229,6 +232,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${receipt&&d.status==='In transit'&&role==='Site Store'?`<div class="fields"><label>Received litres<input type="number" step="any" name="received"></label><label>Receipt evidence<input type="file" name="evidence" multiple accept="image/jpeg,image/png,application/pdf"></label><label>Variance reason<select name="reason">${option('','Select…',true)}${(meta.receiptReasons??review.reasons.map(value=>[value,value])).map(([value,label])=>option(value,label,false)).join('')}</select></label></div>`:''}
     <div class="actions${order?' order-actions':''}">${order?`<a class="order-cancel" href="/entries/type/${d.type}">✕ Cancel</a>`:''}${editable?(['Draft','Returned'].includes(d.status)?submitButton('Save draft'):'')+submitButton(indent?'Save indent':'Submit'):''}${mayReopen?submitButton('Edit'):''}${reviewable?submitButton('Approve')+submitButton('Return'):''}${d.status==='Awaiting Treasury'&&role==='Treasury'?submitButton('Confirm UTR'):''}${creditOpen?submitButton('Record credit note'):''}${receipt&&d.status==='In transit'&&role==='Site Store'?submitButton('Confirm receipt'):''}${receipt&&d.status==='Receipt review'&&role==='Project Manager'?submitButton('Approve transfer variance'):''}</div>
     <output id="entry-message" role="status"></output></form>${switchForm}
+    ${d.type==='E2'&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this purchase order</h2><p>Select Approve, or select Decline with an optional reason. The first decision stands.</p>${decisionForm(d.decide,recordPath(d),orderKind)}</section>`:''}
     ${indent&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this indent</h2><p>Requested ${esc(d.data.litres??'')} litres. Enter the sanction quantity and select Approve, or select Decline.</p>${decisionForm(d.decide,recordPath(d))}</section>`:''}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
