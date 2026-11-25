@@ -37,3 +37,8 @@
 .item-file-options button { border-color: transparent; text-align: start; }
 .item-file-options button:hover { background: var(--nav-hover); }
 #item-file-status { font-size: 14px; }
+
+/* Starts a blank record straight from the form, without going back to the list. */
+.item-form-header .new-entry { margin-inline-start: auto; display: inline-flex; align-items: center; min-height: 36px; padding: 6px 14px; border-radius: 6px;
+  background: var(--folder-bg); color: var(--folder-ink); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.item-form-header .new-entry:hover { filter: brightness(.95); }

@@ -214,3 +214,17 @@ test('the Diesel Rate Master works per litre, with a transportation rate and a l
   const older = rate({ 'Price basis (Ex-depot / Delivered)': 'Ex-depot', 'Diesel rate (₹/KL), worked out': '98750', 'Discount (₹/KL)': '500', 'Discount type (invoice discount / post-sale discount)': 'Invoice discount' });
   assert.deepEqual([fresh.basis, fresh.rate, fresh.invoiceDiscount, older.basis, older.rate, older.invoiceDiscount], ['Ex-depot', 98750, 500, 'Ex-depot', 98750, 500]);
 });
+
+test('a record form offers New entry, so the next record starts without going back to the list', async () => {
+  const { recordsPage } = await import('./records-page.mjs');
+  const { masterDefinition } = await import('./records-fields.mjs');
+  const actor = { id: 'm', name: 'Maker', site: 'S', canEditMasters: true };
+  const master = masterDefinition('diesel-rate-master');
+  const saved = { id: 7, name: 'IOCL rate', status: 'pending', revision: 1, values: {}, changes: [] };
+  for (const options of [{ creating: true }, { record: saved }]) {
+    const form = recordsPage({ master, actor, rows: [], editingAllowed: true, submissionsOnly: true, ...options });
+    assert.match(form, /<a class="new-entry" href="[^"]*\?master=diesel-rate-master&amp;new=1" title="Start a blank Diesel Rate Master record">\+ New entry<\/a>/);
+  }
+  assert.doesNotMatch(recordsPage({ master, actor, rows: [], creating: true, editingAllowed: true, submissionsOnly: true, dialog: true }), /class="new-entry"/);
+  assert.doesNotMatch(recordsPage({ master, actor, rows: [], record: saved, editingAllowed: false, submissionsOnly: true }), /class="new-entry"/);
+});

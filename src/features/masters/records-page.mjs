@@ -122,7 +122,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
   const heading = `<h1 id="workspace-title">${record ? escape(record.name) : 'New ' + escape(master.name) + ' record'}</h1>`;
   let content = editing ? `
     ${dialog ? '' : submissionsOnly || master.slug === 'item-master' ? mastersMenuLink(mastersHome) : `<a class="masters-back" href="${home}">← Back to records</a>`}
-    <div class="item-form-header">${heading}${itemFileMenu(editable)}</div>
+    <div class="item-form-header">${heading}${!dialog && editingAllowed ? `<a class="new-entry" href="${home}&amp;new=1" title="Start a blank ${escape(master.name)} record">+ New entry</a>` : ''}${itemFileMenu(editable)}</div>
     ${record?.companyRecord ? '<p class="record-meta">Company ERP record · Changes are saved in Diesel.</p>' : ''}
     ${record?.sourceName ? `<p class="record-meta">${escape(record.sourceName)}</p>` : ''}
     ${prerequisite ? `<p>${escape(prerequisite)}</p>` : ''}
