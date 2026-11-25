@@ -353,3 +353,13 @@ test('E7 Goods receipt note is the merged gate entry and GRN form, and Gate entr
   const { correctionTypes }=await import('./catalog.mjs');
   assert.ok(!correctionTypes.includes('E7'));
 });
+
+test('with the gate entry merged, Inspection shows as E5 and the goods receipt note as E6', t => {
+  const {store}=setup(t);
+  const keeper={...actor('Site Store'),businessDay:day};
+  const page=registerPage(keeper,store.list('Jayant'),'E7');
+  assert.match(page,/<a href="\/entries\/type\/E6" ><small>E5<\/small><span>Inspection<\/span><\/a>/);
+  assert.match(page,/<a href="\/entries\/type\/E7" aria-current="page"><small>E6<\/small><span>Goods receipt note<\/span><\/a>/);
+  assert.match(page,/<span>E6<\/span><\/div>/,'the breadcrumb shows the new code');
+  assert.deepEqual([byId.E2.code,byId.E6.code,byId.E7.code,byId.E8.code],['E2','E5','E6','E8']);
+});

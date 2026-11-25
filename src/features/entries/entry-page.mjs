@@ -39,7 +39,7 @@ function table(rows, sources = rows, transport = true) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
   const trace = traceEntries(sources);
   return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}<th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
-    `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${r.type}</small><span>${esc(byId[r.type].name)}</span></a></td>
+    `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${byId[r.type].code}</small><span>${esc(byId[r.type].name)}</span></a></td>
     <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
@@ -92,7 +92,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const actorRole=entryRole(actor);
   const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
   const title = meta?.name ?? 'Entry register';
-  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group)+' <span> / </span> '+meta.id : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
+  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group)+' <span> / </span> '+meta.code : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
     ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
       ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
   const exportQuery=new URLSearchParams({type:type??'',...filters});
@@ -208,7 +208,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
-    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
+    : `<p><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
