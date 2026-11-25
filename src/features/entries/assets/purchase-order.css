@@ -97,3 +97,5 @@
 .order-view-list dt { font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:3px; }
 .order-view-list dd { margin:0; padding:8px 10px; border-radius:8px; background:var(--order-readonly); font-size:13.5px; font-weight:600; overflow-wrap:anywhere; min-height:36px; }
 .order-view-record .order-view-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+.order-footer td input[data-foot="round"] { min-width:110px; }

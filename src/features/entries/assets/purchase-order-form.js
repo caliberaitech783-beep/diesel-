@@ -13,11 +13,12 @@ if (form?.querySelector('[name="litres"]')) {
   const footRows = [...form.querySelectorAll('[data-footer-rows] tr')], footStore = el('footerRows');
   const part = (row, kind) => row.querySelector('[data-foot="' + kind + '"]');
   function readFooter() {
-    return footRows.map(row => ({ head: part(row, 'head').value, legend: part(row, 'legend').value, rate: part(row, 'rate').value }));
+    // A Round Off row takes its amount in the Value column; every other row takes a rate or percent.
+    return footRows.map(row => { const head = part(row, 'head').value; return { head, legend: part(row, 'legend').value, rate: part(row, head === 'Round Off' ? 'round' : 'rate').value }; });
   }
   function calculate() {
     const entered = readFooter();
-    footStore.value = JSON.stringify(entered.filter(row => row.head).map(({ head, legend, rate }) => ({ head, legend, ...(rate === '' || head === 'Round Off' ? {} : { rate }) })));
+    footStore.value = JSON.stringify(entered.filter(row => row.head).map(({ head, legend, rate }) => ({ head, legend, ...(rate === '' ? {} : { rate }) })));
     // Blank rows still take a place, so each result lines up with its row on the page.
     const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered, basis: el('basis').value, freightRate: el('freightRate').value });
     out('netRate').textContent = t.netRate || '';
@@ -28,6 +29,10 @@ if (form?.querySelector('[name="litres"]')) {
       part(row, 'rate').disabled = result?.head === 'Round Off';
       if (result?.head === 'Round Off') part(row, 'rate').value = '';
       part(row, 'on').textContent = !used || result.on === null ? '—' : plain(result.on) + (result.quantity ? ' L' : '');
+      const round = result?.head === 'Round Off';
+      part(row, 'round').hidden = !round;
+      part(row, 'round').placeholder = round && used && !result.typed ? 'Auto ' + plain(result.value) : 'Auto';
+      part(row, 'value').hidden = round;
       part(row, 'value').textContent = used ? plain(result.value) : '—';
     });
     out('amountTotal').textContent = rupee(t.amount);
@@ -89,10 +94,16 @@ if (form?.querySelector('[name="litres"]')) {
   for (const button of form.querySelectorAll('[data-terms]')) button.addEventListener('click', () => {
     terms.value = button.dataset.terms;
     for (const other of form.querySelectorAll('[data-terms]')) other.setAttribute('aria-pressed', String(other === button));
-    el('advanceAmount').disabled = terms.value !== 'Advance';
-    if (terms.value !== 'Advance') el('advanceAmount').value = '';
+    payment();
   });
-  el('advanceAmount').disabled = terms.value !== 'Advance';
+  // When the full payment is not an advance, the advance amount and the payment advice details are locked and cleared.
+  function payment() {
+    for (const name of ['advanceAmount', 'paymentAdviceLocation', 'paymentAdviceNo']) {
+      el(name).disabled = terms.value !== 'Advance';
+      if (terms.value !== 'Advance') el(name).value = '';
+    }
+  }
+  payment();
 
   const gross = form.querySelector('[data-loading-gross]');
   gross.addEventListener('change', () => { el('loadingOnGross').value = gross.checked ? 'Yes' : 'No'; });

@@ -43,7 +43,7 @@ export function singlePageOrder(d,c,indent,allocated) {
     check(footerHeads.includes(row.head),at+'choose a footer head from the list.');
     check(footerLegends.includes(row.legend),at+'choose a legend from the list.');
     check(row.head==='Round Off' || row.rate!==undefined,at+'enter the rate or percent.');
-    check(!row.legend.startsWith('P') || (row.rate??0)<=100,at+'a percent cannot be more than 100.');
+    check(row.head==='Round Off' || !row.legend.startsWith('P') || (row.rate??0)<=100,at+'a percent cannot be more than 100.');
   }
   const vatRow=footerRowsOf(d).find(row=>row.head==='VAT'&&String(row.legend).startsWith('P'));
   const exDepot=d.basis==='Ex-depot';
@@ -68,7 +68,7 @@ export function singlePageOrder(d,c,indent,allocated) {
   const totals=purchaseOrderTotals(d);
   check(totals.total>0,'The PO amount must be more than zero.');
   if (d.terms==='Advance' && d.advanceAmount!==undefined) check(d.advanceAmount>0 && d.advanceAmount<=totals.total,'The advance amount cannot be more than the PO amount.');
-  if (d.terms==='Credit') check(d.advanceAmount===undefined,'Leave the advance amount blank when full payment is not an advance.');
+  if (d.terms==='Credit') check(d.advanceAmount===undefined && !d.paymentAdviceLocation && !d.paymentAdviceNo,'Leave the advance amount and the payment advice details blank when full payment is not an advance.');
 
   let parties={ depot:d.depot }, flags={};
   if (c.siteConfig) {

@@ -27,7 +27,15 @@ export function purchaseOrderTotals(input) {
   let running = amount, excise = 0, vat = 0, vatBase, rounds = false;
   const rows = footerRowsOf(input).map(row => {
     const legend = footerLegends.includes(row.legend) ? row.legend : '';
-    if (row.head === 'Round Off') { rounds = true; return { head: row.head, legend, round: true, on: null, value: 0 }; }
+    if (row.head === 'Round Off') {
+      // A round off typed in is taken as it is, added or deducted by its legend. Left blank, the order is rounded to a whole rupee.
+      if (row.rate !== undefined && row.rate !== null && row.rate !== '') {
+        const value = paise(num(row.rate) * (legend.endsWith('D') ? -1 : 1));
+        running = paise(running + value);
+        return { head: row.head, legend, on: null, value, typed: true };
+      }
+      rounds = true; return { head: row.head, legend, round: true, on: null, value: 0 };
+    }
     if (!row.head || !legend) return { head: row.head ?? '', legend, on: null, value: 0 };
     const rate = num(row.rate), kind = legend.slice(0, 2);
     const on = kind === 'OQ' ? litres : kind === 'PR' ? running : kind === 'PA' ? amount : null;
