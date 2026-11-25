@@ -78,3 +78,14 @@
 
 .order-footer td select { min-width:150px; }
 .order-footer td:nth-child(3) select { min-width:84px; }
+
+.order-grid.four { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.grn-top, .grn-pair { margin-bottom:14px; }
+.grn-pair > .order-card { margin:0; }
+.grn-total { padding:8px 14px; border-radius:8px; background:var(--order-soft); font-size:12.5px; font-weight:600; }
+.grn-remove { border:1px solid var(--border); border-radius:6px; padding:5px 9px; background:transparent; color:#c62f45; cursor:pointer; }
+.grn-upload { display:grid; gap:6px; padding:12px; border:1.5px dashed var(--order-accent); border-radius:8px; }
+.grn-upload small { color:var(--muted); font-size:12px; }
+.order-table td select { min-width:150px; }
+@media (max-width:1000px) { .order-grid.four { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) { .order-grid.four { grid-template-columns:1fr; } }

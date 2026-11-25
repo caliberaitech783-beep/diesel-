@@ -41,7 +41,7 @@ test('approval and alert rules pick entry codes, posts and alerts from fixed lis
   for (const key of ['Initiator role','Approver level 1 role','Approver level 2 role','Approver level 3 role (e.g. Director / CMD)']) {
     assert.deepEqual(field(key).options, roles);
   }
-  assert.ok(field('Entry').options.includes('E2') && !field('Entry').options.includes('E7'));
+  assert.ok(field('Entry').options.includes('E2') && field('Entry').options.includes('E7'));
   assert.equal(field('Entry').optionLabels.get('E1'), 'E1 · Diesel indent');
   assert.throws(() => validateScalar(field('Approver level 1 role'), 'Projct Manager'), /Choose a listed value for Approver level 1 role/);
   assert.equal(validateScalar(field('Approver level 1 role'), 'Project Manager'), 'Project Manager');
