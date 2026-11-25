@@ -47,10 +47,21 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     // Only a person on the approver list sees the sanction quantity and the Approve and Decline controls.
     const approver = Boolean(indentApproval.mayDecide?.(actor.login));
     for (const doc of docs) if (doc.type==='E1') {
-      doc.approval=indentApproval.decision(doc.id); doc.canEdit=doc.maker===actor.id;
+      doc.approval=indentApproval.decision(doc.id);
+      // Once a purchase order uses an approved indent it can no longer be changed.
+      doc.canEdit=doc.maker===actor.id && !(doc.status==='Posted' && docs.some(row=>row.type==='E2'&&row.data?.indent===doc.id&&!['Draft','Superseded','Returned'].includes(row.status)));
       if (approver && doc.approval?.status==='pending') doc.decide=indentApproval.waiting(doc.id);
     }
     return docs;
+  };
+  // Approvals are recorded outside the entry store, so each request first carries any new approval onto its indent.
+  const carryApprovals = site => {
+    if (!indentApproval) return;
+    for (const doc of store.list(site)) if (doc.type==='E1' && doc.status==='Saved') {
+      const decision=indentApproval.decision(doc.id);
+      // An approval taken before the sanction quantity was asked for stands for the quantity requested.
+      if (decision?.status==='approved') store.approveIndent(doc.id,{sanctioned:decision.sanctioned??doc.result?.litres,by:decision.by});
+    }
   };
   const visibleRecords = actor => store.list(actor.site).filter(doc=>canRead(doc,actor));
   const remoteApproval = approvalOptions && createRemoteApproval(db,store,{...approvalOptions,policyFor,dayFor:store.dayFor});
@@ -74,6 +85,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   if (!hosted) router.get('/offline-worker.js',(_req,res)=>res.type('text/javascript').sendFile(fileURLToPath(new URL('./assets/offline-worker.js',import.meta.url))));
   router.use((req,_res,next)=>{
     req.dieselActor.businessDay=store.dayFor(req.dieselActor.site);
+    carryApprovals(req.dieselActor.site);
     next();
   });
   router.get('/',(req,res)=>{

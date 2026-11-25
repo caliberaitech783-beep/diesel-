@@ -38,7 +38,7 @@ export function decisionView(request) {
   if (!request) return null;
   if (request.status === 'pending') return { status: 'pending', label: 'Awaiting approval', detail: request.sent ? 'Sent to ' + request.sent + ' approver' + (request.sent === 1 ? '' : 's') + ' on Telegram'
     : 'Waiting for an approver in Diesel' };
-  return { status: request.status, label: request.status === 'approved' ? 'Approved' : 'Declined', sanctioned: request.sanctioned ?? undefined,
+  return { status: request.status, label: request.status === 'approved' ? 'Approved' : 'Declined', sanctioned: request.sanctioned ?? undefined, by: request.decided_by,
     detail: 'by ' + request.decided_by + ' · ' + when(request.decided_at) + (request.sanctioned != null ? ' · sanctioned ' + litresText(request.sanctioned) : '')
       + (request.reason ? ' · ' + request.reason : '') };
 }

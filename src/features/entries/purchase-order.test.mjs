@@ -9,6 +9,7 @@ import { review, roleKey } from './review-masters.mjs';
 import { byId } from './catalog.mjs';
 import { businessDay } from './entry-rules.mjs';
 import { detailPage, registerPage } from './entry-page.mjs';
+import { sourceChoices } from './entry-choices.mjs';
 import { purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const day=businessDay();
@@ -269,4 +270,28 @@ test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up 
   const draft=store.write(randomUUID(),maker,{type:'E2',action:'Save draft',rev:0,day,data:{}});
   assert.equal(draft.number,'','a draft takes no number');
   assert.match(detailPage(maker,store.list('Jayant').find(row=>row.number===first),store.list('Jayant'),[]),new RegExp(first.replaceAll('/','\\/')));
+});
+
+test('an indent approved on Telegram or in Diesel can be ordered against, up to the sanctioned quantity', t => {
+  const {store,order}=setup(t);
+  const inCharge=actor('Site In-charge'), buyer=actor('Procurement Executive');
+  const indent=store.write(randomUUID(),inCharge,{type:'E1',action:'Save indent',rev:0,day,data:{litres:900,requiredBy:0,reason:review.reasons[0],remarks:'Approved on Telegram'}});
+  assert.equal(indent.status,'Saved');
+  const choices=()=>sourceChoices(byId.E2.fields.find(field=>field.key==='indent'),store.fresh('E2',buyer),store.list('Jayant'),buyer).map(row=>row.id);
+  assert.ok(!choices().includes(indent.id),'a saved indent waits for its approval');
+  assert.equal(store.approveIndent(indent.id,{sanctioned:600,by:'Siddharth'}),true);
+  assert.equal(store.approveIndent(indent.id,{sanctioned:600,by:'Siddharth'}),false,'carried over once');
+  const approved=store.read(indent.id,'Jayant');
+  assert.deepEqual([approved.status,approved.result.litres,approved.result.requested,approved.result.sanctioned],['Posted',600,900,600]);
+  assert.ok(choices().includes(indent.id));
+  const raise=litres=>store.write(randomUUID(),buyer,{type:'E2',action:'Submit',rev:0,day,data:{...order,indent:indent.id,litres,deliveries:'',advanceAmount:undefined}});
+  assert.throws(()=>raise(700),/exceeds the remaining indent balance/);
+  // Until an order uses it, the approved indent can be changed and sent for approval again.
+  const again=store.write(indent.id,inCharge,{type:'E1',action:'Save indent',rev:approved.rev,day,data:{litres:800,requiredBy:0,reason:review.reasons[0],remarks:'Changed'}});
+  assert.equal(again.status,'Saved');
+  store.approveIndent(indent.id,{sanctioned:800,by:'Siddharth'});
+  assert.equal(raise(800).status,'Awaiting approval');
+  assert.ok(!choices().includes(indent.id),'fully ordered');
+  const used=store.read(indent.id,'Jayant');
+  assert.throws(()=>store.write(indent.id,inCharge,{type:'E1',action:'Save indent',rev:used.rev,day,data:{litres:900,requiredBy:0,reason:review.reasons[0],remarks:'x'}}),/purchase order already uses this indent/);
 });
