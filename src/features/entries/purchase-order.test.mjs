@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { purchaseOrderPdf, purchaseOrderSheet } from './purchase-order-pdf.mjs';
 import { purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createEntryStore } from './entry-store.mjs';
@@ -201,4 +202,23 @@ test('a purchase order download has a column for every field, its totals, and wh
   assert.match(cell('PO Amount in Words'),/^Rupees Fifty Three Lakh/);
   assert.match(cell('Creation Date'),/^\d{2}-[A-Z][a-z]{2}-\d{4}$/);
   assert.match(cell('Creation Time'),/^\d{2}:\d{2} [AP]M$/);
+});
+
+test('a saved purchase order downloads as a PDF with every section of the form', async t => {
+  const {store,order,submit}=setup(t);
+  const {exciseRate,vatPercent,...base}=order;
+  const po=submit('E2',{...base,supplier:'SANDEEP GASOLENES',depot:'IOCL Tadali',
+    footerRows:JSON.stringify([{head:'Basic Excise Duty',legend:'OQA',rate:7.8},{head:'VAT',legend:'PRA',rate:14.9},{head:'Round Off',legend:'LSA'}])});
+  const sheet=purchaseOrderSheet(po,store.list('Jayant'));
+  assert.deepEqual([...sheet.sections,...sheet.closing].map(([title])=>title),['Purchase Order Details','Vendor Details','Tax & Supply','Freight & Logistics','Material Details','Tolerance & Shortage','Payment','Record Information']);
+  assert.deepEqual(sheet.footer,[['Basic Excise Duty','OQA','7.8','40,000.00 L','3,12,000.00'],['VAT','PRA','14.9','46,30,109.60','6,89,886.33'],['Round Off','LSA','','','0.07']]);
+  assert.deepEqual(sheet.totals[2],['P.O. Amount','53,19,996.00']);
+  assert.match(Object.fromEntries(sheet.sections[1][1]).Address,/GHUGGUS ROAD, CHANDRAPUR/);
+  assert.match(sheet.words,/^Rupees Fifty Three Lakh/);
+  const bytes=await purchaseOrderPdf(po,store.list('Jayant'));
+  assert.equal(Buffer.from(bytes.slice(0,5)).toString(),'%PDF-');
+  assert.ok(bytes.length>2000);
+  const maker=actor('Procurement Executive');
+  assert.match(detailPage(maker,po,store.list('Jayant'),[]),new RegExp('href="/entries/record/'+po.id+'/purchase-order.pdf">Download PDF</a>'));
+  assert.doesNotMatch(detailPage({...maker,businessDay:day},store.fresh('E2',maker),[],[],null,store.definition('E2','Jayant')),/Download PDF/);
 });

@@ -202,7 +202,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
-    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a></p>
+    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a>${d.type==='E2'&&d.rev>0?` · <a class="export" href="${recordPath(d)}/purchase-order.pdf">Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">

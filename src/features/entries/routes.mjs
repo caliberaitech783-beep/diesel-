@@ -14,6 +14,7 @@ import { entryAlerts } from './entry-alerts.mjs';
 import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows, purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
+import { purchaseOrderPdf } from './purchase-order-pdf.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
 import { approvedPolicyReader, siteEntryWorkspace } from './site-entry-workspace.mjs';
 import { registerOpeningStock } from './opening-stock-routes.mjs';
@@ -141,6 +142,17 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       catch(error) { return res.status(422).send(error.message); }
     }
     res.send(detailPage(a,store.fresh(t.id,a),store.list(a.site),[],null,store.definition(t.id,a.site)));
+  });
+  // A saved purchase order as a PDF, for anyone who may open the record.
+  router.get('/record/:id/purchase-order.pdf',async (req,res,next)=>{
+    const a=req.dieselActor;
+    let doc;
+    try { doc=store.read(req.params.id,a.site); } catch { return res.sendStatus(404); }
+    if (doc.type!=='E2' || !canRead(doc,a)) return res.sendStatus(404);
+    try {
+      const bytes=await purchaseOrderPdf(doc,store.list(a.site));
+      res.attachment((doc.number||'purchase-order-draft').replace(/[^\w.-]+/g,'-')+'.pdf').type('application/pdf').send(Buffer.from(bytes));
+    } catch(error) { next(error); }
   });
   router.get('/record/:id',(req,res)=>{
     const a=req.dieselActor;
