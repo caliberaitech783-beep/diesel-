@@ -363,3 +363,18 @@ test('with the gate entry merged, Inspection shows as E5 and the goods receipt n
   assert.match(page,/<span>E6<\/span><\/div>/,'the breadcrumb shows the new code');
   assert.deepEqual([byId.E2.code,byId.E6.code,byId.E7.code,byId.E8.code],['E2','E5','E6','E8']);
 });
+
+test('a saved purchase order reads in the same cards as its form', t => {
+  const {store,submit,order}=setup(t);
+  const po=submit('E2',{...order,supplier:'SANDEEP GASOLENES'});
+  const page=detailPage(actor('Head – Procurement'),po,store.list('Jayant'),[]);
+  for (const title of ['Purchase Order Details','Vendor Details','Tax &amp; Supply','Freight &amp; Logistics','Material Details','Final Calculation – Footer / Tax','Tolerance &amp; Shortage','Payment','Record Information']) {
+    assert.match(page,new RegExp('<h2>'+title+'</h2>'),title);
+  }
+  assert.match(page,/<div><dt>Party \/ Vendor Name<\/dt><dd>SANDEEP GASOLENES<\/dd><\/div>/);
+  assert.match(page,/<div><dt>Location<\/dt><dd>CMPL Madhya Pradesh<\/dd><\/div><div><dt>Site<\/dt><dd>Jayant<\/dd><\/div>/);
+  assert.match(page,/<div class="grand"><span>P\.O\. Amount<\/span><output>₹ 53,19,996\.00<\/output><\/div>/);
+  assert.match(page,/<span class="legend">OQA<\/span>/);
+  assert.doesNotMatch(page,/<h2>Entry details<\/h2>|Calculated and carried forward/);
+  assert.match(page,/value="Approve"/,'the approver still has the actions below');
+});
