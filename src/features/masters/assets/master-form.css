@@ -82,6 +82,7 @@
 .form-footer button { border: 0; border-radius: 6px; min-height: 36px; padding: 7px 14px; background: var(--primary-bg); color: white; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .form-footer button + button { background: var(--surface); color: var(--ink); border: 1px solid var(--control-border); }
 .form-footer output { font-size: 14px; }
+.form-footer output[data-saved] { color: var(--success, #1f8a4c); font-size: 16px; font-weight: 700; }
 .form-footer output[data-error] { color: var(--danger); font-size: 16px; font-weight: 700; }
 
 /* Dated attributes: each attribute is a row of the same grid. */

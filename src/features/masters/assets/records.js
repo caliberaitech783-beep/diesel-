@@ -30,6 +30,7 @@ async function save(action) {
   }
   for (const button of buttons) button.disabled = true;
   delete status.dataset.error;
+  delete status.dataset.saved;
   status.textContent = action === 'delete' ? 'Submitting deletion…' : 'Saving…';
   notify({type:'master-record-busy',busy:true});
   try {
@@ -62,7 +63,7 @@ async function save(action) {
       notify({type:'master-record-saved',message:action === 'delete' ? (result.status === 'deleted' ? 'Record deleted.' : 'Deletion sent for review.') : 'Record saved for review.'});
     } else if (action === 'delete') {
       location.assign(recordHome);
-    } else location.assign(!action && form.dataset.savedList ? form.dataset.savedList : target);
+    } else location.assign(!action && !record && form.dataset.stayAfterSave ? form.dataset.stayAfterSave : target);
   } catch (error) {
     // A save that did not go through must be impossible to miss.
     status.dataset.error = 'true';
@@ -74,6 +75,14 @@ async function save(action) {
 }
 
 if (form) {
+  // A new record saved from this form: stay here on a blank form and say where the record went.
+  const here = new URL(location.href);
+  if (here.searchParams.get('saved') === '1' && form.dataset.stayAfterSave) {
+    const saved = form.querySelector('output');
+    if (saved) { saved.dataset.saved = 'true'; saved.textContent = 'Saved in ' + form.dataset.masterName + ' data. You can enter the next record.'; }
+    here.searchParams.delete('saved');
+    history.replaceState(null, '', here);
+  }
   setupAttributeInputs(form);
   restoreImportedRecord(form);
   form.addEventListener('submit', event => { event.preventDefault(); save(); });
