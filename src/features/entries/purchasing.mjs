@@ -86,6 +86,17 @@ export const purchasing = {
     check(transitTolerance<=c.limits.tolerance,'Transit tolerance can only be lowered.');
     return { litres,...pricing,landed:rate+freight,value,shortageParty:d.basis==='Ex-depot'?d.transporter:d.supplier,transitTolerance,approvals };
   },
+  E4(d,c) {
+    const po=c.linked('po','E2');
+    check(d.deliveryDate>=c.doc.day,'Choose a delivery date on or after the schedule date.');
+    check(d.litres>0,'Enter the quantity to dispatch.');
+    const vehicle=String(d.vehicle).toUpperCase().replace(/[\s-]/g,'');
+    check(/^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}$/.test(vehicle),'Enter the vehicle number like MH34BZ4428.');
+    const scheduled=c.sum(c.reserved('E4').filter(row=>row.data.po===po.id),'litres');
+    check(round(scheduled+d.litres)<=po.result.litres,'This schedule takes the dispatches past the purchase order quantity. '
+      +Math.max(0,round(po.result.litres-scheduled)).toLocaleString('en-IN')+' L is left to schedule.');
+    return { litres:d.litres, order:po.number, supplier:po.data.supplier, vehicle, balance:round(po.result.litres-scheduled-d.litres), approvals:[] };
+  },
   E3(d,c) {
     const po=c.linked('po','E2');
     const allocated=c.sum(c.reserved('E3').filter(row=>row.data.po===po.id),'amount');

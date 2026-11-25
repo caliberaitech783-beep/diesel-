@@ -9,6 +9,7 @@ export function sourceChoices(field,doc,rows,actor) {
   return posted.filter(r=>r.type===field.source).filter(r=>{
     if(doc.type==='E2')return amount('E2','indent',r.id,'litres')<r.result.litres;
     if(doc.type==='E3')return amount('E3','po',r.id,'amount')<r.result.value;
+    if(doc.type==='E4')return amount('E4','po',r.id,'litres')<r.result.litres;
     if(doc.type==='E5')return ((actor.siteEntryTypes && r.data.terms==='Credit')||amount('E3','po',r.id,'amount',true)>=r.result.value)
       && amount('E5','po',r.id,'invoiceLitres')<r.result.litres;
     if(doc.type==='E6')return !active.some(i=>i.type==='E6'&&i.data.gate===r.id);

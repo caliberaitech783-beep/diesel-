@@ -1,6 +1,7 @@
 import { review, storageLabels } from './review-masters.mjs';
 import { deliveryColumns, footerColumns } from './purchase-order.mjs';
 import { accountVendors } from './account-vendors.mjs';
+import { entrySites } from './entry-sites.mjs';
 
 const text = (key,label,optional=false) => ({key,label,type:'text',optional});
 const number = (key,label,optional=false) => ({key,label,type:'number',optional});
@@ -37,6 +38,11 @@ export const entries = [
     {key:'footerRows',label:'Footer heads',type:'rows',columns:footerColumns,optional:true},
     {key:'deliveries',label:'Delivery schedule',type:'rows',columns:deliveryColumns,optional:true}]],
   ['E3','Payment advice and UTR','Buy','Accounts Executive',[po,number('amount','Amount to pay (₹)')]],
+  // One dispatch against an approved purchase order: where, when, how much, on which vehicle and by which transporter.
+  ['E4','Delivery Schedule','Buy','Procurement Executive',[po,date('deliveryDate','Delivery date'),
+    pick('deliveryLocation','Delivery location',[...entrySites.map(site=>site.name),'CMPL Madhya Pradesh','CMPL Nagpur','CMPL Chandrapur']),
+    text('deliveryAddress','Delivery address'),{...pick('item','Item name',[review.item]),default:review.item},number('litres','DSL Qty (L)'),
+    text('vehicle','Vehicle No.'),pick('transporter','Transporter',accountVendors.map(vendor=>vendor.name))]],
   ['E5','Gate entry','Receive','Site Store',[po,pick('scenario','Receipt scenario',['UG tank','Direct to bowsers']),pick('transporter','Transporter',[review.transporter]),text('truck','Truck registration'),text('driver','Driver name'),text('mobile','Driver mobile'),date('fitness','Fitness valid until'),date('licence','Explosive licence valid until'),text('invoice','Supplier invoice number'),date('invoiceDate','Invoice date'),number('litres','Invoice quantity (L)'),text('eway','E-way bill number'),text('seals','Compartment seal numbers (comma-separated)'),pick('intact','Seals intact',['Yes','No']),photo('sealPhotos','Compartment seal photos'),photo('billPhoto','Bill photo')]],
   ['E6','Inspection','Receive','Site Store',[gate,number('density','Observed density (kg/m³)'),number('temperature','Temperature (°C)'),pick('instrument','Measuring instrument',[review.instrument]),{...tank,optional:true},{...before,optional:true},{...after,optional:true},pick('decision','Decision',['Accept','Accept with shortage','Accept part, reject part','Reject']),number('rejected','Rejected litres sent back with the tanker',true),reason,photo('evidence','Inspection note and dip photos')]],
   ['E7','Goods receipt note','Receive',null,[]],
