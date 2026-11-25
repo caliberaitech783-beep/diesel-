@@ -14,7 +14,7 @@ export const dispatchVehicles = [...new Set(storageLocations.filter(row => row.S
 
 export function dispatchHeading(doc) {
   return `<div class="order-heading"><span class="order-heading-icon" aria-hidden="true">${truck}</span>
-    <div><h1>Dispatch Management</h1><p>${doc.rev ? 'Edit this Diesel Dispatch Schedule' : 'Create a new Diesel Dispatch Schedule'}</p></div></div>`;
+    <div><h1>Delivery Schedule</h1><p>${doc.rev ? 'Edit this Diesel Delivery Schedule' : 'Create a new Diesel Delivery Schedule'}</p></div></div>`;
 }
 
 export function dispatchFields(actor, doc, meta, rows) {

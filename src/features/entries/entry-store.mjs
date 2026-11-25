@@ -67,6 +67,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       doc.number=number;
       return;
     }
+    if (doc.type==='E2') {
+      // Purchase orders run in their own series per site and financial year: CMLL/JOC/PO/26-27/001, 002, 003…
+      const series=indentSeries(doc), label=series.label.replace('/IND/','/PO/');
+      let number;
+      do {
+        const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,'E2',series.year);
+        number=label+'/'+String(n).padStart(3,'0');
+      } while (all().some(row=>row.number===number));
+      doc.number=number;
+      return;
+    }
     const year=doc.day.slice(0,4);
     const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(doc.site,doc.type,year);
     doc.number=[doc.type,doc.site.slice(0,3).toUpperCase(),year,String(n).padStart(4,'0')].join('-');
