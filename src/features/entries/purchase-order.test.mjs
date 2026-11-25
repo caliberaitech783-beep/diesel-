@@ -134,17 +134,11 @@ test('the maker reopens a purchase order awaiting approval, edits it and sends i
   const posted=submit('E1',{litres:100,requiredBy:0,reason:review.reasons[0]});
   assert.throws(()=>store.write(posted.id,actor('Site In-charge'),{action:'Edit',rev:posted.rev}),/Only a purchase order awaiting approval/);
 
-  // After approval the order can still be edited, until another entry uses it.
+  // After approval the order is final: no Edit button and no way to reopen it.
   po=approve(po.status==='Draft'?store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:order}):po);
   assert.equal(po.status,'Posted');
-  assert.match(detailPage(maker,po,store.list('Jayant'),[]),/value="Edit">Edit PO<\/button>/);
-  po=store.write(po.id,maker,{action:'Edit',rev:po.rev});
-  assert.deepEqual([po.status,po.number],['Draft',number]);
-  po=approve(store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:order}));
-  assert.equal(po.status,'Posted');
-  const using=store.write(randomUUID(),actor('Site Store'),{type:'E16',rev:0,day,action:'Save draft',data:{}});
-  db.prepare('UPDATE entry_review_docs SET document=? WHERE id=?').run(JSON.stringify({...using,number:'E3-JAY-2026-0009',data:{po:po.id}}),using.id);
-  assert.throws(()=>store.write(po.id,maker,{action:'Edit',rev:po.rev}),/already used by E3-JAY-2026-0009, so it cannot be edited/);
+  assert.doesNotMatch(detailPage(maker,po,store.list('Jayant'),[]),/value="Edit"|Edit as Procurement Executive/);
+  assert.throws(()=>store.write(po.id,maker,{action:'Edit',rev:po.rev}),/An approved purchase order cannot be edited/);
 });
 
 test('footer heads and legends chosen on the order decide how each amount is worked out', t => {
@@ -410,4 +404,35 @@ test('a round off can be typed in, and payment advice details stay blank when pa
   const buyer={...actor('Procurement Executive'),businessDay:day};
   const form=detailPage(buyer,{...po,status:'Draft'},store.list('Jayant'),[],null,store.definition('E2','Jayant'));
   assert.match(form,/<option selected>Round Off<\/option>[^]*?data-foot="rate"[^>]*value=""[^]*?data-foot="round"[^>]*placeholder="Auto" value="0.6">/);
+});
+
+test('a purchase order is approved or declined by its listed approvers, and an approved one is final', t => {
+  const {store,submit,order}=setup(t);
+  const maker=actor('Procurement Executive');
+  const part={...order,litres:20000,advanceAmount:undefined,deliveries:''};
+  let po=submit('E2',part);
+  assert.equal(store.decideOrder(po.id,{status:'declined',by:'Asha Rao',reason:'Rate too high'}),true);
+  po=store.read(po.id,'Jayant');
+  assert.deepEqual([po.status,po.result.declinedBy],['Returned','Asha Rao']);
+  assert.equal(store.decideOrder(po.id,{status:'approved',by:'Asha Rao'}),false,'a returned order waits to be saved again');
+  po=store.write(po.id,maker,{type:'E2',action:'Submit',rev:po.rev,day,data:{...part,deliveries:''}});
+  assert.equal(po.status,'Awaiting approval');
+  assert.equal(store.decideOrder(po.id,{status:'approved',by:'Asha Rao'}),true);
+  po=store.read(po.id,'Jayant');
+  assert.deepEqual([po.status,po.result.approvedBy],['Posted','Asha Rao']);
+  assert.throws(()=>store.write(po.id,maker,{action:'Edit',rev:po.rev}),/An approved purchase order cannot be edited/);
+
+  // The page: an approver sees Approve and Decline; the review roles do not; the outcome shows in the heading.
+  const waiting=submit('E2',{...order,litres:1000,advanceAmount:undefined,deliveries:''});
+  const request={doc:waiting.id,litres:1000};
+  const pending={status:'pending',label:'Awaiting approval',detail:'Sent to 1 approver on Telegram'};
+  const forApprover=detailPage(actor('Head – Procurement'),{...waiting,approval:pending,decide:request},store.list('Jayant'),[]);
+  assert.match(forApprover,/<h2>Approve this purchase order<\/h2>[^]*<form class="indent-decision no-quantity" method="post" action="\/po-approvals\/decide">/);
+  assert.doesNotMatch(forApprover,/name="sanctioned"|value="Approve"|value="Return"|Review as /);
+  assert.match(forApprover,/<span class="indent-approval is-pending"><strong>Awaiting approval<\/strong> Sent to 1 approver on Telegram<\/span>/);
+  const forOthers=detailPage(actor('Head – Procurement'),{...waiting,approval:pending},store.list('Jayant'),[]);
+  assert.doesNotMatch(forOthers,/Approve this purchase order|value="Approve"/);
+  assert.match(detailPage(maker,{...waiting,approval:pending},store.list('Jayant'),[]),/value="Edit">Edit PO<\/button>/,'the maker may still take it back while it waits');
+  const done=detailPage(maker,{...store.read(po.id,'Jayant'),approval:{status:'approved',label:'Approved',detail:'by Asha Rao · 25 Nov 2026'}},store.list('Jayant'),[]);
+  assert.match(done,/· Approved<\/strong><span class="indent-approval is-approved"><strong>Approved<\/strong> by Asha Rao/);
 });

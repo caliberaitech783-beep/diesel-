@@ -2,8 +2,10 @@
 // Kept in the shared database so a decision shows for every person and every Entry workspace.
 export const phoneKey = value => String(value ?? '').replace(/\D/g, '').slice(-10);
 
-export function createIndentApprovalStore(db) {
-  db.exec(`CREATE TABLE IF NOT EXISTS indent_approvers (
+// `prefix` names the set of tables: indents and purchase orders each keep their own approvers and requests.
+export function createIndentApprovalStore(db, prefix = 'indent') {
+  const named = sql => prefix === 'indent' ? sql : sql.replaceAll('indent_', prefix + '_');
+  db.exec(named(`CREATE TABLE IF NOT EXISTS indent_approvers (
       id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL UNIQUE, pulse_login TEXT NOT NULL,
       chat_id TEXT UNIQUE, linked_at TEXT, added_by TEXT NOT NULL, added_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS indent_approval_requests (
@@ -13,13 +15,13 @@ export function createIndentApprovalStore(db) {
     CREATE TABLE IF NOT EXISTS indent_approval_messages (
       doc TEXT NOT NULL, chat_id TEXT NOT NULL, message_id INTEGER NOT NULL, PRIMARY KEY (doc, chat_id));
     CREATE TABLE IF NOT EXISTS indent_reason_prompts (chat_id TEXT PRIMARY KEY, doc TEXT NOT NULL, message_id INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS indent_quantity_prompts (chat_id TEXT PRIMARY KEY, doc TEXT NOT NULL, message_id INTEGER NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS indent_quantity_prompts (chat_id TEXT PRIMARY KEY, doc TEXT NOT NULL, message_id INTEGER NOT NULL);`));
   // The requested litres and the litres the approver sanctioned.
-  const columns = new Set(db.prepare('PRAGMA table_info(indent_approval_requests)').all().map(column => column.name));
-  for (const column of ['litres', 'sanctioned']) if (!columns.has(column)) db.exec('ALTER TABLE indent_approval_requests ADD COLUMN ' + column + ' REAL');
-  const run = (sql, ...values) => db.prepare(sql).run(...values);
-  const one = (sql, ...values) => db.prepare(sql).get(...values);
-  const many = (sql, ...values) => db.prepare(sql).all(...values);
+  const columns = new Set(db.prepare(named('PRAGMA table_info(indent_approval_requests)')).all().map(column => column.name));
+  for (const column of ['litres', 'sanctioned']) if (!columns.has(column)) db.exec(named('ALTER TABLE indent_approval_requests ADD COLUMN ') + column + ' REAL');
+  const run = (sql, ...values) => db.prepare(named(sql)).run(...values);
+  const one = (sql, ...values) => db.prepare(named(sql)).get(...values);
+  const many = (sql, ...values) => db.prepare(named(sql)).all(...values);
   function transaction(work) {
     db.exec('BEGIN IMMEDIATE');
     try { const result = work(); db.exec('COMMIT'); return result; }
@@ -68,6 +70,14 @@ export function createIndentApprovalStore(db) {
           litres=excluded.litres, sanctioned=NULL`,
           doc, rev, number, caption, now, litres);
         return earlier;
+      });
+    },
+    // A request taken back, because its record is being edited: nothing is left to decide. Returns its messages to be closed.
+    withdraw(doc) {
+      return transaction(() => {
+        const found = request(doc), messages = many('SELECT chat_id, message_id FROM indent_approval_messages WHERE doc=?', doc);
+        for (const table of ['indent_approval_messages', 'indent_reason_prompts', 'indent_quantity_prompts', 'indent_approval_requests']) run('DELETE FROM ' + table + ' WHERE doc=?', doc);
+        return found ? { request: found, messages } : null;
       });
     },
     sent(doc, chatId, messageId) {

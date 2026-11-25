@@ -31,7 +31,7 @@ export function registerEntries(app,masterDb,siteDb) {
   app.use('/entries',createEntriesRouter(siteDb??masterDb,options));
 }
 
-export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions,indentApproval } = {}) {
+export function createEntriesRouter(db, { hosted = false, assigned = false, policyFor = () => entryPolicy(),siteFor,opening,mastersFor,calendarFor,approvalOptions,indentApproval,orderApproval } = {}) {
   const store=createEntryStore(db,{policyFor,siteFor,calendarFor});
   // Telegram notices were withdrawn. Remove the chat IDs they stored.
   db.exec('DROP TABLE IF EXISTS entry_notice_contacts');
@@ -43,6 +43,14 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   const canRead = (doc, actor) => !enforceVisibility || mayViewEntry(doc,actor);
   // Each indent carries its Telegram approval outcome to the screens, and whether this person may edit it.
   const withApproval = (docs, actor) => {
+    // A purchase order sent to the listed approvers carries its outcome too, and the controls for a person on that list.
+    if (orderApproval) {
+      const mayDecide = Boolean(orderApproval.mayDecide(actor.login));
+      for (const doc of docs) if (doc.type==='E2') {
+        doc.approval=orderApproval.decision(doc.id);
+        if (mayDecide && doc.approval?.status==='pending' && doc.status==='Awaiting approval') doc.decide=orderApproval.waiting(doc.id);
+      }
+    }
     if (!indentApproval) return docs;
     // Only a person on the approver list sees the sanction quantity and the Approve and Decline controls.
     const approver = Boolean(indentApproval.mayDecide?.(actor.login));
@@ -56,6 +64,10 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   };
   // Approvals are recorded outside the entry store, so each request first carries any new approval onto its indent.
   const carryApprovals = site => {
+    if (orderApproval) for (const doc of store.list(site)) if (doc.type==='E2' && doc.status==='Awaiting approval') {
+      const decision=orderApproval.waiting(doc.id);
+      if (decision && decision.status!=='pending') store.decideOrder(doc.id,{status:decision.status,by:decision.decided_by,reason:decision.reason});
+    }
     if (!indentApproval) return;
     for (const doc of store.list(site)) if (doc.type==='E1' && doc.status==='Saved') {
       const decision=indentApproval.decision(doc.id);
@@ -243,10 +255,17 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     if ((req.body.action==='Save indent'||(req.body.type==='E1'&&req.body.action==='Save draft')) && req.body.site!==actor.site) {
       return res.status(422).json({error:'Select a location before saving this indent.'});
     }
+    // A purchase order sent to the listed approvers is decided by them alone, not by the review roles.
+    if (['Approve','Return'].includes(req.body.action) && orderApproval?.waiting(req.params.id)) {
+      return res.status(422).json({error:'This purchase order is approved or declined by the people on the purchase order approver list.'});
+    }
     try {
       const doc=store.write(req.params.id,actor,req.body);
       // A saved indent goes to its approvers on Telegram. Delivery never holds up or fails the save.
       if (req.body.action==='Save indent' && doc.type==='E1') indentApproval?.requested(doc);
+      // A saved purchase order goes to its own approvers with its PDF. Taking it back to edit withdraws the request.
+      if (doc.type==='E2' && req.body.action==='Submit' && doc.status==='Awaiting approval') orderApproval?.requested(doc,store.list(doc.site));
+      if (doc.type==='E2' && req.body.action==='Edit') orderApproval?.withdraw(doc.id);
       res.json({url:'/entries/record/'+doc.id,status:doc.status});
     }
     catch (e) { res.status(422).json({error:e.message}); }

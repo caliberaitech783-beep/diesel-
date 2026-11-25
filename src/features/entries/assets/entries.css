@@ -174,3 +174,25 @@ body.rail-hidden .shell { grid-template-columns: minmax(0, 1fr); }
 body.rail-hidden .rail { display: none; }
 
 .pdf-button { margin-inline-start: 14px; padding: 6px 12px; border: 1px solid var(--control-border); border-radius: 6px; }
+
+/* Approve or decline a purchase order inside Diesel, for a person on its approver list. */
+.indent-decision-panel { margin-top: 16px; padding: 16px; border: 1px solid #1a7050; border-radius: 10px; background: var(--surface, #fff); }
+.indent-decision-panel h2 { margin: 0 0 4px; font-size: 16px; }
+.indent-decision-panel p { margin: 0 0 12px; font-size: 13px; }
+.indent-decision { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto auto; gap: 10px; align-items: end; margin: 0; }
+.indent-decision.no-quantity { grid-template-columns: minmax(0, 1fr) auto auto; }
+.indent-decision label { display: grid; gap: 4px; font-size: 13px; }
+.indent-decision input { min-height: 40px; padding: 8px 10px; border: 1px solid #9aa4b2; border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.indent-decision button { min-height: 40px; padding: 8px 16px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+.indent-decision .approve { background: #1a7050; color: #fff; }
+.indent-decision .decline { background: transparent; border-color: #b42318; color: #b42318; }
+:root[data-theme="dark"] .indent-decision .decline { border-color: #f3a79f; color: #f3a79f; }
+.bar .indent-approval { margin-inline-start: 12px; font-size: 13px; font-weight: 400; }
+@media (max-width: 720px) { .indent-decision, .indent-decision.no-quantity { grid-template-columns: 1fr; } }
+.indent-approval { margin-inline-start: 8px; padding: 4px 10px; border-radius: 20px; font-size: 12px; background: #fff3d6; color: #7a4b00; }
+.indent-approval.is-approved { background: #e3f3eb; color: #1a7050; }
+.indent-approval.is-declined { background: #fde8e6; color: #9b1c12; }
+:root[data-theme="dark"] .indent-approval { background: #3d3015; color: #f0c674; }
+:root[data-theme="dark"] .indent-approval.is-approved { background: #203b32; color: #8bd8b5; }
+:root[data-theme="dark"] .indent-approval.is-declined { background: #47201c; color: #f3a79f; }
+

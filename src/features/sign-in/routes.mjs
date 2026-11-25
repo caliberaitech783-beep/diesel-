@@ -7,6 +7,7 @@ import { entryAssignments } from '../entries/entry-access.mjs';
 import { recordMasters } from '../masters/records-fields.mjs';
 import { createApprovalDelivery } from '../entries/approval-delivery.mjs';
 import { registerIndentApproval } from '../indent-approval/approval-routes.mjs';
+import { orderKind } from '../indent-approval/approval-kinds.mjs';
 import { telegramApprovalPath } from '../entries/remote-approval.mjs';
 import { approvedLocationDirectory } from '../masters/records.mjs';
 import { registerEntrySetup } from '../entries/entry-setup.mjs';
@@ -171,7 +172,12 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
       isAdmin: profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase()),
     }) : undefined;
-    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,indentApproval,
+    // Saved purchase orders go to their own list of approvers, on a separate Telegram bot.
+    const orderApproval = sharedMasterDb ? registerIndentApproval(app, { db: sharedMasterDb, env, fetcher, publicOrigin: publicUrl.origin, startSignIn,
+      async getProfile(request) { return (await verifySession(request))?.profile ?? null; },
+      isAdmin: profile => typeof profile?.login === 'string' && allowedLogins.has(profile.login.trim().toLowerCase()),
+    }, orderKind) : undefined;
+    registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,indentApproval,orderApproval,
       siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
       readEmployees:pulseMasterCopies?async request=>(await pulseMasterCopies.read('employee',{
         grant:readCookie(request,sessionCookie),sites:[],

@@ -323,3 +323,129 @@ test('the approval page in Diesel opens only for listed approvers and takes the 
   login = 'stranger';
   assert.equal((await formPost('/indent-approvals/decide', fields)).status, 403);
 });
+
+test('purchase orders have their own approver list, bot and pages, and are approved without a quantity', async t => {
+  const { orderKind } = await import('./approval-kinds.mjs');
+  const shared = new DatabaseSync(':memory:');
+  const app = express();
+  let login = 'admin';
+  const sent = [];
+  const fetcher = async (url, options) => {
+    const method = String(url).split('/').pop(), body = options.body instanceof FormData ? Object.fromEntries([...options.body].filter(([, value]) => typeof value === 'string')) : JSON.parse(options.body);
+    sent.push({ method, ...body });
+    return Response.json({ ok: true, result: method === 'getMe' ? { username: 'DieselPObot' } : { message_id: sent.length } });
+  };
+  const options = { db: shared, fetcher, publicOrigin: 'https://diesel.test', getProfile: async () => login ? { login, name: login } : null,
+    isAdmin: profile => profile.login === 'admin', startSignIn: response => response.redirect(303, '/pulse') };
+  const indents = registerIndentApproval(app, { ...options, env: {} });
+  const orders = registerIndentApproval(app, { ...options, env: { DIESEL_PO_BOT_TOKEN: token } }, orderKind);
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); shared.close(); });
+  const origin = 'http://127.0.0.1:' + server.address().port;
+  const formPost = (path, fields) => fetch(origin + path, { method: 'POST', redirect: 'manual', body: new URLSearchParams(fields), headers: { Origin: 'https://diesel.test' } });
+  const webhook = update => fetch(origin + '/telegram/po-approval', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': createTelegram(token).webhookSecret }, body: JSON.stringify(update) });
+
+  assert.equal(orders.active(), true);
+  assert.equal((await formPost('/po-approvers', { name: 'Asha Rao', phone: '9123456780', pulseLogin: 'asha.rao' })).status, 303);
+  assert.deepEqual([orders.mayDecide('asha.rao'), indents.mayDecide('asha.rao')], [true, false], 'the two lists are separate');
+  const page = await (await fetch(origin + '/po-approvers')).text();
+  assert.match(page, /<h1>Purchase order approvers<\/h1>/);
+  assert.match(page, /selects <strong>Save PO<\/strong>, each linked person below gets the purchase order as a PDF/);
+  assert.doesNotMatch(page, /sanction quantity/);
+  await webhook({ message: { chat: { id: 77, type: 'private' }, from: { id: 77 }, contact: { user_id: 77, phone_number: '+919123456780' } } });
+
+  const po = { id: 'po-1', rev: 1, type: 'E2', site: 'Jayant', day: '2026-11-25', number: 'CMLL/CMP/PO/26-27/001', status: 'Awaiting approval', createdBy: 'Buyer',
+    data: { supplier: 'SANDEEP GASOLENES', litres: 500, rateAfter: 92.5, basis: 'Delivered' } };
+  sent.length = 0;
+  assert.equal(await orders.requested(po, [po]), 1);
+  const document = sent.find(call => call.method === 'sendDocument');
+  assert.match(document.caption, /^Purchase order CMLL\/CMP\/PO\/26-27\/001\nLocation: CMPL Madhya Pradesh · Site: Jayant\nVendor: SANDEEP GASOLENES\nQuantity: 500 litres\nP\.O\. Amount: Rs\. 46,250\.00\nCreated by: Buyer$/);
+  assert.match(document.reply_markup, /po:approve:po-1.*po:decline:po-1/);
+  assert.equal(orders.decision('po-1').label, 'Awaiting approval');
+
+  // Approve on Telegram decides at once: there is no quantity to give.
+  await webhook({ callback_query: { id: 'q1', data: 'po:approve:po-1', message: { message_id: 5, chat: { id: 77 } } } });
+  assert.deepEqual([orders.decision('po-1').status, orders.decision('po-1').by, orders.decision('po-1').sanctioned], ['approved', 'Asha Rao', undefined]);
+  assert.ok(sent.some(call => call.method === 'editMessageCaption' && /✅ Approved by Asha Rao/.test(call.caption)));
+
+  // In Diesel: the list opens only for a listed approver, and a decline needs no quantity either.
+  const second = { ...po, id: 'po-2', number: 'CMLL/CMP/PO/26-27/002' };
+  await orders.requested(second, [second]);
+  assert.equal((await fetch(origin + '/po-approvals')).status, 403);
+  login = 'asha.rao';
+  const list = await (await fetch(origin + '/po-approvals')).text();
+  assert.match(list, /<h1>Purchase orders for my approval<\/h1>[^]*Waiting \(1\)[^]*CMLL\/CMP\/PO\/26-27\/002<\/a>/);
+  assert.doesNotMatch(list, /name="sanctioned"/);
+  const declined = await formPost('/po-approvals/decide', { doc: 'po-2', decision: 'decline', reason: 'Rate too high', back: '/entries/record/po-2' });
+  assert.deepEqual([declined.status, declined.headers.get('location')], [303, '/entries/record/po-2']);
+  assert.deepEqual([orders.waiting('po-2').status, orders.waiting('po-2').reason], ['declined', 'Rate too high']);
+
+  // Taking an order back to edit withdraws its request.
+  const third = { ...po, id: 'po-3', number: 'CMLL/CMP/PO/26-27/003' };
+  await orders.requested(third, [third]); sent.length = 0;
+  await orders.withdraw('po-3');
+  assert.equal(orders.decision('po-3'), null);
+  assert.ok(sent.some(call => call.method === 'editMessageCaption' && /being edited/.test(call.caption)));
+});
+
+test('Save PO asks the listed approvers, and their decision posts or returns the order in Entry', async t => {
+  const { orderKind } = await import('./approval-kinds.mjs');
+  const { createEntryStore } = await import('../entries/entry-store.mjs');
+  const { review } = await import('../entries/review-masters.mjs');
+  const shared = new DatabaseSync(':memory:'), entryDb = openDieselDatabase(':memory:');
+  const app = express();
+  const orders = registerIndentApproval(app, { db: shared, env: {}, publicOrigin: 'https://diesel.test',
+    getProfile: async () => ({ login: 'admin', name: 'admin' }), isAdmin: () => true, startSignIn: response => response.redirect(303, '/pulse') }, orderKind);
+  let role = 'Procurement Executive', login = 'buyer';
+  const actor = name => ({ id: 'Jayant-' + roleKey(name), site: 'Jayant', profile: roleKey(name) });
+  app.use('/entries', (request, _response, next) => { request.dieselActor = { ...actor(role), login }; next(); }, createEntriesRouter(entryDb, { orderApproval: orders }));
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); shared.close(); entryDb.close(); });
+  const origin = 'http://127.0.0.1:' + server.address().port;
+  const write = (id, body) => fetch(origin + '/entries/record/' + id, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ actor: actor(role).id, ...body }) });
+  const formPost = (path, fields) => fetch(origin + path, { method: 'POST', redirect: 'manual', body: new URLSearchParams(fields), headers: { Origin: 'https://diesel.test' } });
+  const store = createEntryStore(entryDb), day = businessDay();
+  let indent = store.write(randomUUID(), actor('Site In-charge'), { type: 'E1', rev: 0, day, action: 'Submit', data: { litres: 5000, requiredBy: 0, remarks: 'x' } });
+  while (indent.status === 'Awaiting approval') indent = store.write(indent.id, actor(indent.result.approvals[indent.stage]), { action: 'Approve', rev: indent.rev });
+  const data = { indent: indent.id, type: 'Bulk', supplier: review.supplier, depot: 'IOCL', basis: 'Delivered', terms: 'Credit', undersigned: 'Buyer', transactionType: 'Intra State',
+    supplyNature: 'Non-GST Supplies', loadingOnGross: 'Yes', litres: 1000, rateBefore: 93, rateAfter: 92.5, tolerance: 0, shortageFrom: 'Vendor', shortageMethod: 'None' };
+  await formPost('/po-approvers', { name: 'Asha Rao', phone: '9123456780', pulseLogin: 'asha.rao' });
+
+  const id = randomUUID();
+  const saved = await write(id, { type: 'E2', action: 'Submit', rev: 0, day, data });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(orders.decision(id).label, 'Awaiting approval');
+  // The review roles can no longer approve it; only the list can.
+  role = 'Head – Procurement';
+  const byRole = await write(id, { action: 'Approve', rev: store.read(id, 'Jayant').rev });
+  assert.equal(byRole.status, 422);
+  assert.match((await byRole.json()).error, /people on the purchase order approver list/);
+  login = 'asha.rao';
+  assert.match(await (await fetch(origin + '/entries/record/' + id)).text(), /Approve this purchase order/);
+  login = 'someone';
+  assert.doesNotMatch(await (await fetch(origin + '/entries/record/' + id)).text(), /Approve this purchase order/);
+
+  // Declined: back with its maker, who saves it again for a fresh request.
+  await orders.requested({ id, rev: 1, type: 'E2', site: 'Jayant', day, number: 'x', data }, []);
+  shared.prepare("UPDATE po_approval_requests SET status='declined', decided_by='Asha Rao', reason='Rate too high', decided_at=? WHERE doc=?").run(new Date().toISOString(), id);
+  role = 'Procurement Executive'; login = 'buyer';
+  assert.match(await (await fetch(origin + '/entries/type/E2')).text(), /Declined/);
+  let po = store.read(id, 'Jayant');
+  assert.equal(po.status, 'Returned');
+  const again = await write(id, { type: 'E2', action: 'Submit', rev: po.rev, day, data });
+  assert.equal(again.status, 200, await again.clone().text());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(orders.decision(id).status, 'pending');
+
+  // Approved: posted, and final.
+  shared.prepare("UPDATE po_approval_requests SET status='approved', decided_by='Asha Rao', decided_at=? WHERE doc=?").run(new Date().toISOString(), id);
+  const page = await (await fetch(origin + '/entries/record/' + id)).text();
+  po = store.read(id, 'Jayant');
+  assert.deepEqual([po.status, po.result.approvedBy], ['Posted', 'Asha Rao']);
+  assert.match(page, /· Approved<\/strong>/);
+  assert.doesNotMatch(page, /value="Edit"/);
+  assert.equal((await write(id, { action: 'Edit', rev: po.rev })).status, 422);
+});

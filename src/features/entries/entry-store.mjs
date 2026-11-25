@@ -276,12 +276,10 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
         }
         if (doc.type==='E1') assignNumber(doc);
       } else if (action==='Edit') {
-        // The maker takes a purchase order back to change it, before or after approval. Saving it again restarts the approvals.
-        // Once a payment advice, tanker entry or other record uses the order, it can no longer change underneath them.
-        check(doc.type==='E2' && ['Awaiting approval','Posted'].includes(doc.status),'Only a purchase order awaiting approval or approved can be reopened for editing.');
-        const user=doc.status==='Posted' ? all().find(row=>row.data?.po===doc.id && row.status!=='Superseded') : null;
-        check(!user,'This purchase order is already used by '+(user?.number||'another entry')+', so it cannot be edited.');
-        check(!doc.result.moves?.length,'This purchase order has stock booked against it, so it cannot be edited.');
+        // The maker takes a purchase order back to change it while it still awaits approval. Saving it again asks for approval afresh.
+        // An approved purchase order is final and cannot be edited.
+        check(doc.type!=='E2' || doc.status!=='Posted','An approved purchase order cannot be edited.');
+        check(doc.type==='E2' && doc.status==='Awaiting approval','Only a purchase order awaiting approval can be reopened for editing.');
         checkMaker(doc,actor);checkLocks(doc);
         doc.status='Draft';doc.stage=0;log='Reopened for editing';
       } else if (action==='Approve' || action==='Return') {
@@ -372,7 +370,17 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
     persist(doc,by||'Approver','Approved · sanctioned '+sanctioned+' L');
     return true;
   }
-  return {read,write,fresh,openIndent,definition,stockPicture,storageBalances,dayFor,approveIndent,
+  // A purchase order decided by a listed approver, on Telegram or in Diesel. Approval posts it; a decline returns it to its maker.
+  function decideOrder(id,{status,by,reason}) {
+    const doc=get(id);
+    if (!doc || doc.type!=='E2' || doc.status!=='Awaiting approval') return false;
+    const name=by||'Approver';
+    if (status==='approved') { doc.stage=doc.result.approvals?.length??0; doc.result={...doc.result,approvedBy:name}; finish(doc); persist(doc,name,'Approved'); }
+    else if (status==='declined') { doc.status='Returned'; doc.result={...doc.result,declinedBy:name}; persist(doc,name,'Declined'+(reason?' · '+reason:'')); }
+    else return false;
+    return true;
+  }
+  return {read,write,fresh,openIndent,definition,stockPicture,storageBalances,dayFor,approveIndent,decideOrder,
     currentShift:(site,now=new Date())=>calendarFor?.(site).shift(now)?.name,list:site=>all().filter(r=>visible(r,site)),history:id=>
     db.prepare('SELECT actor,action,stamp,snapshot FROM entry_review_history WHERE doc=? ORDER BY seq').all(id)
       .map(({snapshot,...row})=>{

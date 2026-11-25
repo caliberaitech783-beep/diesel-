@@ -34,3 +34,4 @@
 :root[data-theme=dark] .indent-decision .decline { border-color: #f3a79f; color: #f3a79f; }
 .approvers .declined { color: #b42318; font-weight: 600; }
 @media (max-width: 720px) { .indent-decision { grid-template-columns: 1fr; } }
+.indent-decision.no-quantity { grid-template-columns: minmax(0, 1fr) auto auto; }
