@@ -2,7 +2,7 @@
 import { purchaseOrderTotals, rupeesInWords } from './purchase-order-totals.js';
 
 const form = document.querySelector('#entry-form[data-type="E2"]');
-if (form) {
+if (form?.querySelector('[name="litres"]')) {
   const el = name => form.elements[name];
   const out = key => form.querySelector('[data-order="' + key + '"]');
   const rupee = value => '₹ ' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
