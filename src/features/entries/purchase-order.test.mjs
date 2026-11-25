@@ -250,6 +250,12 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
   assert.match(form,/<datalist id="dispatch-vehicles">(<option value="[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}">)+<\/datalist>/);
   assert.match(form,/<option value="CMPL Nagpur">CMPL Nagpur<\/option>/);
   assert.match(form,/href="\/entries\/type\/E4">✕ Cancel<\/a>/);
+  // A saved schedule reads like its form: one Dispatch Details card with the same fields, not a plain two-column list.
+  const saved=detailPage(buyer,first,store.list('Jayant'),[],null,store.definition('E4','Jayant'));
+  assert.match(saved,/<section class="order-card order-view-card order-view-record order-dispatch"><h2>.*<span>Dispatch Details<\/span><\/h2><dl class="order-view-list">/s);
+  for (const label of ['Location','Date','Purchase Order No.','Delivery Schedule No.','Delivery Date','Delivery Location','Delivery Address','Item Name','DSL Qty (L)','Vehicle No.','Transporter','Supplier'])
+    assert.ok(saved.includes('<dt>'+label+'</dt>'),label);
+  assert.ok(!saved.includes('Calculated and carried forward')&&!saved.includes('<h2>Entry details</h2>'));
   assert.doesNotMatch(form,new RegExp('value="'+po.id+'"'),'a fully scheduled order is no longer offered');
   assert.match(registerPage(buyer,store.list('Jayant'),'E4'),/E4-JAY-2026-0002/);
 });

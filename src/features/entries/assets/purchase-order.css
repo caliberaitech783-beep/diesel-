@@ -99,3 +99,5 @@
 .order-view-record .order-view-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
 
 .order-footer td input[data-foot="round"] { min-width:110px; }
+.order-view .order-dispatch > h2 { display:flex; align-items:center; gap:8px; color:inherit; }
+.order-view .order-dispatch > h2 svg { width:20px; height:20px; color:var(--order-accent); flex:none; }
