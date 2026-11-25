@@ -159,11 +159,11 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     ${editing ? '<link rel="stylesheet" href="/masters/assets/item-file-menu.css"><script type="module" src="/masters/assets/item-file-menu.js"></script>' : ''}
     ${isStorage && editing ? '<script type="module" src="/masters/assets/storage-location.js"></script>' : ''}
     ${master.slug === 'diesel-rate-master' && editing ? '<script type="module" src="/masters/assets/diesel-rate.js"></script>' : ''}
-    ${showSidebar ? '<script type="module" src="/masters/assets/navigation.js"></script>' : ''}</head><body${dialog ? ' class="record-dialog-page"' : ''}>
+    ${dialog ? '' : '<script type="module" src="/masters/assets/navigation.js"></script><script type="module" src="/masters/assets/sidebar-toggle.js"></script>'}</head><body${dialog ? ' class="record-dialog-page"' : ''}>
     <a class="skip" href="#workspace">Skip to workspace</a>
     <header class="masthead"><div class="brand"><img src="/masters/assets/pulse.png" width="36" height="36" alt=""><span class="wordmark">Caliber <strong>Pulse</strong></span><span class="product">Diesel</span></div>
     <div class="account">${themeToggle}${submissionsOnly || prefix ? `<span>${escape(actor.name ?? actorId)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form>` : `<a href="/workspace">${escape(actor.name ?? actorId)}</a>`}</div></header>
-    <div class="layout">${showSidebar ? masterSidebar({ itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true,
+    <div class="layout">${!dialog ? masterSidebar({ hidden: !showSidebar, itemRecordsPath: home + (editingAllowed ? '&amp;new=1' : ''), masterData: true,
       masterDataPath: prefix+'/master-data', pulseMasters: Boolean(prefix || submissionsOnly),localIndentDrafts: !prefix && !submissionsOnly && !actor.siteEntryTypes }) : ''}
     <main id="workspace"${editing ? itemEditing ? '' : ' class="master-form-workspace"' : ' class="master-data-workspace"'} tabindex="-1" aria-labelledby="workspace-title">${content}</main></div>${!editing ? recordDialogHost : ''}</body></html>`;
 }

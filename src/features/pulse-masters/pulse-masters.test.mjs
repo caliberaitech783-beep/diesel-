@@ -89,9 +89,9 @@ test('Master Data lists the Pulse Location, Region, Equipment, Employee and Driv
   assert.match(equipment, /T-202/);
   assert.match(equipment, /data-live-records/);
   assert.match(equipment, /live-records.js/);
-  assert.doesNotMatch(equipment, /id="masters-sidebar"|navigation.js/);
+  assert.match(equipment, /<aside class="sidebar" id="masters-sidebar" hidden>/);
   assert.match(equipment, /<h1[^>]*>Equipment Master<\/h1>\s*<form class="master-data-search"/);
-  assert.equal([...equipment.matchAll(/type="search"/g)].length, 1);
+  assert.equal([...equipment.slice(equipment.indexOf('<main')).matchAll(/type="search"/g)].length, 1);
   assert.doesNotMatch(equipment, /<label>Search|<button>Search<\/button>/);
   assert.match(equipment, /data-export-source="\/pulse-masters\/records\?master=equipment"/);
   assert.match(equipment, /<summary>Download<\/summary>/);
