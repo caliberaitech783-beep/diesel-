@@ -27,7 +27,8 @@ export const dieselRateMaster = [
         hint: 'Basic rate plus excise duty, less an invoice discount, plus VAT. A post-sale discount comes later by credit note.',
       },
       { label: 'Transportation rate (₹/Ltr)', required: false, type: 'number', key: 'transport-rate' },
-      { label: 'Landed cost per litre (₹/Ltr)', required: false, type: 'number', readOnly: true, key: 'landed-cost', hint: 'Diesel rate plus the transportation rate.' },
+      { label: 'Gross landed cost (₹/Ltr)', required: false, type: 'number', readOnly: true, key: 'landed-cost', hint: 'Diesel rate plus the transportation rate.' },
+      { label: 'Net landed cost (₹/Ltr)', required: false, type: 'number', readOnly: true, key: 'net-landed-cost', hint: 'Gross landed cost less a post-sale discount.' },
     ],
   },
 ];
