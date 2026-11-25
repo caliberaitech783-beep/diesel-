@@ -172,3 +172,5 @@ output { display: block; font-weight: 600; color: var(--link); }output:not(:empt
 #rail-toggle { min-height: 32px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
 body.rail-hidden .shell { grid-template-columns: minmax(0, 1fr); }
 body.rail-hidden .rail { display: none; }
+
+.pdf-button { margin-inline-start: 14px; padding: 6px 12px; border: 1px solid var(--control-border); border-radius: 6px; }

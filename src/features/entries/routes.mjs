@@ -14,7 +14,7 @@ import { entryAlerts } from './entry-alerts.mjs';
 import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows, purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
-import { purchaseOrderPdf } from './purchase-order-pdf.mjs';
+import { purchaseOrderPdf, purchaseOrdersPdf, registerPdf } from './purchase-order-pdf.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
 import { approvedPolicyReader, siteEntryWorkspace } from './site-entry-workspace.mjs';
 import { registerOpeningStock } from './opening-stock-routes.mjs';
@@ -201,6 +201,17 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const actor=req.dieselActor,sources=store.list(actor.site);
     const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
     res.attachment((purchaseOrdersOnly(rows)?'diesel-purchase-orders.':'diesel-entries.')+extension).type(mime).send(serialize(rows,sources));
+  });
+  // The register as a PDF: purchase orders in full, one after another; any other register as a list.
+  router.get('/export.pdf',async (req,res,next)=>{
+    const actor=req.dieselActor,sources=store.list(actor.site);
+    const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
+    try {
+      const orders=purchaseOrdersOnly(rows);
+      const bytes=orders ? await purchaseOrdersPdf(rows.slice(0,200),sources)
+        : await registerPdf('Diesel entries',['Document','Entry','Site','Date','Status'],entryCsvRows(rows).slice(1).map(row=>row.slice(0,5)));
+      res.attachment(orders?'diesel-purchase-orders.pdf':'diesel-entries.pdf').type('application/pdf').send(Buffer.from(bytes));
+    } catch(error) { next(error); }
   });
   router.get('/accounting/:id.csv',(req,res)=>{
     const actor = req.dieselActor;

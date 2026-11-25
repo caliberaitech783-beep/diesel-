@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { purchaseOrderPdf, purchaseOrderSheet } from './purchase-order-pdf.mjs';
+import { purchaseOrderPdf, purchaseOrderSheet, purchaseOrdersPdf, registerPdf } from './purchase-order-pdf.mjs';
 import { purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createEntryStore } from './entry-store.mjs';
 import { review, roleKey } from './review-masters.mjs';
 import { byId } from './catalog.mjs';
 import { businessDay } from './entry-rules.mjs';
-import { detailPage } from './entry-page.mjs';
+import { detailPage, registerPage } from './entry-page.mjs';
 import { purchaseOrderTotals, rupeesInWords } from './assets/purchase-order-totals.js';
 
 const day=businessDay();
@@ -219,6 +219,13 @@ test('a saved purchase order downloads as a PDF with every section of the form',
   assert.equal(Buffer.from(bytes.slice(0,5)).toString(),'%PDF-');
   assert.ok(bytes.length>2000);
   const maker=actor('Procurement Executive');
-  assert.match(detailPage(maker,po,store.list('Jayant'),[]),new RegExp('href="/entries/record/'+po.id+'/purchase-order.pdf">Download PDF</a>'));
+  assert.match(detailPage(maker,po,store.list('Jayant'),[]),new RegExp('href="/entries/record/'+po.id+'/purchase-order.pdf">⬇ Download PDF</a>'));
+  // The register downloads every purchase order in one file, and any other register as a list.
+  const { PDFDocument }=await import('pdf-lib');
+  const both=await PDFDocument.load(await purchaseOrdersPdf([po,po],store.list('Jayant')));
+  assert.equal(both.getPageCount(),2*(await PDFDocument.load(bytes)).getPageCount());
+  const list=await PDFDocument.load(await registerPdf('Diesel entries',['Document','Entry','Site','Date','Status'],Array.from({length:120},(_,index)=>['E1-'+index,'Diesel indent','Jayant',day,'Posted'])));
+  assert.equal(list.getPageCount(),3);
+  assert.match(registerPage(maker,store.list('Jayant'),'E2'),/href="\/entries\/export\.pdf\?[^"]*">Export PDF<\/a>/);
   assert.doesNotMatch(detailPage({...maker,businessDay:day},store.fresh('E2',maker),[],[],null,store.definition('E2','Jayant')),/Download PDF/);
 });
