@@ -15,6 +15,7 @@ const roleMatrix = {
   E1: [inCharge, manager, buyer, procurement, director],
   E2: [buyer, procurement, accounts, 'CFO', director],
   E3: [buyer, accounts, finance, 'CFO', 'Treasury'],
+  E4: [buyer, procurement, store, inCharge, accounts],
   E5: [store, inCharge],
   E6: [store, point, inCharge, manager],
   E7: [store, inCharge, accounts],

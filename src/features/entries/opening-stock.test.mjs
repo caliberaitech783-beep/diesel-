@@ -241,6 +241,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.equal(close.result.closingValue,147970.23);
   assert.equal(close.result.journal[0].account,'EXP');
   assert.equal(close.result.journal[0].debit+close.result.journal[1].debit,close.result.journal[2].credit);
-  assert.deepEqual(new Set(store.list('Jayant').map(row=>row.type)),new Set(siteEntryTypes));
+  // A delivery schedule is an optional step between the order and the gate, so this walk-through does not raise one.
+  assert.deepEqual(new Set(store.list('Jayant').map(row=>row.type)),new Set(siteEntryTypes.filter(type=>type!=='E4')));
   assert.equal(createEntryStore(mastersDb).list('Jayant').length,0);
 });

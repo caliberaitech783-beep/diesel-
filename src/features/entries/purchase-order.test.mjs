@@ -97,7 +97,7 @@ test('New entry on Purchase order opens the one-page form', t => {
   assert.match(html,/data-search-for="supplier"/);
   assert.match(html,/<option value="SANDEEP GASOLENES" data-value="SANDEEP GASOLENES">/);
   assert.match(html,/SANDEEP GASOLENES&quot;:\{&quot;address&quot;:&quot;2, AT-GHUGGUS PHATA, GHUGGUS ROAD, CHANDRAPUR, MAHARASHTRA, 442401&quot;/);
-  for (const gone of ['Delivery Schedule','name="transporter"','>Paid<','GST Supplies<','Loading on Gross']) assert.ok(!html.includes(gone)||gone==='GST Supplies<'&&!html.includes('>GST Supplies<'),gone);
+  for (const gone of ['data-deliveries','Add delivery row','name="transporter"','>Paid<','GST Supplies<','Loading on Gross']) assert.ok(!html.includes(gone)||gone==='GST Supplies<'&&!html.includes('>GST Supplies<'),gone);
   assert.match(html,/<option value="Taxable Supplies">Taxable Supplies<\/option>/);
   assert.match(html,/<option value="Delivered">FOR<\/option><option value="Ex-depot">To Pay<\/option><option value="To Bill">To Bill<\/option>/);
   assert.match(html,/data-loading-gross checked><input type="hidden" name="loadingOnGross" value="Yes">Landing on Gross/);
@@ -228,4 +228,27 @@ test('a saved purchase order downloads as a PDF with every section of the form',
   assert.equal(list.getPageCount(),3);
   assert.match(registerPage(maker,store.list('Jayant'),'E2'),/href="\/entries\/export\.pdf\?[^"]*">Export PDF<\/a>/);
   assert.doesNotMatch(detailPage({...maker,businessDay:day},store.fresh('E2',maker),[],[],null,store.definition('E2','Jayant')),/Download PDF/);
+});
+
+test('E4 Delivery Schedule dispatches an approved purchase order within its quantity', t => {
+  const {store,submit,approve,order}=setup(t);
+  assert.deepEqual([byId.E4.name,byId.E4.group,byId.E4.maker],['Delivery Schedule','Buy','Procurement Executive']);
+  const waiting=submit('E2',order);
+  const schedule={po:waiting.id,deliveryDate:day,deliveryLocation:'Jayant OC',deliveryAddress:'Jayant camp storage',item:review.item,litres:14000,vehicle:'mh34 bz 4428',transporter:'SANDEEP GASOLENES'};
+  assert.throws(()=>submit('E4',schedule),/Choose a posted E2/,'the purchase order must be approved first');
+  const po=approve(waiting);
+  const first=submit('E4',schedule);
+  assert.deepEqual([first.status,first.number,first.result.litres,first.result.vehicle,first.result.balance,first.result.order],['Posted','E4-JAY-2026-0001',14000,'MH34BZ4428',26000,po.number]);
+  assert.throws(()=>submit('E4',{...schedule,vehicle:'TRUCK'}),/vehicle number like MH34BZ4428/);
+  assert.throws(()=>submit('E4',{...schedule,deliveryDate:'2000-01-01'}),/delivery date on or after/);
+  assert.throws(()=>submit('E4',{...schedule,deliveryLocation:'Nowhere'}),/Delivery location/);
+  assert.throws(()=>submit('E4',{...schedule,litres:26001}),/26,000 L is left to schedule/);
+  assert.equal(submit('E4',{...schedule,litres:26000,deliveryLocation:'CMPL Nagpur'}).result.balance,0);
+  assert.throws(()=>submit('E4',{...schedule,litres:1}),/0 L is left to schedule/);
+
+  const buyer={...actor('Procurement Executive'),businessDay:day};
+  const form=detailPage(buyer,store.fresh('E4',buyer),store.list('Jayant'),[],null,store.definition('E4','Jayant'));
+  for (const label of ['Purchase order','Delivery date','Delivery location','Delivery address','Item name','DSL Qty (L)','Vehicle No.','Transporter']) assert.match(form,new RegExp(label.replace(/[()]/g,'\\$&'),'i'),label);
+  assert.doesNotMatch(form,new RegExp('value="'+po.id+'"'),'a fully scheduled order is no longer offered');
+  assert.match(registerPage(buyer,store.list('Jayant'),'E4'),/E4-JAY-2026-0002/);
 });
