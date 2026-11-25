@@ -20,6 +20,10 @@ const before = number('before','Dip before (cm)'), after = number('after','Dip a
 const gate = link('gate','Tanker gate entry','E5'), grn = link('grn','Goods receipt note','E7');
 const po = link('po','Purchase order','E2');
 
+// The code shown on screen. With the gate entry merged into the goods receipt note, Inspection and the note move up one.
+// Records, links and document numbers keep the entry's own id.
+const shownCodes = { E6:'E5', E7:'E6' };
+
 export const entries = [
   ['E1','Diesel indent','Buy','Site In-charge',[number('litres','Quantity'),
     {...pick('unit','Unit',['Litre']),default:'Litre'},
@@ -68,7 +72,7 @@ export const entries = [
   ['E15','Daily count and reconciliation','Control','Point operator',[number('dip','UG tank dip (cm)'),number('bowserCount','Bowser measured stock (L)'),reason,{...photo('evidence','Variance evidence'),optional:true}]],
   ['E16','Correction request','Control','Original maker',[link('target','Posted entry','correctable'),pick('field','Field to correct',['remarks','reading','rate','total','litres','discount']),text('value','Corrected value'),{...reason,optional:false},photo('evidence','Correction evidence')]],
   ['E17','Month-end close','Control','Head – Accounts',[{key:'month',label:'Month to close',type:'month'},remarks]],
-].map(([id,name,group,maker,fields])=>({id,name,group,maker,fields}));
+].map(([id,name,group,maker,fields])=>({id,name,group,maker,fields,code:shownCodes[id]??id}));
 export const byId = Object.fromEntries(entries.map(entry=>[entry.id,entry]));
 
 // A correction may change any typed value or the reason code on an entry its maker posted.
