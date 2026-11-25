@@ -49,7 +49,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .account form { margin: 0; flex: none; }
 .account form button { background: var(--surface); color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); min-height: calc(100dvh - var(--masthead-height)); }
-.layout:has(> .sidebar) { grid-template-columns: 280px minmax(0, 1fr); }
+.layout:has(> .sidebar:not([hidden])) { grid-template-columns: 280px minmax(0, 1fr); }
 .sidebar {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -118,7 +118,7 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 .workspace-heading h1 { margin: 0; }
 .masters-back { align-self: flex-start; margin-bottom: 12px; color: var(--link); font-size: 14px; padding-block: 4px; }
 @media (min-width: 601px) and (max-width: 760px) {
-  .layout:has(> .sidebar) { grid-template-columns: 212px minmax(0, 1fr); }
+  .layout:has(> .sidebar:not([hidden])) { grid-template-columns: 212px minmax(0, 1fr); }
   nav { padding-inline: 8px; }
   .master-group ul { margin-left: 12px; padding-left: 6px; }
   nav a { padding-inline: 9px; font-size: 13px; }
@@ -158,3 +158,5 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 #search-status:empty { margin: 0; }
 
 .master-count { float: inline-end; margin-inline-start: 8px; padding: 0 6px; border-radius: 9px; background: var(--nav-hover); color: var(--muted); font-size: 12px; line-height: 18px; }
+
+.sidebar[hidden] { display: none; }

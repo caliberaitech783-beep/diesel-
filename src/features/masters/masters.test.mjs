@@ -21,7 +21,7 @@ test('all 20 masters open exactly one form with a link back to the catalog', () 
   assert.equal(new Set(masters.map(master => master.slug)).size, 20);
   for (const { name, slug } of masters) {
     const html = mastersPage({ master: slug, account: 'Guest', guest: true });
-    assert.doesNotMatch(html, /id="masters-sidebar"|sidebar-toggle/);
+    assert.doesNotMatch(html, /id="masters-sidebar"/);
     assert.match(html, /href="\/" aria-label="Back to masters"[^>]*>\s*<svg\b/);
     assert.ok(html.includes(`<h1 id="workspace-title">${name}</h1>`));
     assert.equal((html.match(/<form class="master-form"/g) || []).length, 1);

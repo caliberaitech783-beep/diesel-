@@ -59,7 +59,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   ${overview ? '<link rel="stylesheet" href="/masters/assets/records.css"><link rel="stylesheet" href="/master-insights/assets/insights.css">' : ''}
   ${prefix ? '<link rel="stylesheet" href="/masters/assets/records.css">' : ''}
-  ${master ? '' : '<script type="module" src="/masters/assets/navigation.js"></script>'}
+  <script type="module" src="/masters/assets/navigation.js"></script><script type="module" src="/masters/assets/sidebar-toggle.js"></script>
   ${canSave ? '<script type="module" src="/master-data/assets/download.js"></script>' : ''}
   ${canImport ? '<script type="module" src="/master-data/assets/import.js"></script>' : ''}
   ${master && canSave ? '<script type="module" src="/master-data/assets/live-records.js"></script>' : ''}
@@ -71,7 +71,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
     <div class="account">${themeToggle}${account}</div>
   </header>
   <div class="layout">
-    ${master ? '' : masterSidebar({ itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
+    ${masterSidebar({ hidden: Boolean(master), itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
     <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
       <header class="workspace-heading${master ? ' master-data-heading' : ''}">
         ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}

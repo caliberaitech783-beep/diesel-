@@ -39,7 +39,9 @@ test('Item records enforce workspace roles and site scope on the page, writes, r
   const page = await (await request('/records?new=1')).text();
   assert.match(page, /<button type="submit" data-save-for-review>Save for review<\/button>/);
   assert.match(page, /href="\/records" aria-label="Back to masters"[^>]*>\s*<svg\b/);
-  assert.doesNotMatch(page, /id="masters-sidebar"|class="master-group"/);
+  assert.match(page, /<aside class="sidebar" id="masters-sidebar" hidden>/);
+  assert.match(page, /data-sidebar-toggle/);
+  assert.match(page, /sidebar-toggle\.js/);
   const values = Object.fromEntries(itemMaster.flatMap(section => section.fields).filter(field => field.required).map(field =>
     [field.label, field.options?.[0] ?? (field.type === 'number' ? '820' : 'Sample')]));
   const pdf = Buffer.from('%PDF-1.4\nsample\n%%EOF');

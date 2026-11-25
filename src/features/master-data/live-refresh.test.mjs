@@ -66,7 +66,7 @@ test('every saved master and review register updates live while record forms kee
       prefix: '/masters-workspace' });
     assert.match(page, /live-records.js/);
     assert.doesNotMatch(page, /data-live-status|>Live</);
-    assert.doesNotMatch(page, /id="masters-sidebar"/);
+    assert.match(page, /<aside class="sidebar" id="masters-sidebar" hidden>/, 'the menu is on the page but starts hidden');
     assert.match(page, /<h1[^>]*>[^<]+<\/h1>\s*<form class="master-data-search"/);
     assert.match(page, /data-live-records data-live-scope="[a-f0-9]{64}"/);
     const register = recordsPage({ actor, master, rows: [], offset: 0, limit: 50, search: '', status: '',
@@ -83,8 +83,8 @@ test('every saved master and review register updates live while record forms kee
   assert.notEqual(scope(actor), scope({ ...actor, site: 'Other site' }), 'another site cannot replace the open table');
   for (const master of pulseMasters) {
     const page = pulseMasterPage({ actor, master, rows: [], total: 0, offset: 0, pageSize: 50, masterDataPath: '/master-data' });
-    assert.doesNotMatch(page, /id="masters-sidebar"|navigation.js/);
-    assert.equal([...page.matchAll(/type="search"/g)].length, 1);
+    assert.match(page, /<aside class="sidebar" id="masters-sidebar" hidden>/);
+    assert.equal([...page.slice(page.indexOf('<main')).matchAll(/type="search"/g)].length, 1);
     assert.match(page, /href="\/master-data" aria-label="Back to Master Data"[^>]*>\s*<svg/);
   }
 });

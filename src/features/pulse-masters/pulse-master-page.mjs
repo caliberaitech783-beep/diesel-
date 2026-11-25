@@ -1,4 +1,5 @@
 import { mastersMenuLink } from '../masters/master-navigation.mjs';
+import { masterSidebar } from '../masters/master-sidebar.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { pulseMastersPath } from './pulse-master-catalog.mjs';
 import { recordDraftScope } from '../masters/records-fields.mjs';
@@ -28,6 +29,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
   <script type="module" src="/master-data/assets/live-records.js"></script>
   <script type="module" src="/master-data/assets/download.js"></script>
   <script type="module" src="/master-data/assets/pulse-import.js"></script>
+  <script type="module" src="/masters/assets/navigation.js"></script><script type="module" src="/masters/assets/sidebar-toggle.js"></script>
 </head><body>
   <a class="skip" href="#workspace">Skip to ${escape(master.name)}</a>
   <header class="masthead">
@@ -36,6 +38,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
     <div class="account">${themeToggle}<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form></div>
   </header>
   <div class="layout">
+    ${masterSidebar({ hidden: true, masterData: true, masterDataPath, pulseMasters: true })}
     <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
       <header class="workspace-heading master-data-heading">
         ${mastersMenuLink(masterDataPath, 'Back to Master Data')}

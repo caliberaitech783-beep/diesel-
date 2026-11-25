@@ -1,7 +1,7 @@
 import { masters } from './catalog.mjs';
 import { pulseMasters as pulseMasterList, pulseMastersPath, replacedByPulse } from '../pulse-masters/pulse-master-catalog.mjs';
 
-export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data', pulseMasters } = {}) {
+export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, localIndentDrafts, masterDataPath = '/master-data', pulseMasters, hidden = false } = {}) {
   // Existing location records still support storage and entry approvals; only Pulse locations are listed.
   const listedMasters = masters.filter(({ slug }) => slug !== 'location-master');
   // Pulse-owned masters open read-only and sort alongside Diesel masters.
@@ -20,7 +20,8 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
   const renderLinks = links => links.toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(({ html }) => html).join('\n');
 
-  return `<aside class="sidebar" id="masters-sidebar">
+  // On a form or a single master's page the menu starts hidden; the ☰ beside the title shows and hides it.
+  return `<aside class="sidebar" id="masters-sidebar"${hidden ? ' hidden' : ''}>
       <div class="sidebar-tools">
         <a class="navigation-icon" href="/login" aria-label="Back to login" title="Back to login">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
