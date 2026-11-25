@@ -46,14 +46,18 @@ export function purchaseOrderSheet(doc, sources = []) {
   };
 }
 
-export async function purchaseOrderPdf(doc, sources) {
-  const sheet = purchaseOrderSheet(doc, sources);
+export const purchaseOrderPdf = (doc, sources) => purchaseOrdersPdf([doc], sources);
+
+// Several purchase orders in one file, each starting on a new page.
+export async function purchaseOrdersPdf(docs, sources) {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(latin('Diesel Purchase Order ' + sheet.number));
+  pdf.setTitle(latin(docs.length === 1 ? 'Diesel Purchase Order ' + (docs[0].number || 'Draft') : 'Diesel Purchase Orders'));
+  const labels = [];
+  let sheet;
   const regular = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const left = 40, right = 555, ink = rgb(0.1, 0.12, 0.16), muted = rgb(0.38, 0.42, 0.48), line = rgb(0.8, 0.83, 0.87), band = rgb(0.93, 0.95, 0.98);
   let page, y;
-  const start = () => { page = pdf.addPage([595, 842]); y = 800; };
+  const start = () => { page = pdf.addPage([595, 842]); y = 800; labels.push(sheet.number); };
   const room = height => { if (y - height < 50) start(); };
   const text = (value, x, size = 10, font = regular, color = ink) => page.drawText(latin(value), { x, y, size, font, color });
   const fit = (value, font, size, width) => {
@@ -94,6 +98,8 @@ export async function purchaseOrderPdf(doc, sources) {
   };
   const section = ([title, rows]) => { heading(title); pairs(rows); };
 
+  for (const doc of docs) {
+  sheet = purchaseOrderSheet(doc, sources);
   start();
   text('Caliber Mining and Logistics Ltd', left, 10, regular, muted);
   y -= 24;
@@ -133,8 +139,36 @@ export async function purchaseOrderPdf(doc, sources) {
   y -= 8;
   sheet.closing.forEach(section);
 
+  }
   const pages = pdf.getPages();
-  pages.forEach((sheetPage, index) => sheetPage.drawText(latin('Generated from Diesel · ' + sheet.number + ' · Page ' + (index + 1) + ' of ' + pages.length),
+  pages.forEach((sheetPage, index) => sheetPage.drawText(latin('Generated from Diesel · ' + labels[index] + ' · Page ' + (index + 1) + ' of ' + pages.length),
     { x: left, y: 28, size: 8, font: regular, color: muted }));
+  return pdf.save();
+}
+
+// Any other register as a PDF list: one line per record.
+export async function registerPdf(title, head, rows) {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(latin(title));
+  const regular = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const left = 40, right = 555, ink = rgb(0.1, 0.12, 0.16), muted = rgb(0.38, 0.42, 0.48), line = rgb(0.8, 0.83, 0.87);
+  const width = (right - left) / head.length;
+  let page, y;
+  const cut = (value, font) => { let shown = latin(value); while (shown.length > 1 && font.widthOfTextAtSize(shown, 9) > width - 6) shown = shown.slice(0, -2) + '.'; return shown; };
+  const draw = (cells, font, color) => {
+    cells.forEach((cell, index) => page.drawText(cut(cell, font), { x: left + index * width, y, size: 9, font, color }));
+    y -= 5; page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: line }); y -= 12;
+  };
+  const start = () => {
+    page = pdf.addPage([595, 842]); y = 800;
+    page.drawText('Caliber Mining and Logistics Ltd', { x: left, y, size: 10, font: regular, color: muted }); y -= 22;
+    page.drawText(latin(title), { x: left, y, size: 16, font: bold, color: ink }); y -= 24;
+    draw(head, bold, muted);
+  };
+  start();
+  for (const row of rows) { if (y < 50) start(); draw(row, regular, ink); }
+  if (!rows.length) page.drawText('No records.', { x: left, y, size: 10, font: regular, color: muted });
+  const pages = pdf.getPages();
+  pages.forEach((sheetPage, index) => sheetPage.drawText('Generated from Diesel - Page ' + (index + 1) + ' of ' + pages.length, { x: left, y: 28, size: 8, font: regular, color: muted }));
   return pdf.save();
 }

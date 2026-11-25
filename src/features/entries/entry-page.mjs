@@ -102,7 +102,8 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
       `<a class="${tone}" href="/entries?status=${encodeURIComponent(value)}" ${status===value?'aria-current="true"':''}><span class="count-label">${label}</span><strong>${rows.filter(r=>r.status===value).length}</strong><i class="metric-symbol" aria-hidden="true"></i></a>`).join('')}</div>`:''}
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
-    <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a></div></div>
+    <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a>
+    <a class="export" href="${esc('/entries/export.pdf?'+exportQuery)}">Export PDF</a></div></div>
     <form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
@@ -202,7 +203,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
-    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a>${d.type==='E2'&&d.rev>0?` · <a class="export" href="${recordPath(d)}/purchase-order.pdf">Download PDF</a>`:''}</p>
+    : `<p><a href="/entries/type/${d.type}">← ${meta.id} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(d.status)}</strong><span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   return page(meta.name,actor,d.type,back,`${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
