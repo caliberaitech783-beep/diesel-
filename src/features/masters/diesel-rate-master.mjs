@@ -2,6 +2,7 @@ export const dieselRateMaster = [
   {
     name: 'Supplier and validity',
     fields: [
+      { label: 'Location', required: false },
       { label: 'Supplier', required: true },
       { label: 'Depot', required: true },
       { label: 'Price basis (Ex-depot / Delivered)', required: true, options: ['Ex-depot', 'Delivered'] },

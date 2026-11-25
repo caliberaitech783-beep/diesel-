@@ -182,3 +182,14 @@ test('a submitted master searches the Account Master for a field that names an a
   const depot = recordsPage({ master: masterDefinition('supplier-depot-master'), actor, rows: [], creating: true, editingAllowed: true, submissionsOnly: true, dialog: true });
   assert.match(depot, /name="Supplier \(A\/C Code\)"[^>]*list="field-\d+-options"/);
 });
+
+test('the Diesel Rate Master asks for a location before the supplier and searches the Location Master', async () => {
+  const { recordsPage } = await import('./records-page.mjs');
+  const { masterDefinition } = await import('./records-fields.mjs');
+  const actor = { id: 'm', name: 'Maker', site: 'S', canEditMasters: true };
+  const form = recordsPage({ master: masterDefinition('diesel-rate-master'), actor, rows: [], creating: true, editingAllowed: true, submissionsOnly: true, dialog: true,
+    locationNames: ['CMPL Nagpur', 'Jayant OC'] });
+  assert.ok(form.indexOf('name="Location"') > 0 && form.indexOf('name="Location"') < form.indexOf('name="Supplier"'));
+  assert.match(form, /<input [^>]*name="Location"[^>]*list="(field-\d+)-options"[^>]*><datalist id="\1-options"><option value="CMPL Nagpur"><\/option><option value="Jayant OC"><\/option><\/datalist>/);
+  assert.doesNotMatch(form, /name="Location"[^>]*required/);
+});

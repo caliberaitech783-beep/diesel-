@@ -141,6 +141,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     let insights;
     const submissions = registerItemSubmissions(app, {
       store: itemSubmissions, publicOrigin: publicUrl.origin, itemDirectory, costCentres, homeOverview: request => insights?.homeOverview(request),
+      // Location Master names, for fields that search it.
+      locationNames: () => [...new Set(pulseMasterCopies?.stored('site').map(record => record.name).filter(Boolean) ?? [])].sort((first, second) => first.localeCompare(second)),
       async getProfile(request) {
         const result = await verifySession(request);
         return allowed(result?.profile) ? result.profile : null;

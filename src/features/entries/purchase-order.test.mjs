@@ -234,12 +234,12 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
   const {store,submit,approve,order}=setup(t);
   assert.deepEqual([byId.E4.name,byId.E4.group,byId.E4.maker],['Delivery Schedule','Buy','Procurement Executive']);
   const waiting=submit('E2',order);
-  const schedule={po:waiting.id,deliveryDate:day,deliveryLocation:'Jayant OC',deliveryAddress:'Jayant camp storage',item:review.item,litres:14000,vehicle:'mh34 bz 4428',transporter:'SANDEEP GASOLENES'};
+  const schedule={po:waiting.id,deliveryDate:day,deliveryLocation:'Jayant OC',deliveryAddress:'Jayant camp storage',item:review.item,litres:14000,vehicleNo:'mh34 bz 4428',transporter:'SANDEEP GASOLENES'};
   assert.throws(()=>submit('E4',schedule),/Choose a posted E2/,'the purchase order must be approved first');
   const po=approve(waiting);
   const first=submit('E4',schedule);
   assert.deepEqual([first.status,first.number,first.result.litres,first.result.vehicle,first.result.balance,first.result.order],['Posted','E4-JAY-2026-0001',14000,'MH34BZ4428',26000,po.number]);
-  assert.throws(()=>submit('E4',{...schedule,vehicle:'TRUCK'}),/vehicle number like MH34BZ4428/);
+  assert.throws(()=>submit('E4',{...schedule,vehicleNo:'TRUCK'}),/vehicle number like MH34BZ4428/);
   assert.throws(()=>submit('E4',{...schedule,deliveryDate:'2000-01-01'}),/delivery date on or after/);
   assert.throws(()=>submit('E4',{...schedule,deliveryLocation:'Nowhere'}),/Delivery location/);
   assert.throws(()=>submit('E4',{...schedule,litres:26001}),/26,000 L is left to schedule/);
@@ -248,7 +248,13 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
 
   const buyer={...actor('Procurement Executive'),businessDay:day};
   const form=detailPage(buyer,store.fresh('E4',buyer),store.list('Jayant'),[],null,store.definition('E4','Jayant'));
-  for (const label of ['Purchase order','Delivery date','Delivery location','Delivery address','Item name','DSL Qty (L)','Vehicle No.','Transporter']) assert.match(form,new RegExp(label.replace(/[()]/g,'\\$&'),'i'),label);
+  for (const label of ['Dispatch Management','Create a new Diesel Dispatch Schedule','Dispatch Details','Location','Date','Purchase Order No.','Delivery Schedule No.','Delivery Date','Delivery Location',
+    'Delivery Address','Item Name','DSL Qty (L)','Vehicle No.','Transporter','Save as Draft','Save Dispatch','✕ Cancel']) assert.ok(form.includes(label),label);
+  assert.match(form,/placeholder="Generated on save" value="">/);
+  assert.match(form,/name="vehicleNo"[^>]*list="dispatch-vehicles"/);
+  assert.match(form,/<datalist id="dispatch-vehicles">(<option value="[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}">)+<\/datalist>/);
+  assert.match(form,/<option value="CMPL Nagpur">CMPL Nagpur<\/option>/);
+  assert.match(form,/href="\/entries\/type\/E4">✕ Cancel<\/a>/);
   assert.doesNotMatch(form,new RegExp('value="'+po.id+'"'),'a fully scheduled order is no longer offered');
   assert.match(registerPage(buyer,store.list('Jayant'),'E4'),/E4-JAY-2026-0002/);
 });

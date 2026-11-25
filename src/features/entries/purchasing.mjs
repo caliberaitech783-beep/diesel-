@@ -90,7 +90,7 @@ export const purchasing = {
     const po=c.linked('po','E2');
     check(d.deliveryDate>=c.doc.day,'Choose a delivery date on or after the schedule date.');
     check(d.litres>0,'Enter the quantity to dispatch.');
-    const vehicle=String(d.vehicle).toUpperCase().replace(/[\s-]/g,'');
+    const vehicle=String(d.vehicleNo).toUpperCase().replace(/[\s-]/g,'');
     check(/^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}$/.test(vehicle),'Enter the vehicle number like MH34BZ4428.');
     const scheduled=c.sum(c.reserved('E4').filter(row=>row.data.po===po.id),'litres');
     check(round(scheduled+d.litres)<=po.result.litres,'This schedule takes the dispatches past the purchase order quantity. '

@@ -134,5 +134,7 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
     const master = pulseMaster(slug);
     const fresh = await ensureFresh(master, access);
     return { ...visible(master, access), fresh };
-  } };
+  },
+  // The copy as last stored, with the records added in Diesel, without asking Pulse again.
+  stored: slug => store.read(slug).records };
 }
