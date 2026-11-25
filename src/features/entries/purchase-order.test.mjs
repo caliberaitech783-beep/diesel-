@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createEntryStore } from './entry-store.mjs';
 import { review, roleKey } from './review-masters.mjs';
@@ -171,4 +172,33 @@ test('footer heads and legends chosen on the order decide how each amount is wor
   assert.equal(html.match(/<tr hidden><td>\d<\/td>/g).length,4,'a new order shows one footer row; the rest wait behind Add footer row');
   assert.match(html,/data-add-footer-row>\+ Add footer row</);
   assert.doesNotMatch(html,/name="exciseRate"|name="vatPercent"/);
+});
+
+test('a purchase order download has a column for every field, its totals, and who created it and when', t => {
+  const {store,order,indent,db}=setup(t);
+  const maker={...actor('Procurement Executive'),requestedBy:'SIDDHARTH HOONKA'};
+  const {exciseRate,vatPercent,...base}=order;
+  let po=store.write(randomUUID(),maker,{type:'E2',action:'Submit',rev:0,day,data:{...base,depot:'IOCL Tadali',basis:'Ex-depot',freightRate:1.5,
+    footerRows:JSON.stringify([{head:'Basic Excise Duty',legend:'OQA',rate:7.8},{head:'VAT',legend:'PRA',rate:14.9},{head:'Round Off',legend:'LSA'}])}});
+  assert.equal(po.createdBy,'SIDDHARTH HOONKA');
+  // Another person in the same role opening or saving it later does not become the creator.
+  po=store.write(po.id,{...maker,requestedBy:'Someone Else'},{action:'Edit',rev:po.rev});
+  po=store.write(po.id,{...maker,requestedBy:'Someone Else'},{type:'E2',action:'Save draft',rev:po.rev,day,data:{...po.data,footerRows:JSON.stringify(po.data.footerRows),deliveries:JSON.stringify(po.data.deliveries??[])}});
+  assert.equal(po.createdBy,'SIDDHARTH HOONKA');
+  assert.match(detailPage({...maker,requestedBy:'Someone Else'},po,store.list('Jayant'),[]),/Created By <b>SIDDHARTH HOONKA<\/b>/);
+
+  const sources=store.list('Jayant'), orders=sources.filter(row=>row.type==='E2'&&row.id===po.id);
+  assert.equal(purchaseOrdersOnly(orders),true);
+  assert.equal(purchaseOrdersOnly(sources),false);
+  const [head,row]=purchaseOrderExportRows(orders,sources), cell=name=>row[head.indexOf(name)];
+  assert.equal(head.length,row.length);
+  assert.equal(new Set(head).size,head.length);
+  assert.deepEqual(['PO No.','Indent No.','Party / Vendor Name','Lifting Location','Freight Type','Freight Rate (₹/L)','Diesel Qty (L)','Footer Head 1','Legend 1','Rate / % 1','Calculated On 1','Value (₹) 1',
+    'Footer Head 2','Value (₹) 2','Footer Head 3','Value (₹) 3','Footer Head 4','Total Footer Heads','P.O. Amount','Landed Rate (per Litre)','Is Full Payment as Advance?','Created By'].map(cell),
+    [po.number,indent.number.replace(/^(?!CMLL)/,''),order.supplier,'IOCL Tadali','To Pay',1.5,40000,'Basic Excise Duty','OQA',7.8,40000,312000,
+    'VAT',689886.33,'Round Off',0.07,'',1001886.4,5319996,132.9999,'Yes','SIDDHARTH HOONKA'].map((value,index)=>index===1?cell('Indent No.'):value));
+  assert.match(cell('Indent No.'),/IND|E1-/);
+  assert.match(cell('PO Amount in Words'),/^Rupees Fifty Three Lakh/);
+  assert.match(cell('Creation Date'),/^\d{2}-[A-Z][a-z]{2}-\d{4}$/);
+  assert.match(cell('Creation Time'),/^\d{2}:\d{2} [AP]M$/);
 });
