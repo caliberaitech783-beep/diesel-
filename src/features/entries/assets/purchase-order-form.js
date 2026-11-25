@@ -19,7 +19,7 @@ if (form?.querySelector('[name="litres"]')) {
     const entered = readFooter();
     footStore.value = JSON.stringify(entered.filter(row => row.head).map(({ head, legend, rate }) => ({ head, legend, ...(rate === '' || head === 'Round Off' ? {} : { rate }) })));
     // Blank rows still take a place, so each result lines up with its row on the page.
-    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered });
+    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered, basis: el('basis').value, freightRate: el('freightRate').value });
     out('netRate').textContent = t.netRate || '';
     out('amount').textContent = t.amount ? plain(t.amount) : '';
     out('landedRate').textContent = t.landedRate ? t.landedRate.toFixed(4) : '';
@@ -132,6 +132,9 @@ if (form?.querySelector('[name="litres"]')) {
   el('supplier').addEventListener('change', showVendor);
   el('shortageMethod').addEventListener('change', shortage);
   el('basis').addEventListener('change', freight);
+  // The landed rate takes in the freight rate on To Pay and To Bill orders.
+  el('basis').addEventListener('change', calculate);
+  el('freightRate').addEventListener('input', calculate);
   el('indent').addEventListener('change', indent);
   el('day').addEventListener('change', dates);
   showVendor(); shortage(); freight(); indent(); calculate();

@@ -31,7 +31,7 @@ function setup(t) {
 }
 
 test('purchase order totals follow excise per litre, VAT on amount plus excise, and a whole-rupee round-off', () => {
-  const {rows:legacyRows,...totals}=purchaseOrderTotals({litres:40000,rateAfter:107.95274,exciseRate:7.8,vatPercent:14.9});
+  const {rows:legacyRows,dieselRate:_diesel,freightRate:_freight,...totals}=purchaseOrderTotals({litres:40000,rateAfter:107.95274,exciseRate:7.8,vatPercent:14.9});
   assert.deepEqual(legacyRows.map(row=>[row.head,row.legend,row.on,row.value]),[['Basic Excise Duty','OQA',40000,312000],['VAT','PRA',4630109.6,689886.33],['Round Off','LSA',null,0.07]]);
   assert.deepEqual(totals,{litres:40000,netRate:107.95274,amount:4318109.6,excise:312000,vatBase:4630109.6,vat:689886.33,roundOff:0.07,
     footer:1001886.4,total:5319996,landedRate:132.9999});
@@ -49,7 +49,7 @@ test('a single-page purchase order saves its schedule and carries rates forward 
   assert.equal(po.data.deliveries.length,2);
   assert.deepEqual(po.data.deliveries[1],{date:day,location:'Jayant',litres:20000,vehicle:'mh 34 bz 5172',transporter:'Shree Vinayak Transport'});
   const r=po.result;
-  assert.deepEqual([r.litres,r.value,r.amount,r.excise,r.vatAmount,r.roundOff,r.footerHeads,r.landedRate],[40000,5319996,4318109.6,312000,689886.33,0.07,1001886.4,132.9999]);
+  assert.deepEqual([r.litres,r.value,r.amount,r.excise,r.vatAmount,r.roundOff,r.footerHeads,r.landedRate],[40000,5319996,4318109.6,312000,689886.33,0.07,1001886.4,139.1999]);
   assert.deepEqual([r.rate,r.vat,r.freight,r.landed,r.invoiceDiscount,r.shortageRate,r.shortageParty,r.transitTolerance],
     [132999.9,14.9,6200,139199.9,0,0,review.transporter,0]);
   assert.equal(r.amountInWords,'Rupees Fifty Three Lakh Nineteen Thousand Nine Hundred Ninety Six Only');
@@ -198,7 +198,7 @@ test('a purchase order download has a column for every field, its totals, and wh
   assert.deepEqual(['PO No.','Indent No.','Party / Vendor Name','Lifting Location','Freight Type','Freight Rate (₹/L)','Diesel Qty (L)','Footer Head 1','Legend 1','Rate / % 1','Calculated On 1','Value (₹) 1',
     'Footer Head 2','Value (₹) 2','Footer Head 3','Value (₹) 3','Footer Head 4','Total Footer Heads','P.O. Amount','Landed Rate (per Litre)','Is Full Payment as Advance?','Created By'].map(cell),
     [po.number,indent.number.replace(/^(?!CMLL)/,''),order.supplier,'IOCL Tadali','To Pay',1.5,40000,'Basic Excise Duty','OQA',7.8,40000,312000,
-    'VAT',689886.33,'Round Off',0.07,'',1001886.4,5319996,132.9999,'Yes','SIDDHARTH HOONKA'].map((value,index)=>index===1?cell('Indent No.'):value));
+    'VAT',689886.33,'Round Off',0.07,'',1001886.4,5319996,134.4999,'Yes','SIDDHARTH HOONKA'].map((value,index)=>index===1?cell('Indent No.'):value));
   assert.match(cell('Indent No.'),/IND|E1-/);
   assert.match(cell('PO Amount in Words'),/^Rupees Fifty Three Lakh/);
   assert.match(cell('Creation Date'),/^\d{2}-[A-Z][a-z]{2}-\d{4}$/);
@@ -377,4 +377,18 @@ test('a saved purchase order reads in the same cards as its form', t => {
   assert.match(page,/<span class="legend">OQA<\/span>/);
   assert.doesNotMatch(page,/<h2>Entry details<\/h2>|Calculated and carried forward/);
   assert.match(page,/value="Approve"/,'the approver still has the actions below');
+});
+
+test('landed rate is the order amount per litre plus the freight rate on To Pay and To Bill, never on FOR', t => {
+  const base={litres:500,rateAfter:92.5,freightRate:1.5,footerRows:[{head:'Basic Excise Duty',legend:'OQA',rate:7.8},{head:'VAT',legend:'PRA',rate:14.9},{head:'Round Off',legend:'LSA'}]};
+  const rate=basis=>purchaseOrderTotals({...base,basis});
+  assert.deepEqual(['Ex-depot','To Bill','Delivered',undefined].map(basis=>rate(basis).landedRate),[116.744,116.744,115.244,115.244]);
+  assert.deepEqual([rate('Ex-depot').total,rate('Delivered').total,rate('Ex-depot').dieselRate],[57622,57622,115.244],'the order amount itself does not change');
+  assert.equal(purchaseOrderTotals({...base,basis:'To Bill',freightRate:''}).landedRate,115.244);
+
+  const {submit,order,store}=setup(t);
+  const po=submit('E2',{...order,basis:'To Bill',freightRate:2});
+  assert.equal(po.result.landedRate,Math.round((5319996/40000+2)*10000)/10000);
+  const sheet=purchaseOrderSheet(po,store.list('Jayant'));
+  assert.deepEqual(sheet.totals[3],['Landed Rate (per Litre)',po.result.landedRate.toFixed(4)]);
 });
