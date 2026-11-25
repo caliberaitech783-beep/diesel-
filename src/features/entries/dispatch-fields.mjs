@@ -41,3 +41,18 @@ export function dispatchFields(actor, doc, meta, rows) {
       ${select('transporter', 'Transporter', plain('transporter'), 'Select transporter')}
     </div></fieldset>`;
 }
+
+// A saved Delivery Schedule laid out like its form: the same card and the same order of fields, read rather than typed.
+export function dispatchView(doc, orderLink) {
+  const d = doc.data, r = doc.result ?? {};
+  const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') ? value.split('-').reverse().join('-') : value;
+  const litres = value => typeof value === 'number' ? value.toLocaleString('en-IN') : value;
+  const shown = value => value === undefined || value === null || value === '' ? '—' : esc(value);
+  const rows = [['Location', shown(doc.site)], ['Date', shown(date(doc.day))], ['Purchase Order No.', orderLink || shown(r.order)],
+    ['Delivery Schedule No.', shown(formatIndentNumber(doc.number ?? ''))], ['Delivery Date', shown(date(d.deliveryDate))], ['Delivery Location', shown(d.deliveryLocation)],
+    ['Delivery Address', shown(d.deliveryAddress)], ['Item Name', shown(d.item)], ['DSL Qty (L)', shown(litres(d.litres))],
+    ['Vehicle No.', shown(r.vehicle ?? d.vehicleNo)], ['Transporter', shown(d.transporter)], ['Supplier', shown(r.supplier)],
+    ...(r.balance === undefined ? [] : [['PO Balance after this schedule (L)', shown(litres(r.balance))]])];
+  return `<div class="order-view"><section class="order-card order-view-card order-view-record order-dispatch"><h2>${truck}<span>Dispatch Details</span></h2><dl class="order-view-list">${
+    rows.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${value}</dd></div>`).join('')}</dl></section></div>`;
+}

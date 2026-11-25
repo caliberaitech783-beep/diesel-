@@ -15,7 +15,7 @@ import { localReadingTime } from './entry-calendar.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { indentFields, indentReadDetails, indentHeading } from './indent-fields.mjs';
 import { purchaseOrderFields, purchaseOrderHeading } from './purchase-order-fields.mjs';
-import { dispatchFields, dispatchHeading } from './dispatch-fields.mjs';
+import { dispatchFields, dispatchHeading, dispatchView } from './dispatch-fields.mjs';
 import { grnFields, grnHeading } from './grn-fields.mjs';
 import { purchaseOrderView } from './purchase-order-view.mjs';
 import { indentStatus, formatIndentNumber, formatIndentDate, indentFormData } from './indent-details.mjs';
@@ -220,9 +220,9 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${editable?`<section${indent?' class="indent-form-panel"':order?' class="order-form-panel"':''}><h2${indent||order?' class="sr-only"':''}>Entry details</h2>${editableFields(meta,d,rows,actor)}
     ${d.type==='E12'&&!actor.siteEntryTypes?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions gps"><output id="gps-status" aria-live="polite">GPS is stamped automatically when location is allowed.</output><button type="button" id="record-position">Refresh GPS</button></div>':''}
-    ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:d.type==='E2'&&d.rev>0?purchaseOrderView(d,rows):inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
+    ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:d.type==='E2'&&d.rev>0?purchaseOrderView(d,rows):d.type==='E4'&&d.rev>0?dispatchView(d,d.data.po?displayValue(d.data.po):''):inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
     ${indent?`<details class="indent-secondary" open><summary>Site stock</summary>${picture&&Object.keys(picture).length?stock:`<p>${d.rev||d.selectedSite?'Site stock is currently unavailable.':'Select a location to see its stock.'}</p>`}</details>`:''}
-    ${resultRows&&!indent&&!order&&d.type!=='E2'?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
+    ${resultRows&&!indent&&!order&&!['E2','E4'].includes(d.type)?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
     ${d.type==='E17'&&d.status==='Posted'&&['Head – Accounts','CFO'].includes(role)?`<p><a href="/entries/accounting/${d.id}.csv">Download month-end journal</a></p>`:''}
     ${next&&d.status==='Awaiting approval'&&!listed?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
