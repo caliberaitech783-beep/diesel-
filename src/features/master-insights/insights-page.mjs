@@ -1,5 +1,7 @@
 import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
+import { masters as catalog } from '../masters/catalog.mjs';
+import { pulseMasters as pulseCatalog } from '../pulse-masters/pulse-master-catalog.mjs';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -36,11 +38,14 @@ const arrow = glyph('<path d="M5 12h14m-6-6 6 6-6 6"/>');
 
 // Every master as a card: its record count, whether Pulse owns it, and how many records still miss required fields.
 export function masterCards({ pulse, masters, masterDataPath }) {
-  const cards = [...masters.map(row => ({ ...row, href: masterDataPath + '?master=' + row.slug })),
-    ...pulse.map(row => ({ ...row, fromPulse: true, href: '/pulse-masters?master=' + row.slug }))].toSorted((a, b) => a.name.localeCompare(b.name, 'en'));
+  // Each card also answers to its field names, so typing "PAN" in the filter finds the master that holds it.
+  const fieldsOf = slug => (catalog.find(master => master.slug === slug)?.sections.flatMap(section => section.fields.map(field => field.label))
+    ?? pulseCatalog.find(master => master.slug === slug)?.columns.map(([, label]) => label) ?? []).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
+  const cards = [...masters.map(row => ({ ...row, fields: fieldsOf(row.slug), href: masterDataPath + '?master=' + row.slug })),
+    ...pulse.map(row => ({ ...row, fields: fieldsOf(row.slug), fromPulse: true, href: '/pulse-masters?master=' + row.slug }))].toSorted((a, b) => a.name.localeCompare(b.name, 'en'));
   return `<div class="master-cards-head"><p class="record-meta">${cards.length} masters · reference data used across the Diesel Workspace</p>
     <label class="master-filter"><span class="sr-only">Filter masters</span><input type="search" id="master-card-filter" placeholder="Filter masters…" autocomplete="off" aria-controls="master-cards" hidden></label></div>
-    <div class="master-cards" id="master-cards">${cards.map(card => `<a class="master-card" href="${escape(card.href)}"><span class="master-card-icon">${picture(card.name)}</span>
+    <div class="master-cards" id="master-cards">${cards.map(card => `<a class="master-card" href="${escape(card.href)}" data-fields="${escape(card.fields ?? '')}"><span class="master-card-icon">${picture(card.name)}</span>
       <span class="master-card-text"><b>${escape(card.name)}</b><small>${Number(card.count).toLocaleString('en-IN')} record${card.count === 1 ? '' : 's'}${card.fromPulse ? ' <i class="from-pulse">Pulse</i>' : ''}</small>
       ${card.incomplete ? `<em class="record-incomplete">${card.incomplete} missing required fields</em>` : ''}</span><span class="master-card-arrow">${arrow}</span></a>`).join('')}</div>
     <p class="master-cards-none" id="master-cards-none" hidden>No master matches that filter.</p>`;

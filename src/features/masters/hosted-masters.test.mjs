@@ -100,7 +100,7 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   assert.equal((await req(root+'/master-data','l')).status,403);
   assert.equal((await req(api('item-master'),'x')).status,403);
   assert.equal((await req(api('item-master'))).status,401);
-  assert.match(await (await req('/','c')).text(),/\/masters-workspace\/master-data\?master=item-master/);
+  assert.equal((await req('/','c')).headers.get('location'),root+'/master-data','the bare home opens Master Data');
   assert.equal((await req('/?master=item-master','m')).headers.get('location'),root+'/records?master=item-master&new=1');
   assert.equal((await req('/?master=item-master','c')).headers.get('location'),root+'/records?master=item-master');
   assert.equal((await req(root+'/records?master=item-master&new=1','c')).status,403);

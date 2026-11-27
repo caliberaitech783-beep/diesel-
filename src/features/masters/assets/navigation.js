@@ -6,10 +6,12 @@ const sections = [...document.querySelectorAll('.master-group')].map(group => {
   const entries = [...list.children].map(item => ({
     item,
     name: words(item.textContent),
-    fields: words(item.dataset.fields),
+    fields: words(item.dataset.fields ?? ''),
   }));
   return { group, list, entries };
 });
+// The short menu has no list of masters to search.
+if (search) {
 let lastOpen = sections.find(section => section.group.open) ?? sections[0];
 function activeSection() {
   lastOpen = sections.find(section => section.group.open) ?? lastOpen;
@@ -53,6 +55,7 @@ search.addEventListener('keydown', event => {
     activeSection().list.querySelector('li:not([hidden]) a')?.click();
   }
 });
+}
 
 // Record counts beside each Master Data link, where the signed-in workspace provides them.
 const counted = document.querySelector('#master-data-list[data-counts]');

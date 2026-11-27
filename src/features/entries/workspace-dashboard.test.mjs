@@ -63,7 +63,12 @@ test('dashboard figures come only from saved entries in the period', () => {
 
 test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
   const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
-  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a><\/div>/s);
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data checks<\/a><\/div>/s);
+  // The short menu: no list of masters and no separate Master list, only the approver lists below the main links.
+  assert.ok(!html.includes('master-data-list') && !html.includes('master-list') && !html.includes('master-search'));
+  assert.match(html, /<summary>.*Approvers<\/summary><ul aria-label="Approver lists"><li><a href="\/indent-approvers">Indent approvers<\/a><\/li><li><a href="\/po-approvers">PO approvers<\/a><\/li><\/ul>/);
+  // The local workspace has no cards page, so its menu still lists every master.
+  assert.ok(masterSidebar({ masterData: true }).includes('id="master-data-list"') && masterSidebar({}).includes('id="master-list"'));
   assert.ok(!masterSidebar({}).includes('main-links'));
 });
 
@@ -123,8 +128,8 @@ test('Master Data shows every master as a card with its count, source and missin
     masters: [{ slug: 'account-master', name: 'Account Master', count: 1650, incomplete: 165 }, { slug: 'diesel-rate-master', name: 'Diesel Rate Master', count: 1 }] };
   const html = masterCards(data);
   assert.match(html, /3 masters · reference data used across the Diesel Workspace/);
-  assert.match(html, /<a class="master-card" href="\/master-data\?master=account-master">[\s\S]*?<b>Account Master<\/b><small>1,650 records<\/small>\s*<em class="record-incomplete">165 missing required fields<\/em>/);
-  assert.match(html, /href="\/pulse-masters\?master=site">[\s\S]*?<b>Location Master<\/b><small>3 records <i class="from-pulse">Pulse<\/i><\/small>/);
+  assert.match(html, /<a class="master-card" href="\/master-data\?master=account-master" data-fields="[^"]*Parent Group[^"]*">[\s\S]*?<b>Account Master<\/b><small>1,650 records<\/small>\s*<em class="record-incomplete">165 missing required fields<\/em>/);
+  assert.match(html, /href="\/pulse-masters\?master=site"[^>]*>[\s\S]*?<b>Location Master<\/b><small>3 records <i class="from-pulse">Pulse<\/i><\/small>/);
   assert.match(html, /<b>Diesel Rate Master<\/b><small>1 record<\/small>/);
   assert.ok(html.indexOf('Account Master') < html.indexOf('Diesel Rate Master') && html.indexOf('Diesel Rate Master') < html.indexOf('Location Master'), 'cards are in name order');
   const page = overview(data);
