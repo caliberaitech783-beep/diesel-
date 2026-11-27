@@ -124,9 +124,13 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(checklist, /Majri OC<\/th>[\s\S]*?drivers, active shifts/);
 
   const checks = await page('/master-insights?view=checks');
-  assert.match(checks, /Equipment that shares a registration number <span class="record-incomplete">1<\/span>/);
-  assert.match(checks, /T-303 — Nowhere/);
-  assert.match(checks, /Storage locations that share a short name <span class="record-incomplete">3<\/span>/);
+  // Each check that found something is a card: its count, what it means, where to correct it, and the records.
+  assert.match(checks, /<span class="check-count" title="1 to correct">1<\/span>\s*<div><h2>Equipment that shares a registration number<\/h2><p>One vehicle should appear once in the Equipment Master\.<\/p><\/div><a class="check-fix" href="\/pulse-masters\?master=equipment">Open Equipment Master →<\/a>/);
+  assert.match(checks, /<li><b>T-303<\/b><span>Nowhere<\/span><\/li>/);
+  assert.match(checks, /<span class="check-count" title="3 to correct">3<\/span>\s*<div><h2>Storage locations that share a short name<\/h2>/);
+  assert.match(checks, /<a class="check-fix" href="\/master-data\?master=storage-location-master">Open Storage Location Master →<\/a>/);
+  assert.match(checks, /<div class="check-summary"><div class="check-tile "><strong>8<\/strong><span>Checks run<\/span><\/div>/);
+  assert.ok(checks.includes('id="check-filter"') && !checks.includes(' style='));
 
   const sidebar = await page('/master-data');
   assert.match(sidebar, /<h2>From Pulse<\/h2>/, 'the Master Data home shows the overview instead of an empty page');

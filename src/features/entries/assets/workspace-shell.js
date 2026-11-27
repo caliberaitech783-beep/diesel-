@@ -342,3 +342,23 @@ if (cardFilter) {
     none.hidden = shown > 0;
   });
 }
+
+// ---- Data checks: find a code, name or site among the findings.
+const checkFilter = document.querySelector('#check-filter');
+if (checkFilter) {
+  const cards = [...document.querySelectorAll('.check-card')], none = document.querySelector('#check-none');
+  checkFilter.hidden = false;
+  checkFilter.addEventListener('input', () => {
+    const words = checkFilter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const card of cards) {
+      let matches = 0;
+      for (const item of card.querySelectorAll('.check-items li')) { item.hidden = !words.every(word => item.textContent.toLowerCase().includes(word)); if (!item.hidden) matches += 1; }
+      card.hidden = !matches;
+      // While searching, the rest of a long list is opened so a match is never hidden behind "Show all".
+      const more = card.querySelector('.check-more'); if (more && words.length) more.open = true;
+      shown += matches;
+    }
+    none.hidden = shown > 0;
+  });
+}
