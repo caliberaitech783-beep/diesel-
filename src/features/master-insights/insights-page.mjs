@@ -8,7 +8,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
 })[char]);
 export const insightsPath = '/master-insights';
 // Data review: what needs correcting, which sites are ready, and what Diesel holds from Pulse.
-const views = [['checks', 'Data checks'], ['sites', 'Site checklist'], ['overview', 'Pulse and equipment']];
+const views = [['checks', 'Data overview'], ['sites', 'Site checklist'], ['overview', 'Pulse and equipment']];
 const istTime = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
 const table = (label, headings, rows) => `<div class="master-data-table insight-table" role="region" aria-label="${escape(label)}" tabindex="0"><table>
   <thead><tr>${headings.map(heading => `<th scope="col">${escape(heading)}</th>`).join('')}</tr></thead>
@@ -71,34 +71,51 @@ function sites({ checklist }) {
       row.missing.length ? { html: `<span class="record-incomplete">${escape(row.missing.join(', '))}</span>` } : 'Ready']))}`;
 }
 
-// Where each kind of finding is corrected, worked out from what the check is about.
-const fixes = [[/^Storage/, 'Storage Location Master', '/master-data?master=storage-location-master'], [/^Equipment/, 'Equipment Master', '/pulse-masters?master=equipment'],
-  [/^Drivers/, 'Driver Master', '/pulse-masters?master=driver'], [/^Shifts/, 'Shift Master', '/pulse-masters?master=shift'], [/^Accounts/, 'Account Master', '/master-data?master=account-master']];
-// One finding as a row: the code or name it is about in bold, the detail beside it.
-function finding(item) {
-  const [, lead, mark, rest] = String(item).match(/^(.*?)( — |: | · )(.*)$/s) ?? [null, String(item), '', ''];
-  return `<li><b>${escape(lead)}</b>${rest ? `<span>${escape(rest)}</span>` : ''}</li>`;
+// One finding as a box: the code or name it is about links to its record, the detail sits beside it.
+function finding(row, check, decisions, action) {
+  const [, lead, , rest] = row.text.match(/^(.*?)( — |: | · )(.*)$/s) ?? [null, row.text, '', ''];
+  const decide = decisions ? `<form method="post" action="${insightsPath}/decision"><input type="hidden" name="check" value="${escape(check.title)}"><input type="hidden" name="item" value="${escape(row.text)}">
+    <button name="action" value="${action}" title="${action === 'accept' ? 'This one is known and correct. It stops counting.' : 'Count this finding again.'}">${action === 'accept' ? 'Not a problem' : 'Bring back'}</button></form>` : '';
+  return `<li data-site="${escape(row.site ?? '')}">${row.href ? `<a href="${escape(row.href)}" title="Open this record">${escape(lead)}</a>` : `<b>${escape(lead)}</b>`}${rest ? `<span>${escape(rest)}</span>` : ''}
+    ${action === 'restore' && row.by ? `<small>Accepted by ${escape(row.by)}</small>` : ''}${decide}</li>`;
 }
+const shownLimit = 200;
+const dayText = day => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(day + 'T00:00:00Z'));
 
-function checks({ findings }) {
-  const open = findings.filter(check => check.count), clear = findings.filter(check => !check.count);
-  const items = open.reduce((total, check) => total + check.count, 0);
-  const tile = (value, label, tone) => `<div class="check-tile ${tone}"><strong>${value}</strong><span>${label}</span></div>`;
-  return `<div class="check-summary">${tile(findings.length, 'Checks run', '')}${tile(open.length, open.length === 1 ? 'Check needs review' : 'Checks need review', open.length ? 'warn' : '')}
-      ${tile(items.toLocaleString('en-IN'), items === 1 ? 'Record to correct' : 'Records to correct', items ? 'warn' : '')}${tile(clear.length, 'Clear', 'ok')}</div>
-    <p class="record-meta">${open.length ? open.length + ' of ' + findings.length + ' checks found something to review.' : 'All ' + findings.length + ' checks are clear.'}</p>
-    ${open.length ? '<label class="check-filter"><span class="sr-only">Find in the findings</span><input type="search" id="check-filter" placeholder="Find a code, name or site in the findings…" autocomplete="off" hidden></label>' : ''}
-    <div class="check-list">${open.map(check => {
-      const [, master, href] = fixes.find(([about]) => about.test(check.title)) ?? [];
-      const shown = check.items.slice(0, 100);
-      return `<section class="check-card"><header><span class="check-count" title="${check.count} to correct">${check.count}</span>
-        <div><h2>${escape(check.title)}</h2><p>${escape(check.help)}</p></div>${href ? `<a class="check-fix" href="${href}">Open ${escape(master)} →</a>` : ''}</header>
-        <ul class="check-items">${shown.slice(0, 12).map(finding).join('')}</ul>
-        ${shown.length > 12 ? `<details class="check-more"><summary>Show all ${check.count > 100 ? '(first 100 of ' + check.count + ')' : check.count}</summary><ul class="check-items">${shown.slice(12).map(finding).join('')}</ul></details>` : ''}
-        ${check.count > 100 ? `<p class="record-meta">Showing the first 100 of ${check.count}.</p>` : ''}</section>`;
-    }).join('')}</div>
+// findings: every check with its open and accepted findings. before: the last earlier day's total, when one is kept.
+function checks({ findings, before, decisions, opened, progress = [] }) {
+  const open = findings.map((check, index) => ({ ...check, index })).filter(check => check.count).toSorted((a, b) => b.count - a.count);
+  const clear = findings.filter(check => !check.count);
+  const items = open.reduce((total, check) => total + check.count, 0), accepted = findings.reduce((total, check) => total + check.accepted.length, 0);
+  const groups = [...new Set(open.map(check => check.group))];
+  const sites = [...new Set(open.flatMap(check => check.open.slice(0, shownLimit).map(row => row.site).filter(Boolean)))].toSorted((a, b) => a.localeCompare(b, 'en'));
+  const moved = before && before.total !== items ? `${Math.abs(before.total - items).toLocaleString('en-IN')} ${before.total > items ? 'fewer' : 'more'} than on ${dayText(before.day)}`
+    : before ? 'Same as on ' + dayText(before.day) : '';
+  const tile = (value, label, tone, href, note = '') => `<a class="check-tile ${tone}" href="${href}"><strong>${value}</strong><span>${label}</span>${note ? `<small>${escape(note)}</small>` : ''}</a>`;
+  const first = open.length ? '#check-' + open[0].index : '#check-clear';
+  return `<div class="check-summary">${tile(findings.length, 'Checks run', '', '#check-list')}${tile(open.length, open.length === 1 ? 'Check needs review' : 'Checks need review', open.length ? 'warn' : '', first)}
+      ${tile(items.toLocaleString('en-IN'), items === 1 ? 'Record to correct' : 'Records to correct', items ? (before && before.total > items ? 'better' : 'warn') : '', first, moved)}${tile(clear.length, 'Clear', 'ok', '#check-clear')}</div>
+    <p class="record-meta">${open.length ? open.length + ' of ' + findings.length + ' checks found something to review.' : 'All ' + findings.length + ' checks are clear.'}${accepted ? ' ' + accepted + ' accepted as not a problem.' : ''}</p>
+    ${open.length ? `<div class="check-tools" id="check-tools" hidden>
+      <div class="check-groups" role="group" aria-label="Show checks for"><button type="button" data-group="" aria-pressed="true">All</button>${groups.map(group => `<button type="button" data-group="${escape(group)}" aria-pressed="false">${escape(group)}</button>`).join('')}</div>
+      ${sites.length ? `<label><span class="sr-only">Site</span><select id="check-site"><option value="">All sites</option>${sites.map(site => `<option>${escape(site)}</option>`).join('')}</select></label>` : ''}
+      <label class="check-filter"><span class="sr-only">Find in the findings</span><input type="search" id="check-filter" placeholder="Find a code, name or site…" autocomplete="off"></label>
+      <button type="button" id="check-expand" aria-pressed="false">Open all</button></div>` : ''}
+    <div class="check-list" id="check-list">${open.map(check => `<details class="check-card" id="check-${check.index}" data-group="${escape(check.group)}"${String(opened) === String(check.index) ? ' open' : ''}>
+        <summary><span class="check-count" title="${check.count} to correct">${check.count.toLocaleString('en-IN')}</span><span class="check-title"><b>${escape(check.title)}</b><small>${escape(check.help)}</small></span>
+          <span class="check-group">${escape(check.group)}</span></summary>
+        <div class="check-actions"><a class="check-fix" href="${check.master[1]}">Open ${escape(check.master[0])} →</a>
+          <a class="check-fix" href="${insightsPath}/check.xlsx?check=${check.index}">Download Excel</a></div>
+        <ul class="check-items">${check.open.slice(0, shownLimit).map(row => finding(row, check, decisions, 'accept')).join('')}</ul>
+        ${check.count > shownLimit ? `<p class="record-meta">Showing the first ${shownLimit} of ${check.count.toLocaleString('en-IN')}. Download Excel for the full list.</p>` : ''}
+        ${check.accepted.length ? `<details class="check-accepted"><summary>Accepted as not a problem (${check.accepted.length})</summary><ul class="check-items">${check.accepted.map(row => finding(row, check, decisions, 'restore')).join('')}</ul></details>` : ''}
+      </details>`).join('')}</div>
     <p class="check-none" id="check-none" hidden>Nothing in the findings matches that.</p>
-    ${clear.length ? `<h2 class="check-clear-title">Clear</h2><ul class="check-clear">${clear.map(check => `<li><span aria-hidden="true">✓</span>${escape(check.title)}</li>`).join('')}</ul>` : ''}`;
+    <h2 class="check-clear-title" id="check-clear">Clear</h2>
+    ${clear.length ? `<ul class="check-clear">${clear.map(check => `<li><span aria-hidden="true">✓</span>${escape(check.title)}${check.accepted.length ? ` <small>${check.accepted.length} accepted as not a problem</small>` : ''}</li>`).join('')}</ul>` : '<p class="record-meta">No check is fully clear yet.</p>'}
+    ${progress.length ? `<h2 class="check-clear-title">Records complete</h2><p class="record-meta">Records with every required field filled, for each Diesel master that has records.</p>
+      <ul class="check-progress">${progress.map(row => { const done = row.count - (row.incomplete ?? 0); return `<li><a href="/master-data?master=${row.slug}">${escape(row.name)}</a><span>${done.toLocaleString('en-IN')} of ${row.count.toLocaleString('en-IN')}</span>
+        <progress max="${row.count}" value="${done}">${Math.round(done / row.count * 100)}%</progress></li>`; }).join('')}</ul>` : ''}`;
 }
 
 // Site-wise equipment by category, then each site's drivers, shifts and storage locations.

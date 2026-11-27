@@ -125,19 +125,29 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(checklist, /Majri OC<\/th>[\s\S]*?drivers, active shifts/);
 
   const checks = await page('/master-insights?view=checks');
-  // Each check that found something is a card: its count, what it means, where to correct it, and the records.
-  assert.match(checks, /<span class="check-count" title="1 to correct">1<\/span>\s*<div><h2>Equipment that shares a registration number<\/h2><p>One vehicle should appear once in the Equipment Master\.<\/p><\/div><a class="check-fix" href="\/pulse-masters\?master=equipment">Open Equipment Master →<\/a>/);
-  assert.match(checks, /<li><b>T-303<\/b><span>Nowhere<\/span><\/li>/);
-  assert.match(checks, /<span class="check-count" title="3 to correct">3<\/span>\s*<div><h2>Storage locations that share a short name<\/h2>/);
+  // Each check that found something is a closed card: its count, what it means, where to correct it, an Excel download,
+  // and every record as a link to that record. The check with the most findings comes first.
+  assert.match(checks, /<h1 id="workspace-title">Data overview<\/h1>/);
+  assert.match(checks, /<details class="check-card" id="check-4" data-group="Equipment">\s*<summary><span class="check-count" title="1 to correct">1<\/span><span class="check-title"><b>Equipment that shares a registration number<\/b><small>One vehicle should appear once in the Equipment Master\.<\/small>/);
+  assert.match(checks, /<a class="check-fix" href="\/pulse-masters\?master=equipment">Open Equipment Master →<\/a>\s*<a class="check-fix" href="\/master-insights\/check\.xlsx\?check=4">Download Excel<\/a>/);
+  assert.match(checks, /<li data-site="Nowhere"><a href="\/pulse-masters\?master=equipment&amp;q=T-303" title="Open this record">T-303<\/a><span>Nowhere<\/span>/);
+  assert.match(checks, /<span class="check-count" title="3 to correct">3<\/span><span class="check-title"><b>Storage locations that share a short name<\/b>/);
   assert.match(checks, /<a class="check-fix" href="\/master-data\?master=storage-location-master">Open Storage Location Master →<\/a>/);
-  assert.match(checks, /<div class="check-summary"><div class="check-tile "><strong>8<\/strong><span>Checks run<\/span><\/div>/);
-  assert.ok(checks.includes('id="check-filter"') && !checks.includes(' style='));
+  assert.match(checks, /<div class="check-summary"><a class="check-tile " href="#check-list"><strong>8<\/strong><span>Checks run<\/span><\/a>/);
+  const counts_ = [...checks.matchAll(/<details class="check-card"[^>]*>\s*<summary><span class="check-count" title="(\d+) to correct">/g)].map(match => Number(match[1]));
+  assert.deepEqual(counts_, counts_.toSorted((a, b) => b - a), 'biggest first');
+  assert.ok(checks.includes('id="check-filter"') && checks.includes('id="check-site"') && checks.includes('data-group="Storage" aria-pressed="false">Storage</button>') && !checks.includes(' style='));
+  assert.match(checks, /<h2 class="check-clear-title">Records complete<\/h2>[\s\S]*?<a href="\/master-data\?master=storage-location-master">Storage Location Master<\/a><span>0 of 71<\/span>\s*<progress max="71" value="0">/);
+  const sheet = await get('/master-insights/check.xlsx?check=4');
+  assert.equal(sheet.status, 200);
+  assert.match(sheet.headers.get('content-disposition'), /data-check-equipment-that-shares-a-registration-number\.xlsx/);
+  assert.equal((await get('/master-insights/check.xlsx?check=99')).status, 404);
 
   assert.match(overview, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Location Master/);
   assert.match(overview, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
   // Data review opens on the checks, with tabs to the other two views.
-  assert.match(await page('/master-insights'), /<h1 id="workspace-title">Data checks<\/h1>/);
-  assert.match(checks, /<a href="\/master-insights\?view=checks" aria-current="page">Data checks<\/a><a href="\/master-insights\?view=sites">Site checklist<\/a><a href="\/master-insights\?view=overview">Pulse and equipment<\/a>/);
+  assert.match(await page('/master-insights'), /<h1 id="workspace-title">Data overview<\/h1>/);
+  assert.match(checks, /<a href="\/master-insights\?view=checks" aria-current="page">Data overview<\/a><a href="\/master-insights\?view=sites">Site checklist<\/a><a href="\/master-insights\?view=overview">Pulse and equipment<\/a>/);
 
   // The Master Data home is only the masters, as cards.
   const sidebar = await page('/master-data');
@@ -145,7 +155,7 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(sidebar, /<a class="master-card" href="\/master-data\?master=storage-location-master"[^>]*>[\s\S]*?<small>71 records<\/small>\s*<em class="record-incomplete">71 missing required fields<\/em>/);
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   // The menu is short now: the masters are cards on the page, and the checks have their own link.
-  assert.match(sidebar, /<a href="\/master-insights\?view=checks">.*Data review<\/a>/);
+  assert.match(sidebar, /<a href="\/master-insights\?view=checks">.*Data overview<\/a>/);
   assert.doesNotMatch(sidebar, /master-data-list|Overview and checks/);
   for (const name of ['Driver Master', 'Shift Master']) {
     assert.match(sidebar, new RegExp('<a class="master-card" href="/pulse-masters\\?master=[a-z-]+"[^>]*>[\\s\\S]*?<b>' + name + '</b><small>[^<]*<i class="from-pulse">Pulse</i>'));
