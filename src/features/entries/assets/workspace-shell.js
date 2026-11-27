@@ -375,3 +375,21 @@ if (checkTools) {
   addEventListener('hashchange', openTarget);
   openTarget();
 }
+
+// ---- Diesel Workspace: filter the entry cards as you type; a category with no match is hidden.
+const workspaceFilter = document.querySelector('#workspace-filter');
+if (workspaceFilter) {
+  const groups = [...document.querySelectorAll('.ws-group')], none = document.querySelector('#workspace-none');
+  workspaceFilter.hidden = false;
+  workspaceFilter.addEventListener('input', () => {
+    const words = workspaceFilter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const group of groups) {
+      let inGroup = 0;
+      for (const card of group.querySelectorAll('.ws-card')) { card.hidden = !words.every(word => card.dataset.name.includes(word)); if (!card.hidden) inGroup += 1; }
+      group.hidden = !inGroup;
+      shown += inGroup;
+    }
+    none.hidden = shown > 0;
+  });
+}
