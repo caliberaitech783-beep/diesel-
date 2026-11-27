@@ -101,8 +101,8 @@ export function dashboardPage(actor, rows, query, { sites, site, stock, today, w
   const figures = dashboardFigures(rows, range, stock), all = site === 'all';
   // The period of the same length just before, for the change shown on each card.
   const before = dashboardFigures(rows, previousPeriod(range));
-  // A card opens that entry's register for the same dates. The register is the signed-in site's own.
-  const register = type => '/entries/type/' + type + '?' + new URLSearchParams({ from: range.from, to: range.to });
+  // A card opens that entry's register for the same dates and the same site or sites the Dashboard is showing.
+  const register = type => '/entries/type/' + type + '?' + new URLSearchParams({ from: range.from, to: range.to, ...(site === actor.site ? {} : { sites: site }) });
   const work = waiting ? `<section class="dash-card span-3 dash-work"><h2>Waiting for you</h2><p class="dash-note">At ${esc(actor.site)}</p><div class="work-links">
       <a href="/entries/approvals"${waiting.approvals ? ' class="has-work"' : ''}><b>${waiting.approvals}</b>Approvals to give</a>
       <a href="/entries?status=Returned"${waiting.returned ? ' class="has-work"' : ''}><b>${waiting.returned}</b>Returned to you</a>

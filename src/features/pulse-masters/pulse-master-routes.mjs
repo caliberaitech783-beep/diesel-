@@ -9,6 +9,7 @@ import { filterAndSort } from '../master-insights/insights.mjs';
 
 const pageSize = 50;
 const staleAfter = 30_000;
+const recentEnough = 15 * 60_000;
 const unavailable = 'Pulse could not be reached just now. Showing the last fetched copy.';
 const driversPartial = 'Pulse could not read the ERP driver list just now, so only directory drivers are shown. Retrying automatically.';
 // Spreadsheet programs run cells that begin with these characters as formulas.
@@ -133,6 +134,20 @@ export function registerPulseMasters(app, { db, getAccess, fetchMasters, startSi
   return { async read(slug, access) {
     const master = pulseMaster(slug);
     const fresh = await ensureFresh(master, access);
+    return { ...visible(master, access), fresh };
+  },
+  // For the overview pages: a copy fetched within the last quarter of an hour answers at once and is refreshed
+  // behind the page, so they do not wait on Pulse every time. An older copy, or none, is fetched before answering.
+  async readRecent(slug, access) {
+    const master = pulseMaster(slug), { syncedAt } = store.read(master.slug);
+    const age = syncedAt ? now() - Date.parse(syncedAt) : Infinity;
+    if (age < staleAfter) return { ...visible(master, access), fresh: true };
+    if (age < recentEnough) {
+      const failing = now() < retryAt;
+      if (!failing) void refresh(access.grant);
+      return { ...visible(master, access), fresh: !failing };
+    }
+    const fresh = await refresh(access.grant);
     return { ...visible(master, access), fresh };
   },
   // The copy as last stored, with the records added in Diesel, without asking Pulse again.

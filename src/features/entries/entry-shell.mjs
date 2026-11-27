@@ -61,9 +61,12 @@ function navigation(active, actor) {
     ${canOpenMasters === false || simple ? '' : '<a class="masters-link" href="/">← Masters</a>'}</nav></aside>`;
 }
 
-// The search box, its menu button and the clock, for pages outside the entry shell (the master pages) to add to themselves.
+// The search box, its menu button, the clock, the bell and Help, for pages outside the entry shell (the master pages)
+// to add to themselves, so every Diesel page has the same top bar tools.
 export const shellParts = actor => `<template id="shell-parts"><button type="button" id="global-search-open" class="rail-search">${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
-  <span class="today-clock" id="today-clock">${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span>${searchDialog(actor, '')}</template>`;
+  <span class="today-clock" id="today-clock">${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span>
+  <a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a>
+  <button type="button" id="help-open" class="page-tool" title="How to use this page">? Help</button>${searchDialog(actor, '')}${helpDialog('masters')}</template>`;
 
 // "How to use this page": what the page is for and the steps on it, plus the shortcuts that work everywhere.
 const pageHelp = {
@@ -73,6 +76,9 @@ const pageHelp = {
   workspace: ['Every entry, grouped the way the department works.', ['Choose a category on the left.', 'Click a module on the right to open its register.', 'In the register press New entry to make one.']],
   approvals: ['Entries waiting for your approval in the role you are signed in as.', ['Open an entry to read it in full.', 'Approve it, or return it to its maker with a reason.']],
   alerts: ['Things at your site that need attention, such as late approvals or low stock.', ['Open the entry named in the alert and act on it.']],
+  masters: ['Reference data used by every entry: suppliers, rates, items, storage and the rest.',
+    ['On Diesel Master Data, click a master’s card to open its records; the filter box also finds a master by a field name.', 'Press + Add new on a master to enter a record, or Import to bring in an Excel or CSV file.',
+      'Masters marked Pulse come from Pulse and are kept up to date from there.', 'Data overview lists records that need correcting, with a link to each one.']],
   home: ['The entries your role makes, and what is waiting for you today.', ['Pick an entry to start it.', 'Open My approvals or My alerts to clear what is waiting.']],
 };
 const everywhere = ['Ctrl + K searches every page, master and saved entry.', 'Enter moves to the next field; a new entry keeps what you type until you save it.',
