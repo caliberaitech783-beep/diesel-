@@ -192,3 +192,48 @@ section.dash-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 24p
   #global-search, #page-help { width: 96vw; max-height: 86vh; }
   .form-helper { font-size: 13px; } .form-helper button { min-height: 40px; }
 }
+
+/* Master Data: every master as a card */
+.master-cards-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
+.master-cards-head p { margin: 0; }
+.master-filter input { width: min(340px, 80vw); padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.master-filter input[hidden] { display: none; }
+.master-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-bottom: 26px; }
+.master-card { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); text-decoration: none; box-shadow: 0 1px 2px #0b1f3a0d, 0 1px 3px #0b1f3a0a; }
+.master-card[hidden] { display: none; }
+.master-card-icon { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: 12px; background: var(--blue-wash); color: var(--blue); }
+.master-card-text { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.master-card-text b { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--ink); } .master-card-text small { color: var(--muted); font-size: 13px; }
+.master-card-text em { justify-self: start; font-style: normal; font-size: 11.5px; }
+.from-pulse { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--blue-wash); color: var(--blue); font-style: normal; font-size: 11px; font-weight: 700; }
+.master-card-arrow { color: var(--muted); flex: none; } .master-card-arrow svg { width: 17px; height: 17px; }
+.master-card:hover, .master-card:focus-visible { border-color: var(--blue); }
+.master-card:hover .master-card-icon, .master-card:focus-visible .master-card-icon { background: var(--blue); color: #fff; }
+.master-card:hover .master-card-arrow { color: var(--blue); }
+.master-cards-none { color: var(--muted); } .master-cards-none[hidden] { display: none; }
+
+/* ---- Motion: short and light. All of it is switched off below for anyone who asks their device to reduce motion. */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.kpi, .ws-category, .ws-module, .dash-card, .master-card, .ws-panel, .dash-filter, .counts a, .register-panel, .order-card, .form-helper { animation: rise .38s cubic-bezier(.2, .8, .2, 1) backwards; }
+:is(.kpi, .ws-category, .ws-module, .master-card, .counts a):nth-child(2) { animation-delay: .04s; } :is(.kpi, .ws-category, .ws-module, .master-card, .counts a):nth-child(3) { animation-delay: .08s; }
+:is(.kpi, .ws-category, .ws-module, .master-card):nth-child(4) { animation-delay: .12s; } :is(.kpi, .ws-category, .ws-module, .master-card):nth-child(5) { animation-delay: .16s; }
+:is(.kpi, .ws-category, .ws-module, .master-card):nth-child(6) { animation-delay: .2s; } :is(.kpi, .ws-category, .ws-module, .master-card):nth-child(n+7) { animation-delay: .24s; }
+.kpi, .ws-category, .ws-module, .master-card, .work-links a, .counts a { transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .18s, border-color .18s, background-color .18s; }
+a.kpi:hover, .ws-category:hover, .ws-module:hover, .master-card:hover, .work-links a:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0b1f3a1f; }
+.ws-icon, .master-card-icon { transition: transform .22s cubic-bezier(.2, .8, .2, 1), background-color .18s, color .18s; }
+.ws-category:hover .ws-icon, .ws-module:hover .ws-icon, .master-card:hover .master-card-icon { transform: scale(1.06); }
+.ws-arrow, .master-card-arrow { transition: transform .2s cubic-bezier(.2, .8, .2, 1), color .18s; }
+.ws-category:hover .ws-arrow, .ws-module:hover .ws-arrow, .master-card:hover .master-card-arrow { transform: translateX(4px); }
+#entry-navigation a, #entry-navigation summary, .rail-search, .dash-presets a, .dash-tabs a, .page-tools button, .pending-bell, .column-menu summary, .primary, .hero-action { transition: background-color .16s, color .16s, border-color .16s, box-shadow .16s, transform .16s; }
+.primary:hover, .hero-action:hover { transform: translateY(-1px); }
+#global-search[open], #page-help[open] { animation: pop .2s cubic-bezier(.2, .8, .2, 1); }
+#global-search[open]::backdrop, #page-help[open]::backdrop { animation: veil .2s ease-out; }
+.column-menu[open] > div, .context[open] .switch { animation: pop .16s ease-out; }
+.chart-bar { transform-box: fill-box; transform-origin: bottom; animation: grow .55s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: .15s; }
+.field-hint { animation: veil .18s ease-out; } .field-error { animation: rise .2s ease-out; }
+.register-table tbody tr { transition: background-color .12s; } .register-table tbody tr:hover > td { background: var(--blue-wash); }
+.stock-bars progress { transition: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

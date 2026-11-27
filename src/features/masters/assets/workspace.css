@@ -183,3 +183,10 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 .layout > main :is(input, select, textarea):focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }
 .layout h1 { letter-spacing: -.02em; }
 @media (max-width: 700px) { .masthead .account .today-clock { display: none; } }
+
+/* Motion on the master pages, matching the entry pages. */
+.sidebar nav a, .master-group summary, .navigation-icon { transition: background-color .16s, color .16s; }
+.master-group[open] > ul { animation: master-rise .22s ease-out; }
+.layout > main > :is(.master-data-table, form, table, section) { animation: master-rise .34s cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes master-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sidebar *, .layout > main * { animation: none !important; transition: none !important; } }

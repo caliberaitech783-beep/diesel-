@@ -329,3 +329,16 @@ if (entryForm) {
     }
   }
 }
+
+// ---- Master Data: filter the master cards as you type.
+const cardFilter = document.querySelector('#master-card-filter');
+if (cardFilter) {
+  const cards = [...document.querySelectorAll('#master-cards .master-card')], none = document.querySelector('#master-cards-none');
+  cardFilter.hidden = false;
+  cardFilter.addEventListener('input', () => {
+    const words = cardFilter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const card of cards) { card.hidden = !words.every(word => card.textContent.toLowerCase().includes(word)); if (!card.hidden) shown += 1; }
+    none.hidden = shown > 0;
+  });
+}
