@@ -13,10 +13,10 @@ test('the workspace groups every menu entry under the department headings and ke
   const list = workspaceFor(actor);
   assert.deepEqual(list.map(category => category.name), ['BUY', 'RECEIVE', 'STOCK STORAGE MANAGEMENT', 'VEHICLE FUEL ENTRY', 'ACCOUNTS & BILLING', 'CONTROL']);
   assert.deepEqual(list[0].modules.map(module => module.id), ['E1', 'E2', 'E3', 'E4']);
-  assert.deepEqual(list[1].modules.map(module => module.id), ['E6', 'E7']);
+  assert.deepEqual(list[1].modules.map(module => module.id), ['E7']);
   const placed = list.flatMap(category => category.modules.map(module => module.id));
   assert.equal(new Set(placed).size, placed.length);
-  assert.ok(!placed.includes('E5') && placed.length === 18, 'every entry except the gate entry has one place');
+  assert.ok(!placed.includes('E5') && !placed.includes('E6') && placed.length === 17, 'every entry except the gate entry and the separate inspection has one place');
   const html = workspacePage(actor, [row('E2', '2026-11-27', 'Posted'), row('E2', '2026-11-26', 'Draft')], { category: 'buy' });
   assert.match(html, /<h1>Diesel Workspace<\/h1>/);
   assert.match(html, /href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b>[\s\S]*?<em>2 records<\/em>/);
@@ -95,7 +95,7 @@ test('dashboard cards open their records and show the change from the period bef
   assert.match(html, /<a class="kpi" href="\/entries\/type\/E2\?from=2026-11-18&amp;to=2026-11-27" title="Open these records"><span class="kpi-label">Purchase Value<\/span>/);
   assert.match(html, /class="kpi-change up" title="Against the period just before">▲ 100%<\/span>/);
   assert.match(html, /<h2>Waiting for you<\/h2>[\s\S]*class="has-work"><b>2<\/b>Approvals to give/);
-  assert.ok(html.includes('id="dash-shortcuts"') && html.includes('id="pending-bell"') && html.includes('id="favourite-toggle"') && html.includes('id="print-page"'));
+  assert.ok(html.includes('id="dash-shortcuts"') && html.includes('id="pending-bell"') && !html.includes('favourite') && !html.includes('id="print-page"'), 'no favourites, and Print only on a saved record');
 });
 
 test('a register of one entry type shows quantity and amount with a total', async () => {
@@ -117,7 +117,7 @@ test('a long register opens with 100 records, totals all of them, and every page
   assert.match(html, /Total · 130 records .*<td class="number">13,000<\/td><td class="number">1,30,000<\/td>/);
   assert.equal(registerPage(actor, many, 'E2', { rows: 'all' }).match(/class="record-link"/g).length, 130);
   assert.ok(!registerPage(actor, many.slice(0, 5), 'E2').includes('register-more'));
-  for (const part of ['id="help-open"', '<dialog id="page-help"', 'Purchase order — made by the Procurement Executive.', 'Ctrl + K searches every page', '/entries/assets/field-hints.js'])
+  for (const part of ['id="help-open"', '<dialog id="page-help"', 'Purchase order — made by the Procurement Executive.', 'Ctrl + K searches every page'])
     assert.ok(html.includes(part), part);
   assert.match(dashboardPage(actor, [], {}, { sites: [], site: 'all', stock: [], today: '2026-11-27' }), /Click any card to open the records behind it\./);
 });
@@ -136,4 +136,16 @@ test('Master Data shows every master as a card with its count, source and missin
   const page = overview(data);
   assert.ok(html.includes('id="master-card-filter"') && !html.includes('<h2>From Pulse</h2>'));
   assert.ok(page.includes('<h2>From Pulse</h2>') && page.includes('Pulse data has not been fetched yet.') && !page.includes('master-card'));
+});
+
+test('the shared workspace gets the short menu; an assigned role keeps its own list of entries', async () => {
+  const { page } = await import('./entry-shell.mjs');
+  const short = page('Any', { ...actor, hosted: true, trial: true }, 'E2', '/entries/type/E2', '');
+  for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace"', 'Entry register</a>', 'href="/master-data"', 'href="/master-insights"', 'Data overview</a>',
+    'href="/indent-approvers">Indent approvers</a>', 'href="/po-approvers">PO approvers</a>', 'Trial workspace · sample data · not live records']) assert.ok(short.includes(part), part);
+  // My work, My approvals and My alerts stay reachable from the search box and the bell, but are off the menu.
+  assert.doesNotMatch(short, /class="nav-home" href="\/entries\/(home|approvals|alerts)"|<summary><span>Buy<\/span>|<small>E2<\/small>|← Masters|id="entry-language"|field-hints|entry-language\.js/);
+  assert.ok(!short.includes('id="print-page"') && page('Record', actor, 'E2', '/entries/record/abc', '').includes('id="print-page"'), 'Print is on a saved record only');
+  const assigned = page('Any', { ...actor, assignments: [{ key: 'k', site: 'Jayant', role: 'Site Store', profile: 'site-store' }] }, 'E7', '/entries/type/E7', '');
+  assert.match(assigned, /My work<\/a>[\s\S]*<summary><span>/);
 });

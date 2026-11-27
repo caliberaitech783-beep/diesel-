@@ -1,4 +1,4 @@
-// What every Diesel page shares: the search box (Ctrl + K), the date and clock, the bell, favourites and recent records,
+// What every Diesel page shares: the search box (Ctrl + K), the date and clock, the bell, recent records,
 // printing, and the helpers on registers and entry forms. Everything remembered is kept on this device only.
 const read = key => { try { return JSON.parse(localStorage.getItem(key)) ?? []; } catch { return []; } };
 const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Nothing is remembered on this device. */ } };
@@ -95,30 +95,16 @@ if (bell) fetch('/entries/pending.json', { headers: { Accept: 'application/json'
   if (!waiting.approvals && waiting.returned) bell.href = '/entries?status=Returned';
 }).catch(() => {});
 
-// ---- Favourites and recently opened.
-const here = location.pathname + location.search;
+// ---- Recently opened records, for the Dashboard.
 const heading = (document.querySelector('main h1')?.textContent ?? document.title).trim();
 if (location.pathname.startsWith('/entries/record/')) {
   const number = document.querySelector('main .bar strong')?.textContent.split(' · ')[0].trim();
   if (number && number !== 'New draft') write('diesel-recent', [{ href: location.pathname, title: number + ' · ' + heading }, ...read('diesel-recent').filter(row => row.href !== location.pathname)].slice(0, 8));
 }
-const favourite = document.querySelector('#favourite-toggle');
-if (favourite && !location.pathname.startsWith('/entries/new/')) {
-  const pinned = () => read('diesel-favourites').some(row => row.href === here);
-  const paint = () => { const on = pinned(); favourite.setAttribute('aria-pressed', String(on)); favourite.textContent = on ? '★ Favourite' : '☆ Favourite'; };
-  favourite.hidden = false;
-  paint();
-  favourite.addEventListener('click', () => {
-    const list = read('diesel-favourites');
-    write('diesel-favourites', pinned() ? list.filter(row => row.href !== here) : [{ href: here, title: heading }, ...list].slice(0, 12));
-    paint();
-  });
-}
 const shortcuts = document.querySelector('#dash-shortcuts');
 if (shortcuts) {
   const fill = (id, list, none) => shortcuts.querySelector(id).replaceChildren(...(list.length ? list : [{ title: none }]).map(row =>
     row.href?.startsWith('/') ? make('li', {}, make('a', { href: row.href, textContent: row.title })) : make('li', { className: 'none', textContent: row.title })));
-  fill('#favourite-pages', read('diesel-favourites'), 'Press ☆ Favourite on any page to keep it here.');
   fill('#recent-records', read('diesel-recent'), 'Records you open will show here.');
   shortcuts.hidden = false;
 }
@@ -191,15 +177,6 @@ if (register) {
   tools.append(menu, chosen);
   apply();
 
-  // Last filters: offered as one click when the register is opened without any.
-  const filters = panel?.querySelector('form.filters'), lastKey = 'diesel-filters:' + location.pathname;
-  if (filters) {
-    const used = new URLSearchParams(location.search);
-    [...used.keys()].forEach(name => { if (!used.get(name) || name === 'ids') used.delete(name); });
-    const last = read(lastKey)[0];
-    if ([...used.keys()].length) write(lastKey, [used.toString()]);
-    else if (typeof last === 'string' && last) tools.append(make('a', { className: 'last-filters', href: location.pathname + '?' + last, textContent: '↺ Use my last filters' }));
-  }
 }
 
 // ---- Entry forms.
@@ -246,18 +223,9 @@ if (entryForm) {
     const snapshot = () => Object.fromEntries(typed().filter(field => field.value).map(field => [field.name, field.value]));
     const kept = read(draftKey)[0];
     let saving = 0;
-    const copyButton = button('Copy from previous entry', async () => {
-      try {
-        const response = await fetch('/entries/last/' + encodeURIComponent(entryForm.dataset.type) + '.json', { headers: { Accept: 'application/json' } });
-        const last = response.ok ? await response.json() : null;
-        if (!last) return say('There is no earlier saved entry of this kind at this site to copy.');
-        say(fillIn(last.values) ? 'Copied from ' + last.number + '. Dates, linked documents and row tables are not copied; check every value before saving.' : 'Nothing could be copied from ' + last.number + '.');
-      } catch { say('The previous entry could not be read just now.'); }
-    });
     if (kept?.values && Object.keys(kept.values).length) say('You left this entry unsaved on ' + new Date(kept.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + '.',
-      button('Restore what I typed', () => { fillIn(kept.values); say('Restored. Check the values, then save.', copyButton); }),
-      button('Discard', () => { forget(draftKey); say('Starting a blank entry.', copyButton); }));
-    else say('What you type is kept on this device until you save.', copyButton);
+      button('Restore what I typed', () => { fillIn(kept.values); say('Restored. Check the values, then save.'); }),
+      button('Discard', () => { forget(draftKey); note.hidden = true; }));
     entryForm.addEventListener('input', () => {
       clearTimeout(saving);
       saving = setTimeout(() => { const values = snapshot(); if (Object.keys(values).length) write(draftKey, [{ at: Date.now(), values }]); }, 600);
@@ -282,17 +250,6 @@ if (entryForm) {
     label?.querySelectorAll('input, select, textarea, datalist, small, output').forEach(node => node.remove());
     return (label?.textContent ?? field.getAttribute('aria-label') ?? '').replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim();
   };
-
-  // ---- Field hints: one line about the field the cursor is in.
-  const hints = window.dieselFieldHints ?? {};
-  const hint = make('p', { className: 'field-hint', hidden: true });
-  hint.setAttribute('aria-live', 'polite');
-  entryForm.before(hint);
-  entryForm.addEventListener('focusin', event => {
-    const text = hints[event.target.name];
-    hint.hidden = !text;
-    hint.textContent = text ? 'ⓘ ' + labelOf(event.target) + ': ' + text : '';
-  });
 
   // ---- A save that fails is shown beside the field it is about, whenever the message names that field.
   const message = document.querySelector('#entry-message');

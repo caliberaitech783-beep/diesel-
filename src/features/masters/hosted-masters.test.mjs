@@ -106,7 +106,7 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   assert.equal((await req(root+'/records?master=item-master&new=1','c')).status,403);
   assert.equal((await save('item-master',itemFields,'v')).status,403);
   const form = await (await req(root+'/records?master=item-master&new=1','m')).text();
-  assert.match(form,/Save for review/);
+  assert.match(form,/data-save-for-review>Save</);
   assert.match(form,/data-write-scope="[a-f0-9]{64}"/);
   assert.match(form,/Import/);
   assert.match(form,/Export/);
@@ -139,7 +139,7 @@ test('shared Master Data uses verified Pulse roles and feeds approved Item, Loca
   const itemCheck = await (await req(detail('item-master',item.id),'c')).text();
   assert.match(itemCheck,/Approve revision/);
   assert.match(itemCheck,/Return for changes/);
-  assert.doesNotMatch(itemCheck,/Save for review/);
+  assert.doesNotMatch(itemCheck,/data-save-for-review/);
 
   const selection = await req(root+'/site','m',{body:new URLSearchParams({site:otherSite,master:'item-master',view:'records'})});
   assert.equal(selection.status,303);

@@ -63,7 +63,7 @@ picker?.addEventListener('change', async () => {
     if (!file.name.toLowerCase().endsWith(format.accept)) throw new Error('Choose a ' + format.accept + ' file.');
     const values = await format.read(await file.arrayBuffer(), [...fields.keys()]);
     fillImportedFields(form, values);
-    status.textContent = 'Fields imported. Review them and select Save for review.';
+    status.textContent = 'Fields imported. Review them and select Save.';
   } catch (error) {
     const help = pendingFormat === 'pdf' ? ' Use a filled Diesel form PDF for this master.' : '';
     status.textContent = 'Could not import this file. ' + (error.message || 'Check the file and try again.') + help;

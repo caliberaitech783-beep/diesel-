@@ -50,7 +50,7 @@ function table(rows, sources = rows, transport = true, figures = false, listed =
   const sum = pick => rows.filter(r => !['Draft', 'Returned'].includes(r.status)).reduce((total, r) => total + (pick(r) ?? 0), 0);
   const totals = quantity || amount ? `<tfoot><tr><th scope="row" colspan="${transport ? 3 : 2}">Total · ${rows.length} record${rows.length === 1 ? '' : 's'} <small>drafts and returned entries not added</small></th>${quantity ? `<td class="number">${figure(sum(quantityOf))}</td>` : ''}${amount ? `<td class="number">${figure(sum(amountOf))}</td>` : ''}<td colspan="2"></td></tr></tfoot>` : '';
   return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table class="register-table"><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}${quantity?'<th class="number">Quantity (L)</th>':''}${amount?'<th class="number">Amount (₹)</th>':''}<th>Business day</th><th>Status</th></tr></thead>${totals}<tbody>${listed.map(r=>
-    `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${byId[r.type].code}</small><span>${esc(byId[r.type].name)}</span></a></td>
+    `<tr><td><a class="record-link" href="${recordPath(r)}"><span>${esc(byId[r.type].name)}</span></a></td>
     <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}${quantity?`<td class="number">${figure(quantityOf(r))}</td>`:''}${amount?`<td class="number">${figure(amountOf(r))}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
@@ -103,7 +103,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const actorRole=entryRole(actor);
   const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
   const title = meta?.name ?? 'Entry register';
-  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group)+' <span> / </span> '+meta.code : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
+  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group) : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
     ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
       ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
   const exportQuery=new URLSearchParams({type:type??'',...filters});

@@ -7,7 +7,7 @@ import { icons } from './workspace-map.mjs';
 
 const tabs = [['overview', 'Overview', 'dashboard'], ['buy', 'Buy', 'buy'], ['receive', 'Receive', 'receive'], ['stock', 'Stock Storage', 'stock'],
   ['vehicle', 'Vehicle Fuel', 'fuel'], ['accounts', 'Accounts & Billing', 'accounts']];
-const tabTypes = { overview: ['E7'], buy: ['E1', 'E2', 'E3', 'E4'], receive: ['E6', 'E7'], stock: ['E12', 'E10A', 'E10B', 'E10C', 'E14'], vehicle: ['E11'], accounts: ['E8', 'E9', 'E13'] };
+const tabTypes = { overview: ['E7'], buy: ['E1', 'E2', 'E3', 'E4'], receive: ['E7'], stock: ['E12', 'E10A', 'E10B', 'E10C', 'E14'], vehicle: ['E11'], accounts: ['E8', 'E9', 'E13'] };
 const tones = { Posted: 'posted', Draft: 'draft', Returned: 'returned', Saved: 'waiting' };
 
 const whole = value => Math.round(value).toLocaleString('en-IN');
@@ -49,7 +49,6 @@ function cards(tab, f, p, link) {
     receive: [{ label: 'GRNs Made', value: whole(r.grns), note: 'Posted goods receipt notes', type: 'E7', now: r.grns, was: p.receive.grns },
       { label: 'Qty Received', value: litres(r.received), unit: 'L', note: 'Accepted quantity', type: 'E7', now: r.received, was: p.receive.received },
       { label: 'Invoice Qty', value: litres(r.invoiced), unit: 'L', note: 'On supplier invoices', type: 'E7', now: r.invoiced, was: p.receive.invoiced },
-      { label: 'Inspections', value: whole(r.inspections), note: 'Tankers inspected', type: 'E6', now: r.inspections, was: p.receive.inspections },
       shortage, { label: 'Received Value', value: rupees(r.value), note: 'Received quantity × rate', type: 'E7', now: r.value, was: p.receive.value }],
     stock: [{ label: 'Closing Stock', value: litres(s.closing), unit: 'L', note: stockNote }, { ...cover, note: 'At the current issue rate' },
       { label: 'Site to Site Transfers', value: whole(s.siteTransfers), note: 'In the selected period', type: 'E12', now: s.siteTransfers, was: p.stock.siteTransfers },
@@ -108,7 +107,7 @@ export function dashboardPage(actor, rows, query, { sites, site, stock, today, w
       <a href="/entries/approvals"${waiting.approvals ? ' class="has-work"' : ''}><b>${waiting.approvals}</b>Approvals to give</a>
       <a href="/entries?status=Returned"${waiting.returned ? ' class="has-work"' : ''}><b>${waiting.returned}</b>Returned to you</a>
       <a href="/entries?status=Draft"><b>${waiting.drafts}</b>Your drafts</a></div></section>` : '';
-  const shortcuts = '<section class="dash-card span-3 dash-shortcuts" id="dash-shortcuts" hidden><div><h2>Favourites</h2><ul id="favourite-pages"></ul></div><div><h2>Recently opened</h2><ul id="recent-records"></ul></div></section>';
+  const shortcuts = '<section class="dash-card span-3 dash-shortcuts" id="dash-shortcuts" hidden><div><h2>Recently opened</h2><ul id="recent-records"></ul></div></section>';
   const link = change => '/entries/dashboard?' + new URLSearchParams({ tab, site, ...(range.preset ? { preset: range.preset } : { from: range.from, to: range.to }), ...change });
   const recent = tabTypes[tab].flatMap(type => figures.recent(type)).toSorted((a, b) => b.day.localeCompare(a.day)).slice(0, 8);
   const stockList = figures.stockBySite.length ? `<ul class="stock-bars">${figures.stockBySite.map(row => `<li><span>${esc(row.site)}</span><b>${whole(row.litres)} L</b>

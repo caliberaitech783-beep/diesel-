@@ -75,7 +75,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.equal((await (await request('/healthz')).json()).itemMaster, 'ready');
     const page = await request('/?master=item-master', maker);
     const form = await page.text();
-    assert.match(form, /<button type="submit" data-save-for-review>Save for review<\/button>/);
+    assert.match(form, /<button type="submit" data-save-for-review>Save<\/button>/);
     assert.doesNotMatch(form, /Back to records/);
     const mastersPath = form.match(/href="([^"]+)" aria-label="Back to masters"[^>]*>\s*<svg\b/)?.[1];
     assert.equal(mastersPath, '/');
@@ -169,7 +169,7 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     for (const slug of recordMasters.filter(slug => slug !== 'item-master')) {
       const definition = masterDefinition(slug);
       const masterForm = await (await restarted('/?master=' + slug, maker)).text();
-      assert.match(masterForm, /Save for review/, slug);
+      assert.match(masterForm, /data-save-for-review>Save</, slug);
       assert.match(masterForm, /<summary>Import<\/summary>/, slug);
       assert.match(masterForm, /<summary>Export<\/summary>/, slug);
       const files = { name: 'test.pdf', base64: pdf.toString('base64') };
@@ -232,7 +232,7 @@ test('Opening Item Master in the local workspace lets the maker save a new item 
   const itemPage = await fetch(origin + itemLink.replaceAll('&amp;', '&'));
   assert.equal(itemPage.status, 200);
   const form = await itemPage.text();
-  assert.match(form, /<button type="submit" data-save-for-review>Save for review<\/button>/);
+  assert.match(form, /<button type="submit" data-save-for-review>Save<\/button>/);
   const directLink = await fetch(origin + '/?master=item-master');
   assert.equal(directLink.url, itemPage.url);
 

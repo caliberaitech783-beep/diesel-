@@ -111,7 +111,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
     return `<section class="field-group"><h2 class="field-group-heading">${escape(section.name)}</h2><div class="field-grid"${layout}>${fields.map(renderField).join('')}</div></section>`;
   }).join('') : '';
   const actions = [];
-  if (editable) actions.push('<button type="submit" data-save-for-review>Save for review</button>');
+  if (editable) actions.push('<button type="submit" data-save-for-review>Save</button>');
   const mayReview = approvingAllowed && ['pending', 'pending_deactivation', 'pending_deletion'].includes(record?.status)
     && actorId.trim().toLowerCase() !== record.editedBy.toLowerCase();
   if (mayReview) actions.push('<button type="button" data-action="approve">Approve revision</button>',

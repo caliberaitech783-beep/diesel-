@@ -37,7 +37,7 @@ test('Item records enforce workspace roles and site scope on the page, writes, r
   const catalog = await (await request('/records')).text();
   assert.match(catalog, /href="\/records\?master=item-master&amp;new=1"/);
   const page = await (await request('/records?new=1')).text();
-  assert.match(page, /<button type="submit" data-save-for-review>Save for review<\/button>/);
+  assert.match(page, /<button type="submit" data-save-for-review>Save<\/button>/);
   assert.match(page, /href="\/records" aria-label="Back to masters"[^>]*>\s*<svg\b/);
   assert.match(page, /<aside class="sidebar" id="masters-sidebar" hidden>/);
   assert.match(page, /data-sidebar-toggle/);

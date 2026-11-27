@@ -358,8 +358,9 @@ test('with the gate entry merged, Inspection shows as E5 and the goods receipt n
   const {store}=setup(t);
   const keeper={...actor('Site Store'),businessDay:day};
   const page=registerPage(keeper,store.list('Jayant'),'E7');
-  assert.match(page,/<a href="\/entries\/type\/E6" ><small>E5<\/small><span>Inspection<\/span><\/a>/);
-  assert.match(page,/<a href="\/entries\/type\/E7" aria-current="page"><small>E6<\/small><span>Goods receipt note<\/span><\/a>/);
+  // The short menu lists no entries or codes: entries are opened from Diesel Workspace, where Inspection no longer appears.
+  assert.ok(!page.includes('/entries/type/E6')&&!page.includes('<small>E6</small>'));
+  assert.match(page,/<p class="heading-meta">Receive<\/p><h1>Goods receipt note<\/h1>/);
   assert.match(page,/<span>Goods receipt note<\/span><\/div>/,'the breadcrumb names the entry instead of its code');
   assert.deepEqual([byId.E2.code,byId.E6.code,byId.E7.code,byId.E8.code],['E2','E5','E6','E8']);
 });

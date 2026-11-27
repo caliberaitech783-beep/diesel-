@@ -33,7 +33,7 @@ export function fillImportedFields(form, values) {
     control.dispatchEvent(new Event('input', { bubbles: true }));
   }
   // The usable fields stay filled so only the named ones need typing.
-  if (invalid.length) throw new Error('The file value for ' + invalid.join(', ') + ' was not valid. Enter it here, then select Save for review.');
+  if (invalid.length) throw new Error('The file value for ' + invalid.join(', ') + ' was not valid. Enter it here, then select Save.');
 }
 
 export function openImportedRecord(url, scope, values) {
@@ -51,7 +51,7 @@ export function restoreImportedRecord(form) {
     const draft = JSON.parse(saved);
     if (draft?.scope !== form.dataset.importScope) throw new Error('Import the file again from Master Data.');
     fillImportedFields(form, draft.values);
-    status.textContent = 'Review the imported fields, then select Save for review.';
+    status.textContent = 'Review the imported fields, then select Save.';
   } catch (error) {
     status.textContent = error.message;
   }
