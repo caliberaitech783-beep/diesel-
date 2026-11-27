@@ -77,6 +77,16 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   const submit = { type: 'E1', action: 'Submit', rev: 0, day, data: { litres: 1500, requiredBy:0 } };
   assert.equal((await write(indent, 'i', 'Jayant', 'Site In-charge', submit)).status, 200);
   const indentPath = '/entries/record/' + indent;
+  // The shared page helpers answer for a signed-in person and stay within what that person may open.
+  const number = (await (await request('/entries/search.json?q=ind', 'i')).json())[0];
+  assert.equal(number.href, indentPath);
+  assert.deepEqual(await (await request('/entries/search.json?q=ind', 'o')).json(), [], 'another site does not find it');
+  assert.equal(typeof (await (await request('/entries/pending.json', 'i')).json()).total, 'number');
+  assert.match(await (await request('/entries/shell-parts.html', 'i')).text(), /<template id="shell-parts">[\s\S]*id="global-search"/);
+  assert.deepEqual(Object.keys(await (await request('/entries/last/E1.json', 'i')).json()), ['number', 'values']);
+  assert.equal((await request('/entries/last/E99.json', 'i')).status, 404);
+  const ticked = await (await request('/entries/export.csv?ids=' + randomUUID(), 'i')).text();
+  assert.equal(ticked.trim().split('\n').length, 1, 'only ticked records are exported');
   assert.equal((await request(indentPath, 'o')).status, 404);
   assert.doesNotMatch(await (await request('/entries/export.csv', 'o')).text(), /E1-JAY/);
   assert.doesNotMatch(await (await request('/entries/approvals', 'm')).text(), new RegExp(indentPath));

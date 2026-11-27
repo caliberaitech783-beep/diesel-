@@ -1,5 +1,6 @@
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
+import { shellParts } from './entry-shell.mjs';
 import { pendingWork, searchRecords } from './record-search.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
 import { lowStorage } from './storage-levels.mjs';
@@ -122,6 +123,19 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const rows=withApproval(store.list(actor.site),actor).filter(doc=>canRead(doc,actor));
     return pendingWork(rows,actor);
   };
+  router.get('/shell-parts.html',(req,res)=>res.set('Cache-Control','no-store').type('html').send(shellParts(req.dieselActor)));
+  // "Copy from previous": the typed values of this site's latest saved entry of a type. Links to other documents,
+  // dates and attachments are left out, since they belong to that one entry.
+  router.get('/last/:type.json',(req,res)=>{
+    const actor=req.dieselActor, meta=byId[req.params.type];
+    if (!meta || !allowedType(req.params.type)) return res.sendStatus(404);
+    const last=store.list(actor.site).filter(doc=>doc.type===meta.id&&doc.rev>0&&doc.status!=='Draft'&&canRead(doc,actor))
+      .toSorted((a,b)=>(b.created??'').localeCompare(a.created??''))[0];
+    if (!last) return res.set('Cache-Control','no-store').json(null);
+    const skip=new Set(meta.fields.filter(field=>['link','date','photo','file'].includes(field.type)||field.link).map(field=>field.key));
+    const values=Object.fromEntries(Object.entries(last.data).filter(([key,value])=>!skip.has(key)&&!/date|day$/i.test(key)&&['string','number'].includes(typeof value)));
+    res.set('Cache-Control','no-store').json({number:last.number,values});
+  });
   router.get('/pending.json',(req,res)=>res.set('Cache-Control','no-store').json(waitingFor(req.dieselActor)));
   // Search box: saved entries by number, supplier, vehicle or entry name, across the sites this person may open.
   router.get('/search.json',(req,res)=>{
@@ -256,18 +270,20 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       res.sendStatus(404);
     } catch(e) {res.status(422).json({error:e.message});}
   });
+  // Records ticked on the register: only those are exported.
+  const picked = (rows,ids) => { const chosen=new Set(String(ids??'').split(',').filter(Boolean)); return chosen.size?rows.filter(doc=>chosen.has(doc.id)):rows; };
   for (const [extension,mime,serialize] of [
     ['csv','text/csv',(rows,sources)=>entryCsv(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryCsvRows(rows))],
     ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryExportRows(rows,sources))],
   ]) router.get('/export.'+extension,(req,res)=>{
     const actor=req.dieselActor,sources=store.list(actor.site);
-    const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
+    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources),req.query.ids);
     res.attachment((purchaseOrdersOnly(rows)?'diesel-purchase-orders.':'diesel-entries.')+extension).type(mime).send(serialize(rows,sources));
   });
   // The register as a PDF: purchase orders in full, one after another; any other register as a list.
   router.get('/export.pdf',async (req,res,next)=>{
     const actor=req.dieselActor,sources=store.list(actor.site);
-    const rows=filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources);
+    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources),req.query.ids);
     try {
       const orders=purchaseOrdersOnly(rows);
       const bytes=orders ? await purchaseOrdersPdf(rows.slice(0,200),sources)

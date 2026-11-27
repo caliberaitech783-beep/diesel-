@@ -228,7 +228,12 @@ form?.addEventListener('submit',async event=>{
     }
     const record={...values,...(selectedSite?{site:selectedSite.value}:{}),token:crypto.randomUUID(),id:form.dataset.id,actor,offlineScope,action,rev:Number(form.dataset.rev),type:form.dataset.type,data:values,device:navigator.userAgent,queued:Date.now()};
     if(form.dataset.position) record.position=JSON.parse(form.dataset.position);
-    try { const path=await transmit(record);location.assign(path); }
+    try {
+      const path=await transmit(record);
+      // The entry is saved, so the copy kept on this device while typing is no longer needed.
+      try { localStorage.removeItem('diesel-autosave:'+form.dataset.type+':'+form.dataset.site); } catch { /* Nothing was kept. */ }
+      location.assign(path);
+    }
     catch(e) {
       if(!offlineEnabled||!(e instanceof TypeError)||!['Submit','Save draft','Save indent'].includes(action))throw e;
       await outbox('put',record);status.textContent='Saved on this device. Reconnect with this account, site and role to sync.';

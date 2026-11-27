@@ -23,7 +23,7 @@ export function pulseMasterPage({ actor, master, rows, total, offset, pageSize, 
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escape(master.name)} · Pulse masters · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
   ${themeHead}
-  <link rel="stylesheet" href="/masters/assets/workspace.css">
+  <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   <link rel="stylesheet" href="/masters/assets/records.css">
   <script type="module" src="/master-data/assets/live-records.js"></script>

@@ -153,7 +153,7 @@ export function recordsPage({ prefix = '', master, rows, actor, record, project,
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(master.name)} records · Diesel</title>
     <link rel="icon" href="/masters/assets/pulse.png">
     ${themeHead}${recordDialogAssets}
-    <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/masters/assets/${itemEditing ? 'item-form' : 'master-form'}.css"><link rel="stylesheet" href="/masters/assets/records.css">${itemEditing ? '<link rel="stylesheet" href="/masters/assets/item-records.css">' : ''}
+    <link rel="stylesheet" href="/masters/assets/workspace.css">${dialog ? '' : '<link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>'}<link rel="stylesheet" href="/masters/assets/${itemEditing ? 'item-form' : 'master-form'}.css"><link rel="stylesheet" href="/masters/assets/records.css">${itemEditing ? '<link rel="stylesheet" href="/masters/assets/item-records.css">' : ''}
     ${editing ? '' : '<link rel="stylesheet" href="/master-data/assets/master-data.css"><script type="module" src="/master-data/assets/live-records.js"></script>'}
     <script type="module" src="/masters/assets/records.js"></script>
     ${editing ? '<link rel="stylesheet" href="/masters/assets/item-file-menu.css"><script type="module" src="/masters/assets/item-file-menu.js"></script>' : ''}
