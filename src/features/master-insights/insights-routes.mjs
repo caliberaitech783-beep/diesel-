@@ -4,7 +4,7 @@ import { masters } from '../masters/catalog.mjs';
 import { masterDefinition } from '../masters/records-fields.mjs';
 import { pulseMasters, replacedByPulse } from '../pulse-masters/pulse-master-catalog.mjs';
 import { dataChecks, equipmentBySite, missingFields, siteChecklist } from './insights.mjs';
-import { insightsPage, insightsPath, overview } from './insights-page.mjs';
+import { insightsPage, insightsPath, masterCards } from './insights-page.mjs';
 
 const assets = fileURLToPath(new URL('./assets/', import.meta.url));
 const unavailable = 'Pulse could not be reached just now. Showing the last fetched copy.';
@@ -57,8 +57,8 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
     if (!access) return null;
     const { copies, fresh } = await pulseCopy(access);
     const escape = value => String(value).replace(/[&<>"']/g, char => '&#' + char.charCodeAt(0) + ';');
-    return `<nav class="insight-views" aria-label="Master Data views"><a href="${insightsPath}?view=sites">Site checklist</a><a href="${insightsPath}?view=checks">Data checks</a></nav>
-      ${fresh ? '' : `<p class="record-meta" role="alert">${escape(unavailable)}</p>`}${overview({ ...await overviewData(access, copies), summary: await siteWise(access, copies) })}`;
+    // The Master Data home is the masters themselves, as cards. The checks and the Pulse tables are under Data review.
+    return `${fresh ? '' : `<p class="record-meta pulse-notice" role="alert">${escape(unavailable)}</p>`}${masterCards(await overviewData(access, copies))}`;
   }
 
   app.get('/api/master-insights/counts', route(async (_request, response, access) => {
@@ -70,7 +70,7 @@ export function registerMasterInsights(app, { getAccess, readPulse, listRecords,
   }));
 
   app.get(insightsPath, route(async (request, response, access) => {
-    const view = ['sites', 'checks'].includes(request.query.view) ? request.query.view : 'overview';
+    const view = ['sites', 'overview'].includes(request.query.view) ? request.query.view : 'checks';
     const { copies, fresh } = await pulseCopy(access);
     const page = { actor: access.actor, view, masterDataPath: access.masterDataPath, notice: fresh ? '' : unavailable };
     if (view === 'overview') {

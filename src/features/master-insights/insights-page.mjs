@@ -7,7 +7,8 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
 export const insightsPath = '/master-insights';
-const views = [['overview', 'Overview'], ['sites', 'Site checklist'], ['checks', 'Data checks']];
+// Data review: what needs correcting, which sites are ready, and what Diesel holds from Pulse.
+const views = [['checks', 'Data checks'], ['sites', 'Site checklist'], ['overview', 'Pulse and equipment']];
 const istTime = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
 const table = (label, headings, rows) => `<div class="master-data-table insight-table" role="region" aria-label="${escape(label)}" tabindex="0"><table>
   <thead><tr>${headings.map(heading => `<th scope="col">${escape(heading)}</th>`).join('')}</tr></thead>
@@ -51,17 +52,15 @@ export function masterCards({ pulse, masters, masterDataPath }) {
     <p class="master-cards-none" id="master-cards-none" hidden>No master matches that filter.</p>`;
 }
 
-// Also shown on the Master Data home, so the page is never empty.
-export function overview({ pulse, masters, masterDataPath, summary }) {
-  return `${masterCards({ pulse, masters, masterDataPath })}<h2>From Pulse</h2>
+// "Pulse and equipment": how fresh the Pulse copy is, what it holds, and the equipment at each site.
+export function overview({ pulse, summary }) {
+  const fetched = pulse.map(row => row.syncedAt).filter(Boolean).toSorted().at(-1);
+  return `<p class="record-meta pulse-fetched">${fetched ? 'Pulse data last fetched ' + istTime.format(new Date(fetched)) + ' IST.' : 'Pulse data has not been fetched yet.'}</p>
+    <h2>From Pulse</h2>
     ${table('Pulse masters', ['Master', 'Records', 'Last fetched'], pulse.map(row => [
       { html: `<a href="/pulse-masters?master=${row.slug}">${escape(row.name)}</a>` }, row.count,
       row.syncedAt ? istTime.format(new Date(row.syncedAt)) + ' IST' : 'Not fetched yet']))}
-    ${summary ? siteSummary(summary) : ''}
-    <h2>Diesel masters</h2>
-    ${table('Diesel masters', ['Master', 'Records', 'Incomplete'], masters.map(row => [
-      { html: `<a href="${escape(masterDataPath + '?master=' + row.slug)}">${escape(row.name)}</a>` }, row.count,
-      row.incomplete ? { html: `<span class="record-incomplete">${row.incomplete} missing required fields</span>` } : '']))}`;
+    ${summary ? siteSummary(summary) : ''}`;
 }
 
 function sites({ checklist }) {

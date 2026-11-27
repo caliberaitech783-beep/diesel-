@@ -114,11 +114,12 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.equal(counts.masters['gst-master'], 4);
   assert.equal(counts.masters['tax-master-tds'], 3);
 
-  const overview = await page('/master-insights');
+  // "Pulse and equipment" under Data review holds the Pulse table, when it was fetched, and the equipment at each site.
+  const overview = await page('/master-insights?view=overview');
   assert.match(overview, /<a href="\/pulse-masters\?master=equipment">Equipment Master<\/a><\/th><td data-label="Records">3<\/td>/);
-  assert.match(overview, /Storage Location Master<\/a><\/th><td data-label="Records">71<\/td><td data-label="Incomplete"><span class="record-incomplete">71 missing required fields/);
-  assert.match(overview, /IST/);
-
+  assert.match(overview, /<p class="record-meta pulse-fetched">Pulse data last fetched [^<]* IST\.<\/p>/);
+  assert.match(overview, /<h2>Equipment by site<\/h2>/);
+  assert.match(overview, /master=equipment&amp;by=currentLocation&amp;q=Sasti\+OC">Sasti OC<\/a><\/th><td data-label="Uncategorised">1<\/td><td data-label="Total equipment"><strong>1<\/strong><\/td><td data-label="Drivers">1<\/td><td data-label="Active shifts">1<\/td><td data-label="Storage locations">8<\/td>/);
   const checklist = await page('/master-insights?view=sites');
   assert.match(checklist, /Sasti OC<\/th><td data-label="Region">WCL<\/td><td data-label="Equipment">1<\/td><td data-label="Drivers">1<\/td><td data-label="Active shifts">1<\/td><td data-label="Storage locations">8<\/td><td data-label="Still missing">Ready/);
   assert.match(checklist, /Majri OC<\/th>[\s\S]*?drivers, active shifts/);
@@ -132,25 +133,25 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(checks, /<div class="check-summary"><div class="check-tile "><strong>8<\/strong><span>Checks run<\/span><\/div>/);
   assert.ok(checks.includes('id="check-filter"') && !checks.includes(' style='));
 
+  assert.match(overview, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Location Master/);
+  assert.match(overview, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
+  // Data review opens on the checks, with tabs to the other two views.
+  assert.match(await page('/master-insights'), /<h1 id="workspace-title">Data checks<\/h1>/);
+  assert.match(checks, /<a href="\/master-insights\?view=checks" aria-current="page">Data checks<\/a><a href="\/master-insights\?view=sites">Site checklist<\/a><a href="\/master-insights\?view=overview">Pulse and equipment<\/a>/);
+
+  // The Master Data home is only the masters, as cards.
   const sidebar = await page('/master-data');
-  assert.match(sidebar, /<h2>From Pulse<\/h2>/, 'the Master Data home shows the overview instead of an empty page');
-  assert.match(sidebar, /<a href="\/pulse-masters\?master=equipment">Equipment Master<\/a><\/th><td data-label="Records">3<\/td>/);
-  assert.match(sidebar, /Storage Location Master<\/a><\/th><td data-label="Records">71<\/td>/);
-  assert.match(sidebar, /<a href="\/master-insights\?view=sites">Site checklist<\/a>/);
-  assert.match(sidebar, /<h2>Equipment by site<\/h2>/);
-  assert.match(sidebar, /master=equipment&amp;by=currentLocation&amp;q=Sasti\+OC">Sasti OC<\/a><\/th><td data-label="Uncategorised">1<\/td><td data-label="Total equipment"><strong>1<\/strong><\/td><td data-label="Drivers">1<\/td><td data-label="Active shifts">1<\/td><td data-label="Storage locations">8<\/td>/);
-  assert.match(sidebar, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Location Master/);
-  assert.match(sidebar, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
+  assert.doesNotMatch(sidebar, /<h2>From Pulse<\/h2>|<h2>Equipment by site<\/h2>|<h2>Diesel masters<\/h2>|insight-views/);
+  assert.match(sidebar, /<a class="master-card" href="\/master-data\?master=storage-location-master"[^>]*>[\s\S]*?<small>71 records<\/small>\s*<em class="record-incomplete">71 missing required fields<\/em>/);
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
   // The menu is short now: the masters are cards on the page, and the checks have their own link.
-  assert.match(sidebar, /<a href="\/master-insights\?view=checks">.*Data checks<\/a>/);
+  assert.match(sidebar, /<a href="\/master-insights\?view=checks">.*Data review<\/a>/);
   assert.doesNotMatch(sidebar, /master-data-list|Overview and checks/);
   for (const name of ['Driver Master', 'Shift Master']) {
     assert.match(sidebar, new RegExp('<a class="master-card" href="/pulse-masters\\?master=[a-z-]+"[^>]*>[\\s\\S]*?<b>' + name + '</b><small>[^<]*<i class="from-pulse">Pulse</i>'));
     assert.doesNotMatch(sidebar, new RegExp('master-data\\?master=[a-z-]+"[^>]*>[\\s\\S]{0,200}?<b>' + name + '</b>'), name + ' is listed once in Master Data');
   }
   assert.match(sidebar, /<a class="master-card" href="\/pulse-masters\?master=site"[^>]*>[\s\S]*?<b>Location Master<\/b>/);
-  assert.match(sidebar, /pulse-masters\?master=site">Location Master<\/a>/);
   assert.doesNotMatch(sidebar, /href="[^"]*[?&](?:amp;)?master=location-master"|>Site Master/);
 
   const byMake = await page('/pulse-masters?master=equipment&q=volvo&by=make&sort=door&dir=desc');
