@@ -99,19 +99,25 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const meta=byId[type], path=meta?'/entries/type/'+type:'/entries';
   const filters=registerFilters(type==='E1'?{...query,status:'Saved'}:query);
   const { q: text, status, from, to, truck, vehicle } = filters;
-  const relevant=filterRegister(rows, type, filters,sources);
+  // All entries carries a tab for each kind of entry that has records; kind is the tab chosen.
+  const matching=filterRegister(rows, type, filters,sources);
+  const kind=!type&&byId[query.kind]&&matching.some(r=>r.type===query.kind)?query.kind:'';
+  const relevant=kind?matching.filter(r=>r.type===kind):matching;
   const actorRole=entryRole(actor);
   const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
-  const title = meta?.name ?? 'Entry register';
+  const title = meta?.name ?? 'All entries';
   const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group) : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
     ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
       ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
   // sites: the register was opened across sites, from a Dashboard card. The choice travels with every link on the page.
   const wide=typeof query.sites==='string'&&query.sites&&query.sites!==actor.site?query.sites:'';
-  const exportQuery=new URLSearchParams({type:type??'',...filters,...(wide?{sites:wide}:{})});
+  const exportQuery=new URLSearchParams({type:type??kind,...filters,...(wide?{sites:wide}:{})});
   // A long register opens with its newest 100 records so the page loads quickly; the rest are one click away.
   const limit=query.rows==='all'?Infinity:Math.min(5000,Math.max(100,Number.parseInt(query.rows,10)||100));
-  const rowsLink=rows=>esc(path+'?'+new URLSearchParams({...Object.fromEntries(Object.entries(filters).filter(([,value])=>value)),...(wide?{sites:wide}:{}),rows}));
+  const rowsLink=rows=>esc(path+'?'+new URLSearchParams({...Object.fromEntries(Object.entries(filters).filter(([,value])=>value)),...(wide?{sites:wide}:{}),...(kind?{kind}:{}),rows}));
+  const tabLink=to=>esc(path+'?'+new URLSearchParams({...Object.fromEntries(Object.entries(filters).filter(([,value])=>value)),...(wide?{sites:wide}:{}),...(to?{kind:to}:{})}));
+  const kinds=type?[]:entries.filter(entry=>matching.some(r=>r.type===entry.id));
+  const tabs=kinds.length>1?`<nav class="entry-tabs" aria-label="Kinds of entry"><a href="${tabLink('')}"${kind?'':' aria-current="page"'}>All<small>${matching.length}</small></a>${kinds.map(entry=>`<a href="${tabLink(entry.id)}"${kind===entry.id?' aria-current="page"':''}>${esc(entry.name)}<small>${matching.filter(r=>r.type===entry.id).length}</small></a>`).join('')}</nav>`:'';
   const more=relevant.length>limit?`<p class="register-more">Showing ${limit} of ${relevant.length} records · <a href="${rowsLink(limit+100)}">Show 100 more</a> · <a href="${rowsLink('all')}">Show all</a></p>`:'';
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
     ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
@@ -123,11 +129,11 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
     <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a>
     <a class="export" href="${esc('/entries/export.pdf?'+exportQuery)}">Export PDF</a></div></div>
-    <form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
+    ${tabs}<form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
-    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}${wide?`<input type="hidden" name="sites" value="${esc(wide)}">`:''}</form>${wide?`<p class="register-wide">Showing ${wide==='all'?'every site you can open':esc(wide)} · <a href="${path}">Show only ${esc(actor.site)}</a></p>`:''}${table(relevant,sources,type!=='E1',Boolean(type),relevant.slice(0,limit),Boolean(wide))}${more}</section>
+    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}${wide?`<input type="hidden" name="sites" value="${esc(wide)}">`:''}${kind?`<input type="hidden" name="kind" value="${esc(kind)}">`:''}</form>${wide?`<p class="register-wide">Showing ${wide==='all'?'every site you can open':esc(wide)} · <a href="${path}">Show only ${esc(actor.site)}</a></p>`:''}${table(relevant,sources,(type??kind)!=='E1',Boolean(type??kind),relevant.slice(0,limit),Boolean(wide))}${more}</section>
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {

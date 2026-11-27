@@ -1,5 +1,6 @@
 import { mastersMenuLink } from '../masters/master-navigation.mjs';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
+import { masterSidebar } from '../masters/master-sidebar.mjs';
 import { masters as catalog } from '../masters/catalog.mjs';
 import { pulseMasters as pulseCatalog } from '../pulse-masters/pulse-master-catalog.mjs';
 
@@ -44,7 +45,7 @@ export function masterCards({ pulse, masters, masterDataPath }) {
     ?? pulseCatalog.find(master => master.slug === slug)?.columns.map(([, label]) => label) ?? []).join(' ').replace(/[^\p{L}\p{N} ]/gu, ' ');
   const cards = [...masters.map(row => ({ ...row, fields: fieldsOf(row.slug), href: masterDataPath + '?master=' + row.slug })),
     ...pulse.map(row => ({ ...row, fields: fieldsOf(row.slug), fromPulse: true, href: '/pulse-masters?master=' + row.slug }))].toSorted((a, b) => a.name.localeCompare(b.name, 'en'));
-  return `<div class="master-cards-head"><p class="record-meta">${cards.length} masters · reference data used across the Diesel Workspace</p>
+  return `<div class="master-cards-head"><p class="record-meta">${cards.length} masters · reference data used across the Workspace</p>
     <label class="master-filter"><span class="sr-only">Filter masters</span><input type="search" id="master-card-filter" placeholder="Filter masters…" autocomplete="off" aria-controls="master-cards" hidden></label></div>
     <div class="master-cards" id="master-cards">${cards.map(card => `<a class="master-card" href="${escape(card.href)}" data-fields="${escape(card.fields ?? '')}"><span class="master-card-icon">${picture(card.name)}</span>
       <span class="master-card-text"><b>${escape(card.name)}</b><small>${Number(card.count).toLocaleString('en-IN')} record${card.count === 1 ? '' : 's'}${card.fromPulse ? ' <i class="from-pulse">Pulse</i>' : ''}</small>
@@ -141,6 +142,7 @@ export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   <link rel="stylesheet" href="/masters/assets/records.css">
   <link rel="stylesheet" href="/master-insights/assets/insights.css">
+  <script type="module" src="/masters/assets/navigation.js"></script><script type="module" src="/masters/assets/sidebar-toggle.js"></script>
 </head><body>
   <a class="skip" href="#workspace">Skip to ${title}</a>
   <header class="masthead">
@@ -149,6 +151,7 @@ export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {
     <div class="account">${themeToggle}<span>${escape(actor.name)}</span><form method="post" action="/api/sign-out"><button>Sign out</button></form></div>
   </header>
   <div class="layout">
+    ${masterSidebar({ hidden: true, masterData: true, masterDataCurrent: true, checksCurrent: true, masterDataPath, pulseMasters: true })}
     <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
       <header class="workspace-heading master-data-heading">
         ${mastersMenuLink(masterDataPath, 'Back to Master Data')}

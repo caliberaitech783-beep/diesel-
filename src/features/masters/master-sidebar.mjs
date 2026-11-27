@@ -13,12 +13,12 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
   // and a new record is added from "+ Add new" on each master. On a form or a single master's page the menu
   // starts hidden; the ☰ beside the title shows and hides it.
   if (masterData && pulseMasters) return `<aside class="sidebar" id="masters-sidebar"${hidden ? ' hidden' : ''}>
-      <div class="sidebar-tools">${back}</div>
+      <div class="sidebar-tools">${back}<button type="button" class="sidebar-hide" data-sidebar-hide hidden>☰ Hide menu</button></div>
       <nav aria-label="Diesel navigation">
         <div class="main-links"><a href="/entries/dashboard">${icon('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>')}Dashboard</a>
-        <a href="/entries/workspace">${icon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>')}Diesel Workspace</a>
-        <a href="/entries">${icon('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>')}Entry register</a>
-        <a href="${masterDataPath}"${masterDataCurrent && !checksCurrent ? ' aria-current="page"' : ''}>${icon('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')}Diesel Master Data</a>
+        <a href="/entries/workspace">${icon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>')}Workspace</a>
+        <a href="/entries">${icon('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>')}All entries</a>
+        <a href="${masterDataPath}"${masterDataCurrent && !checksCurrent ? ' aria-current="page"' : ''}>${icon('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')}Master Data</a>
         ${`<a href="/master-insights?view=checks"${checksCurrent ? ' aria-current="page"' : ''}>${icon('<path d="M12 3 5 6v6c0 4.400 3 7.600 7 9 4-1.400 7-4.600 7-9V6z"/><path d="m9 12 2 2 4-4"/>')}Data overview</a>`}</div>
         <details class="master-group" name="diesel-sidebar" open><summary><span class="folder-icon" aria-hidden="true"></span>Approvers</summary><ul aria-label="Approver lists"><li><a href="/indent-approvers">Indent approvers</a></li><li><a href="/po-approvers">PO approvers</a></li></ul></details>
       </nav>
@@ -57,8 +57,8 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
       </div>
       <nav aria-label="Diesel navigation">
         ${masterData ? `<div class="main-links"><a href="/entries/dashboard">${icon('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>')}Dashboard</a>
-        <a href="/entries/workspace">${icon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>')}Diesel Workspace</a>
-        <a href="${masterDataPath}"${masterDataCurrent ? ' aria-current="page"' : ''}>${icon('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')}Diesel Master Data</a></div>` : ''}
+        <a href="/entries/workspace">${icon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>')}Workspace</a>
+        <a href="${masterDataPath}"${masterDataCurrent ? ' aria-current="page"' : ''}>${icon('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')}Master Data</a></div>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"><summary><span class="folder-icon" aria-hidden="true"></span>Entry</summary><ul aria-label="Entry subtabs"><li data-fields="indent purchase fuel"><a href="/entries">Entry workspace</a></li>${pulseMasters ? '<li data-fields="indent approvers telegram approval"><a href="/indent-approvers">Indent approvers</a></li><li data-fields="purchase order po approvers telegram approval"><a href="/po-approvers">PO approvers</a></li>' : ''}${localIndentDrafts ? '<li data-fields="item"><a href="/entries/indents">Diesel Indent drafts</a></li>' : ''}</ul></details>` : ''}
         ${masterData ? `<details class="master-group" name="diesel-sidebar"${masterDataCurrent ? ' open' : ''}>
           <summary><span class="folder-icon" aria-hidden="true"></span>Master Data</summary>

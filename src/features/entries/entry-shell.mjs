@@ -16,12 +16,12 @@ const sections = { workspace: 'Workspace', dashboard: 'Dashboard' };
 
 // Everything the search box can open: pages, the entries on this person's menu, and the masters.
 function searchItems(actor, active) {
-  const pages = [['Dashboard', '/entries/dashboard', 'Home'], ['Diesel Workspace', '/entries/workspace', 'Home'], ['Entry register', '/entries', 'Entry'],
+  const pages = [['Dashboard', '/entries/dashboard', 'Home'], ['Workspace', '/entries/workspace', 'Home'], ['All entries', '/entries', 'Entry'],
     ['My work', '/entries/home', 'Entry'], ['My approvals', '/entries/approvals', 'Entry'], ['My alerts', '/entries/alerts', 'Entry']]
     // The indent screen keeps approvals off the page, as its menu does.
     .filter(([name]) => active !== 'E1' || name !== 'My approvals');
   const modules = workspaceFor(actor).flatMap(category => category.modules.map(module => [module.name, '/entries/type/' + module.id, 'Workspace · ' + category.name]));
-  const masterData = actor.canOpenMasters === false ? [] : [['Diesel Master Data', '/master-data', 'Home'],
+  const masterData = actor.canOpenMasters === false ? [] : [['Master Data', '/master-data', 'Home'],
     ...masters.filter(({ slug }) => slug !== 'location-master').map(({ name, slug }) => [name, '/master-data?master=' + slug, 'Master Data'])];
   return [...pages, ...modules, ...masterData];
 }
@@ -35,14 +35,14 @@ function navigation(active, actor) {
   // A person who works every entry (the shared workspace) gets the short menu: the entries themselves are the cards in
   // Diesel Workspace. A person with an assigned role or a site stock workspace keeps the full list of their own entries.
   const simple = !types && !actor.assignments, masters = canOpenMasters !== false;
-  const shortMenu = `<a class="nav-main" href="/entries" ${active ? '' : 'aria-current="page"'}>${icons.module}Entry register</a>
-    ${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Diesel Master Data</a>` : ''}
+  const shortMenu = `<a class="nav-main" href="/entries" ${active ? '' : 'aria-current="page"'}>${icons.module}All entries</a>
+    ${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Master Data</a>` : ''}
     ${masters && hosted ? `<a class="nav-main" href="/master-insights">${icons.control}Data overview</a>
     <p class="rail-label">Approvers</p><a class="nav-home" href="/indent-approvers">Indent approvers</a><a class="nav-home" href="/po-approvers">PO approvers</a>` : ''}
     ${hosted ? `<a class="nav-home" href="/entries/opening-stock" ${active==='opening-stock'?'aria-current="page"':''}>Opening stock</a>` : ''}`;
-  const fullMenu = `${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Diesel Master Data</a>` : ''}
+  const fullMenu = `${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Master Data</a>` : ''}
     <p class="rail-label">Entry</p>
-    <a class="nav-home" href="/entries" ${active ? '' : 'aria-current="page"'}><i class="grid-icon" aria-hidden="true"></i>Entry register</a>
+    <a class="nav-home" href="/entries" ${active ? '' : 'aria-current="page"'}><i class="grid-icon" aria-hidden="true"></i>All entries</a>
     <a class="nav-home" href="/entries/home" ${active === 'home' ? 'aria-current="page"' : ''}>My work</a>
     ${active==='E1'?'':`<a class="nav-home" href="/entries/approvals" ${active === 'approvals' ? 'aria-current="page"' : ''}>My approvals</a>`}
     <a class="nav-home" href="/entries/alerts" ${active === 'alerts' ? 'aria-current="page"' : ''}>My alerts</a>
@@ -52,11 +52,12 @@ function navigation(active, actor) {
       ${visible.filter(e => e.group === group).map(e => `<a href="/entries/type/${e.id}" ${active === e.id ? 'aria-current="page"' : ''}><small>${e.code}</small><span>${esc(e.name)}</span></a>`).join('')}
       </details>`).join('')}`;
   return `<aside class="rail"><div class="rail-title"><span>${simple ? 'Diesel' : 'Entry'}</span>
+    <button type="button" id="rail-toggle" title="Hide the menu">☰ Hide menu</button>
     <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="false" hidden>Browse entries</button></div>
     <nav id="entry-navigation" aria-label="Diesel entries">
     <button type="button" id="global-search-open" class="rail-search" hidden>${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
     <a class="nav-main" href="/entries/dashboard" ${active === 'dashboard' ? 'aria-current="page"' : ''}>${icons.dashboard}Dashboard</a>
-    <a class="nav-main" href="/entries/workspace" ${active === 'workspace' ? 'aria-current="page"' : ''}>${icons.workspace}Diesel Workspace</a>
+    <a class="nav-main" href="/entries/workspace" ${active === 'workspace' ? 'aria-current="page"' : ''}>${icons.workspace}Workspace</a>
     ${simple ? shortMenu : fullMenu}
     ${canOpenMasters === false || simple ? '' : '<a class="masters-link" href="/">← Masters</a>'}</nav></aside>`;
 }
@@ -73,11 +74,11 @@ const pageHelp = {
   dashboard: ['Figures and charts for the period and site you choose, worked out from saved entries.',
     ['Pick a period (Today, 7 Days … or your own From and To dates) and a site, then press Show.', 'Use the tabs to look at Buy, Receive, Stock Storage, Vehicle Fuel or Accounts & Billing.',
       'Click any card to open the records behind it.', '“Waiting for you” shows approvals to give and entries returned to you.']],
-  workspace: ['Every entry, grouped the way the department works.', ['Choose a category on the left.', 'Click a module on the right to open its register.', 'In the register press New entry to make one.']],
+  workspace: ['Every entry as a card, grouped the way the department works.', ['Click a card to open that entry’s register.', 'Press + New on a card to start an entry your role makes.', 'Use the filter box to find an entry by name.']],
   approvals: ['Entries waiting for your approval in the role you are signed in as.', ['Open an entry to read it in full.', 'Approve it, or return it to its maker with a reason.']],
   alerts: ['Things at your site that need attention, such as late approvals or low stock.', ['Open the entry named in the alert and act on it.']],
   masters: ['Reference data used by every entry: suppliers, rates, items, storage and the rest.',
-    ['On Diesel Master Data, click a master’s card to open its records; the filter box also finds a master by a field name.', 'Press + Add new on a master to enter a record, or Import to bring in an Excel or CSV file.',
+    ['On Master Data, click a master’s card to open its records; the filter box also finds a master by a field name.', 'Press + Add new on a master to enter a record, or Import to bring in an Excel or CSV file.',
       'Masters marked Pulse come from Pulse and are kept up to date from there.', 'Data overview lists records that need correcting, with a link to each one.']],
   home: ['The entries your role makes, and what is waiting for you today.', ['Pick an entry to start it.', 'Open My approvals or My alerts to clear what is waiting.']],
 };
@@ -125,7 +126,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools">${printable ? '<button type="button" id="print-page" class="page-tool" title="Print this record" hidden>Print</button>' : ''}<button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-show" title="Show the menu" hidden>☰ Show menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools">${printable ? '<button type="button" id="print-page" class="page-tool" title="Print this record" hidden>Print</button>' : ''}<button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}${helpDialog(active)}</body></html>`;
 }

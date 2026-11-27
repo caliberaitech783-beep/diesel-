@@ -54,21 +54,21 @@ indentRemarks?.addEventListener('input',()=>{
 });
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
-// The menu on the left can be hidden to give the form the full width. The choice is remembered on this device.
-const railToggle = document.querySelector('#rail-toggle');
-if (railToggle) {
-  const remembered = () => { try { return localStorage.getItem('diesel-entry-menu') === 'hidden'; } catch { return false; } };
+// The menu on the left: "Hide menu" sits at the top of the menu itself, and "Show menu" appears at the top of the page
+// while it is hidden. Choosing something from the menu closes it, so the page opens at full width; the choice is
+// remembered on this device and shared with the master pages.
+const railToggle = document.querySelector('#rail-toggle'), railShow = document.querySelector('#rail-show'), rail = document.querySelector('.rail');
+if (railToggle && railShow && rail) {
+  const remember = hidden => { try { localStorage.setItem('diesel-menu', hidden ? 'hidden' : 'shown'); } catch { /* The choice simply lasts for this page. */ } };
   const apply = hidden => {
+    document.documentElement.dataset.menu = hidden ? 'hidden' : 'shown';
     document.body.classList.toggle('rail-hidden', hidden);
-    railToggle.setAttribute('aria-pressed', String(hidden));
-    railToggle.textContent = hidden ? '☰ Show menu' : '☰ Hide menu';
+    railShow.hidden = !hidden;
   };
-  apply(remembered());
-  railToggle.addEventListener('click', () => {
-    const hidden = !document.body.classList.contains('rail-hidden');
-    try { localStorage.setItem('diesel-entry-menu', hidden ? 'hidden' : 'shown'); } catch { /* The choice simply lasts for this page. */ }
-    apply(hidden);
-  });
+  apply(document.documentElement.dataset.menu === 'hidden');
+  railToggle.addEventListener('click', () => { remember(true); apply(true); railShow.focus(); });
+  railShow.addEventListener('click', () => { remember(false); apply(false); railToggle.focus(); });
+  rail.addEventListener('click', event => { if (event.target.closest('a[href]')) remember(true); });
 }
 const navigationToggle = document.querySelector('#nav-toggle');
 if (navigationToggle) {

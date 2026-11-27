@@ -21,7 +21,7 @@ test('the workspace groups every menu entry under the department headings and ke
   // One page of cards under category headings: the count, anything waiting, the register, and a new entry for the maker.
   const buyer = { ...actor, profile: roleKey('Procurement Executive') };
   const html = workspacePage(buyer, [row('E2', '2026-11-27', 'Posted'), { ...row('E2', '2026-11-26', 'Awaiting approval'), id: 'w' }, { ...row('E2', '2026-11-25', 'Returned'), id: 'r' }, { ...row('E2', '2026-11-24', 'Draft'), id: 'd', rev: 0 }]);
-  assert.match(html, /<h1>Diesel Workspace<\/h1>/);
+  assert.match(html, /<h1>Workspace<\/h1>/);
   assert.match(html, /17 entries · everything the department records/);
   assert.match(html, /<section class="ws-group cat-buy"><h2><span class="ws-icon small">.*?<\/span>BUY<small>Requirement, ordering, payment and tanker allocation<\/small><\/h2>/s);
   assert.match(html, /<a class="ws-card-open" href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b><small>3 records<\/small>\s*<em class="ws-badge">1 awaiting approval<\/em><em class="ws-badge returned">1 returned<\/em>/);
@@ -29,7 +29,7 @@ test('the workspace groups every menu entry under the department headings and ke
   assert.ok(!html.includes('href="/entries/new/E7"'), 'only the maker role gets + New');
   assert.ok(html.includes('id="workspace-filter"') && html.indexOf('>BUY<') < html.indexOf('>RECEIVE<') && html.indexOf('>RECEIVE<') < html.indexOf('>CONTROL<'), 'categories stay in work order');
   // The menu and the search box reach the new pages from any entry page.
-  for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace" aria-current="page"', 'href="/master-data"', 'id="global-search"', 'Entry register'])
+  for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace" aria-current="page"', 'href="/master-data"', 'id="global-search"', 'All entries'])
     assert.ok(html.includes(part), part);
 });
 
@@ -69,7 +69,7 @@ test('dashboard figures come only from saved entries in the period', () => {
 
 test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
   const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
-  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/entries">.*Entry register<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data overview<\/a><\/div>/s);
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Workspace<\/a>\s*<a href="\/entries">.*All entries<\/a>\s*<a href="\/master-data" aria-current="page">.*Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data overview<\/a><\/div>/s);
   // The short menu: no list of masters and no separate Master list, only the approver lists below the main links.
   assert.ok(!html.includes('master-data-list') && !html.includes('master-list') && !html.includes('master-search'));
   assert.match(html, /<summary>.*Approvers<\/summary><ul aria-label="Approver lists"><li><a href="\/indent-approvers">Indent approvers<\/a><\/li><li><a href="\/po-approvers">PO approvers<\/a><\/li><\/ul>/);
@@ -133,7 +133,7 @@ test('Master Data shows every master as a card with its count, source and missin
   const data = { masterDataPath: '/master-data', pulse: [{ slug: 'site', name: 'Location Master', count: 3 }],
     masters: [{ slug: 'account-master', name: 'Account Master', count: 1650, incomplete: 165 }, { slug: 'diesel-rate-master', name: 'Diesel Rate Master', count: 1 }] };
   const html = masterCards(data);
-  assert.match(html, /3 masters · reference data used across the Diesel Workspace/);
+  assert.match(html, /3 masters · reference data used across the Workspace/);
   assert.match(html, /<a class="master-card" href="\/master-data\?master=account-master" data-fields="[^"]*Parent Group[^"]*">[\s\S]*?<b>Account Master<\/b><small>1,650 records<\/small>\s*<em class="record-incomplete">165 missing required fields<\/em>/);
   assert.match(html, /href="\/pulse-masters\?master=site"[^>]*>[\s\S]*?<b>Location Master<\/b><small>3 records <i class="from-pulse">Pulse<\/i><\/small>/);
   assert.match(html, /<b>Diesel Rate Master<\/b><small>1 record<\/small>/);
@@ -147,7 +147,7 @@ test('Master Data shows every master as a card with its count, source and missin
 test('the shared workspace gets the short menu; an assigned role keeps its own list of entries', async () => {
   const { page } = await import('./entry-shell.mjs');
   const short = page('Any', { ...actor, hosted: true, trial: true }, 'E2', '/entries/type/E2', '');
-  for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace"', 'Entry register</a>', 'href="/master-data"', 'href="/master-insights"', 'Data overview</a>',
+  for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace"', 'All entries</a>', 'href="/master-data"', 'href="/master-insights"', 'Data overview</a>',
     'href="/indent-approvers">Indent approvers</a>', 'href="/po-approvers">PO approvers</a>', 'Trial workspace · sample data · not live records']) assert.ok(short.includes(part), part);
   // My work, My approvals and My alerts stay reachable from the search box and the bell, but are off the menu.
   assert.doesNotMatch(short, /class="nav-home" href="\/entries\/(home|approvals|alerts)"|<summary><span>Buy<\/span>|<small>E2<\/small>|← Masters|id="entry-language"|field-hints|entry-language\.js/);
@@ -172,4 +172,23 @@ test('a register opened across sites shows the site of each record and carries t
   const parts = shellParts(actor);
   for (const id of ['global-search-open', 'today-clock', 'pending-bell', 'help-open', 'global-search', 'page-help']) assert.ok(parts.includes('id="' + id + '"'), id);
   assert.match(parts, /Press \+ Add new on a master to enter a record/);
+});
+
+test('All entries has a tab for each kind of entry with records, and the menu carries its own Hide button', async () => {
+  const { registerPage } = await import('./entry-page.mjs');
+  const rows = [{ ...row('E2', '2026-11-20', 'Posted', { litres: 100, value: 1000 }), maker: 'a' }, { ...row('E2', '2026-11-21', 'Draft'), id: 'd', maker: 'a' }, { ...row('E1', '2026-11-22', 'Posted', { litres: 50 }), maker: 'a' }];
+  const all = registerPage(actor, rows, null, { status: 'Posted' });
+  assert.match(all, /<h1>All entries<\/h1>/);
+  assert.match(all, /<nav class="entry-tabs" aria-label="Kinds of entry"><a href="\/entries\?status=Posted" aria-current="page">All<small>2<\/small><\/a><a href="\/entries\?status=Posted&amp;kind=E1">Diesel indent<small>1<\/small><\/a><a href="\/entries\?status=Posted&amp;kind=E2">Purchase order<small>1<\/small><\/a><\/nav>/);
+  const orders = registerPage(actor, rows, null, { kind: 'E2' });
+  assert.equal(orders.match(/class="record-link"/g).length, 2);
+  assert.match(orders, /kind=E2" aria-current="page">Purchase order<small>2<\/small>/);
+  assert.match(orders, /<input type="hidden" name="kind" value="E2"><\/form>/);
+  assert.match(orders, /href="\/entries\/export\.xlsx\?type=E2/);
+  assert.match(orders, /<th class="number">Quantity \(L\)<\/th>/, 'a tab shows that entry’s quantity and amount');
+  assert.ok(!registerPage(actor, rows, 'E2').includes('entry-tabs') && !registerPage(actor, rows.slice(0, 2), null).includes('entry-tabs'), 'no tabs on one entry’s own register, or when there is only one kind');
+  // Hide menu sits at the top of the menu; Show menu is on the page for when it is hidden.
+  assert.match(all, /<div class="rail-title"><span>Diesel<\/span>\s*<button type="button" id="rail-toggle" title="Hide the menu">☰ Hide menu<\/button>/);
+  assert.match(all, /<div class="crumb"><button type="button" id="rail-show" title="Show the menu" hidden>☰ Show menu<\/button>/);
+  assert.match(masterSidebar({ masterData: true, pulseMasters: true }), /<button type="button" class="sidebar-hide" data-sidebar-hide hidden>☰ Hide menu<\/button>/);
 });
