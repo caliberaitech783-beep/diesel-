@@ -240,3 +240,7 @@ a.kpi:hover, .ws-category:hover, .ws-module:hover, .master-card:hover, .work-lin
 .master-add-new { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 8px; background: var(--blue); color: #fff; font-size: 14px; font-weight: 650; text-decoration: none; white-space: nowrap; transition: transform .16s, box-shadow .16s; }
 :root[data-theme="dark"] .master-add-new { color: #0b1f3a; }
 .master-add-new:hover { transform: translateY(-1px); box-shadow: 0 6px 14px #2563eb40; }
+.masthead .account .page-tool { padding: 5px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.masthead .account .page-tool:hover { color: var(--blue); border-color: var(--blue); }
+.masthead .account .pending-bell { margin-right: 4px; }
+.register-wide { margin: 0; padding: 0 20px 12px; color: var(--muted); font-size: 13.5px; } .register-wide a { color: var(--link); font-weight: 600; }

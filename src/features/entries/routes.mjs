@@ -106,8 +106,8 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     next();
   });
   router.get('/',(req,res)=>{
-    const actor=req.dieselActor, sources=withApproval(store.list(actor.site),actor);
-    res.send(registerPage(actor,sources.filter(doc=>canRead(doc,actor)),null,req.query,sources));
+    const actor=req.dieselActor, sources=registerSources(actor,req.query);
+    res.send(registerPage(actor,sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),null,req.query,sources));
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
   router.get('/workspace',(req,res)=>res.send(workspacePage(req.dieselActor,visibleRecords(req.dieselActor),req.query)));
@@ -130,6 +130,13 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const actor=req.dieselActor;
     res.set('Cache-Control','no-store').json(searchRecords(recordsOf(actor,openSites(actor).map(([value])=>value)),req.query.q));
   });
+  // A register normally lists the signed-in site. sites=all, or one site this person may open, widens or moves it;
+  // that is how a Dashboard card opens the same records it counted.
+  const registerSources = (actor,query) => {
+    const places=openSites(actor).map(([value])=>value);
+    const chosen=query.sites==='all' ? places : places.includes(query.sites) ? [query.sites] : null;
+    return withApproval(chosen ? recordsOf(actor,chosen) : store.list(actor.site),actor);
+  };
   // The dashboard reads the saved entries of one site, or of every site this person may open.
   router.get('/dashboard',(req,res)=>{
     const actor=req.dieselActor, sites=openSites(actor);
@@ -172,7 +179,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   router.get('/home',withAlerts(roleHomePage, true));
   router.get('/type/:type',(req,res)=>{
     if (!allowedType(req.params.type)) return res.sendStatus(404);
-    const actor=req.dieselActor, sources=withApproval(store.list(actor.site),actor), rows=sources.filter(doc=>canRead(doc,actor));
+    const actor=req.dieselActor, sources=registerSources(actor,req.query), rows=sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site}));
     if (enforceVisibility && !mayViewEntryType(req.params.type,actor) && !rows.some(row=>row.type===req.params.type)) {
       return res.sendStatus(403);
     }
@@ -264,14 +271,14 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     ['csv','text/csv',(rows,sources)=>entryCsv(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryCsvRows(rows))],
     ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryExportRows(rows,sources))],
   ]) router.get('/export.'+extension,(req,res)=>{
-    const actor=req.dieselActor,sources=store.list(actor.site);
-    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources),req.query.ids);
+    const actor=req.dieselActor,sources=registerSources(actor,req.query);
+    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),req.query.type,registerFilters(req.query),sources),req.query.ids);
     res.attachment((purchaseOrdersOnly(rows)?'diesel-purchase-orders.':'diesel-entries.')+extension).type(mime).send(serialize(rows,sources));
   });
   // The register as a PDF: purchase orders in full, one after another; any other register as a list.
   router.get('/export.pdf',async (req,res,next)=>{
-    const actor=req.dieselActor,sources=store.list(actor.site);
-    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,actor)),req.query.type,registerFilters(req.query),sources),req.query.ids);
+    const actor=req.dieselActor,sources=registerSources(actor,req.query);
+    const rows=picked(filterRegister(sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),req.query.type,registerFilters(req.query),sources),req.query.ids);
     try {
       const orders=purchaseOrdersOnly(rows);
       const bytes=orders ? await purchaseOrdersPdf(rows.slice(0,200),sources)

@@ -78,22 +78,36 @@ if (document.querySelector('#global-search')) {
     if (!parts) return;
     const opener = parts.querySelector('#global-search-open'), clock = parts.querySelector('#today-clock'), dialog = parts.querySelector('#global-search');
     document.querySelector('#masters-sidebar .sidebar-tools')?.append(opener);
-    document.querySelector('.masthead .account')?.prepend(clock);
-    document.body.append(dialog);
+    const account = document.querySelector('.masthead .account'), bell = parts.querySelector('#pending-bell'), helpOpen = parts.querySelector('#help-open'), help = parts.querySelector('#page-help');
+    account?.prepend(helpOpen, bell, clock);
+    document.body.append(dialog, help);
     setupSearch(dialog, opener);
     setupClock(clock);
+    setupBell(bell);
+    setupHelp(help, helpOpen);
   }).catch(() => {});
 }
 
 // ---- Bell: how much is waiting for this person.
-const bell = document.querySelector('#pending-bell');
-if (bell) fetch('/entries/pending.json', { headers: { Accept: 'application/json' } }).then(response => response.ok ? response.json() : null).then(waiting => {
-  if (!waiting) return;
-  bell.hidden = false;
-  bell.querySelector('#pending-count').textContent = waiting.total ? String(waiting.total) : '';
-  bell.title = waiting.total ? waiting.approvals + ' approvals to give · ' + waiting.returned + ' returned to you' : 'Nothing is waiting for you';
-  if (!waiting.approvals && waiting.returned) bell.href = '/entries?status=Returned';
-}).catch(() => {});
+function setupBell(bell) {
+  if (!bell) return;
+  fetch('/entries/pending.json', { headers: { Accept: 'application/json' } }).then(response => response.ok ? response.json() : null).then(waiting => {
+    if (!waiting) return;
+    bell.hidden = false;
+    bell.querySelector('#pending-count').textContent = waiting.total ? String(waiting.total) : '';
+    bell.title = waiting.total ? waiting.approvals + ' approvals to give · ' + waiting.returned + ' returned to you' : 'Nothing is waiting for you';
+    if (!waiting.approvals && waiting.returned) bell.href = '/entries?status=Returned';
+  }).catch(() => {});
+}
+// ---- Help: how to use this page.
+function setupHelp(help, opener) {
+  if (!help || !opener || typeof help.showModal !== 'function') return;
+  opener.hidden = false;
+  opener.addEventListener('click', () => help.showModal());
+  help.addEventListener('click', event => { if (event.target === help) help.close(); });
+}
+setupBell(document.querySelector('#pending-bell'));
+setupHelp(document.querySelector('#page-help'), document.querySelector('#help-open'));
 
 // ---- Recently opened records, for the Dashboard.
 const heading = (document.querySelector('main h1')?.textContent ?? document.title).trim();
@@ -221,25 +235,44 @@ if (entryForm) {
     // Autosave: what is typed into a new entry is kept on this device until the entry is saved.
     const draftKey = 'diesel-autosave:' + entryForm.dataset.type + ':' + entryForm.dataset.site;
     const snapshot = () => Object.fromEntries(typed().filter(field => field.value).map(field => [field.name, field.value]));
+    // Row tables (purchase order footer rows, goods receipt materials and storage) keep their values in unnamed
+    // cells, so they are kept row by row: every table of the form, each row's cells in order.
+    const rowTables = () => [...entryForm.querySelectorAll('table')].filter(table => table.querySelector('tbody input:not([type=hidden]), tbody select'));
+    const cellsOf = row => [...row.querySelectorAll('input:not([type=hidden]):not([type=file]), select')];
+    const rowSnapshot = () => rowTables().map(table => {
+      const rows = [...table.querySelectorAll('tbody tr')].map(row => cellsOf(row).map(cell => cell.value));
+      while (rows.length && rows.at(-1).every(value => !value)) rows.pop();
+      return rows;
+    });
+    const fillRows = saved => rowTables().forEach((table, place) => {
+      const wanted = saved?.[place] ?? [];
+      // A table that adds rows on request gets as many as were typed; one that keeps spare rows hidden shows them.
+      const add = entryForm.querySelector('[data-add-row="' + (table.dataset.grnRows ?? '') + '"]');
+      for (let guard = 0; add && table.querySelectorAll('tbody tr').length < wanted.length && guard < 50; guard += 1) add.click();
+      [...table.querySelectorAll('tbody tr')].forEach((row, index) => {
+        const values = wanted[index];
+        if (!values?.some(Boolean)) return;
+        row.hidden = false;
+        cellsOf(row).forEach((cell, at) => {
+          if (values[at] === undefined || values[at] === cell.value) return;
+          if (cell.tagName === 'SELECT' && ![...cell.options].some(option => option.value === values[at])) return;
+          cell.value = values[at];
+          cell.dispatchEvent(new Event('input', { bubbles: true }));
+          cell.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+    });
     const kept = read(draftKey)[0];
     let saving = 0;
-    if (kept?.values && Object.keys(kept.values).length) say('You left this entry unsaved on ' + new Date(kept.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + '.',
-      button('Restore what I typed', () => { fillIn(kept.values); say('Restored. Check the values, then save.'); }),
+    if (kept?.values && (Object.keys(kept.values).length || kept.rows?.some(table => table.length))) say('You left this entry unsaved on ' + new Date(kept.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + '.',
+      button('Restore what I typed', () => { fillIn(kept.values); fillRows(kept.rows); say('Restored. Check the values, then save.'); }),
       button('Discard', () => { forget(draftKey); note.hidden = true; }));
     entryForm.addEventListener('input', () => {
       clearTimeout(saving);
-      saving = setTimeout(() => { const values = snapshot(); if (Object.keys(values).length) write(draftKey, [{ at: Date.now(), values }]); }, 600);
+      saving = setTimeout(() => { const values = snapshot(), rows = rowSnapshot(); if (Object.keys(values).length || rows.some(table => table.length)) write(draftKey, [{ at: Date.now(), values, rows }]); }, 600);
     });
     // entry-form.js clears the kept copy once the entry is saved.
   }
-}
-
-// ---- Help: how to use this page.
-const help = document.querySelector('#page-help'), helpOpen = document.querySelector('#help-open');
-if (help && helpOpen && typeof help.showModal === 'function') {
-  helpOpen.hidden = false;
-  helpOpen.addEventListener('click', () => help.showModal());
-  help.addEventListener('click', event => { if (event.target === help) help.close(); });
 }
 
 if (entryForm) {

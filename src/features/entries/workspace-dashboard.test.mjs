@@ -63,7 +63,7 @@ test('dashboard figures come only from saved entries in the period', () => {
 
 test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
   const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
-  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data overview<\/a><\/div>/s);
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/entries">.*Entry register<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data overview<\/a><\/div>/s);
   // The short menu: no list of masters and no separate Master list, only the approver lists below the main links.
   assert.ok(!html.includes('master-data-list') && !html.includes('master-list') && !html.includes('master-search'));
   assert.match(html, /<summary>.*Approvers<\/summary><ul aria-label="Approver lists"><li><a href="\/indent-approvers">Indent approvers<\/a><\/li><li><a href="\/po-approvers">PO approvers<\/a><\/li><\/ul>/);
@@ -92,7 +92,7 @@ test('dashboard cards open their records and show the change from the period bef
   const rows = [row('E2', '2026-11-20', 'Posted', { litres: 20000, value: 1800000 }), row('E2', '2026-11-10', 'Posted', { litres: 10000, value: 900000 })];
   const html = dashboardPage(actor, rows, { from: '2026-11-18', to: '2026-11-27' }, { sites: [['Jayant', 'Jayant OC']], site: 'all', stock: [], today: '2026-11-27',
     waiting: { approvals: 2, returned: 0, drafts: 1, total: 2 } });
-  assert.match(html, /<a class="kpi" href="\/entries\/type\/E2\?from=2026-11-18&amp;to=2026-11-27" title="Open these records"><span class="kpi-label">Purchase Value<\/span>/);
+  assert.match(html, /<a class="kpi" href="\/entries\/type\/E2\?from=2026-11-18&amp;to=2026-11-27&amp;sites=all" title="Open these records"><span class="kpi-label">Purchase Value<\/span>/);
   assert.match(html, /class="kpi-change up" title="Against the period just before">▲ 100%<\/span>/);
   assert.match(html, /<h2>Waiting for you<\/h2>[\s\S]*class="has-work"><b>2<\/b>Approvals to give/);
   assert.ok(html.includes('id="dash-shortcuts"') && html.includes('id="pending-bell"') && !html.includes('favourite') && !html.includes('id="print-page"'), 'no favourites, and Print only on a saved record');
@@ -148,4 +148,22 @@ test('the shared workspace gets the short menu; an assigned role keeps its own l
   assert.ok(!short.includes('id="print-page"') && page('Record', actor, 'E2', '/entries/record/abc', '').includes('id="print-page"'), 'Print is on a saved record only');
   const assigned = page('Any', { ...actor, assignments: [{ key: 'k', site: 'Jayant', role: 'Site Store', profile: 'site-store' }] }, 'E7', '/entries/type/E7', '');
   assert.match(assigned, /My work<\/a>[\s\S]*<summary><span>/);
+});
+
+test('a register opened across sites shows the site of each record and carries the choice on its links', async () => {
+  const { registerPage } = await import('./entry-page.mjs');
+  const { shellParts } = await import('./entry-shell.mjs');
+  const rows = [{ ...row('E2', '2026-11-20', 'Posted', { litres: 100, value: 1000 }), maker: 'a' }, { ...row('E2', '2026-11-21', 'Posted', { litres: 200, value: 2000 }), id: 'other', site: 'Sasti', maker: 'a' }];
+  const wide = registerPage(actor, rows, 'E2', { sites: 'all', from: '2026-11-18' });
+  assert.match(wide, /<th>Document<\/th><th>Site<\/th>/);
+  assert.match(wide, /<td>Sasti<\/td>/);
+  assert.match(wide, /<input type="hidden" name="sites" value="all"><\/form><p class="register-wide">Showing every site you can open · <a href="\/entries\/type\/E2">Show only Jayant<\/a><\/p>/);
+  assert.match(wide, /href="\/entries\/export\.xlsx\?type=E2&amp;[^"]*sites=all"/);
+  assert.match(wide, /<th scope="row" colspan="4">Total · 2 records/);
+  const own = registerPage(actor, rows.slice(0, 1), 'E2', { sites: 'Jayant' });
+  assert.ok(!own.includes('<th>Site</th>') && !own.includes('register-wide'), 'the signed-in site alone is the ordinary register');
+  // Master pages borrow the same top bar tools.
+  const parts = shellParts(actor);
+  for (const id of ['global-search-open', 'today-clock', 'pending-bell', 'help-open', 'global-search', 'page-help']) assert.ok(parts.includes('id="' + id + '"'), id);
+  assert.match(parts, /Press \+ Add new on a master to enter a record/);
 });

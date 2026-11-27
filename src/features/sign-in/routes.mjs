@@ -150,7 +150,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       },
     });
     // Counts, the site checklist and data checks over the Pulse masters and a person's visible records.
-    insights = registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.read, listRecords: submissions.listRecords, db: sharedMasterDb,
+    insights = registerMasterInsights(app, { startSignIn, readPulse: pulseMasterCopies.readRecent, listRecords: submissions.listRecords, db: sharedMasterDb,
       async getAccess(request) {
         const access = await pulseMasterAccess(request);
         return access && access.masterDataPath === '/master-data' ? access : null;
