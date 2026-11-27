@@ -5,6 +5,7 @@ import { accountVendor } from './account-vendors.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
 import { locationName } from './site-locations.mjs';
+import { letterheadPainter } from './letterhead.mjs';
 
 // The built-in PDF fonts cover Latin text only; anything else is shown as "?" so the file always opens.
 const latin = value => String(value ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/₹/g, 'Rs.')
@@ -57,6 +58,7 @@ export async function purchaseOrdersPdf(docs, sources) {
   let sheet;
   const regular = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const left = 40, right = 555, ink = rgb(0.1, 0.12, 0.16), muted = rgb(0.38, 0.42, 0.48), line = rgb(0.8, 0.83, 0.87), band = rgb(0.93, 0.95, 0.98);
+  const letterhead = await letterheadPainter(pdf, { regular, bold, ink, line });
   let page, y;
   const start = () => { page = pdf.addPage([595, 842]); y = 800; labels.push(sheet.number); };
   const room = height => { if (y - height < 50) start(); };
@@ -102,8 +104,7 @@ export async function purchaseOrdersPdf(docs, sources) {
   for (const doc of docs) {
   sheet = purchaseOrderSheet(doc, sources);
   start();
-  text('Caliber Mining and Logistics Ltd', left, 10, regular, muted);
-  y -= 24;
+  y = letterhead(page, 816) - 6;
   text('Diesel Purchase Order', left, 19, bold);
   const state = fit(sheet.status, bold, 10, 150);
   page.drawText(state, { x: right - bold.widthOfTextAtSize(state, 10), y, size: 10, font: bold, color: muted });
@@ -153,6 +154,7 @@ export async function registerPdf(title, head, rows) {
   pdf.setTitle(latin(title));
   const regular = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const left = 40, right = 555, ink = rgb(0.1, 0.12, 0.16), muted = rgb(0.38, 0.42, 0.48), line = rgb(0.8, 0.83, 0.87);
+  const letterhead = await letterheadPainter(pdf, { regular, bold, ink, line });
   const width = (right - left) / head.length;
   let page, y;
   const cut = (value, font) => { let shown = latin(value); while (shown.length > 1 && font.widthOfTextAtSize(shown, 9) > width - 6) shown = shown.slice(0, -2) + '.'; return shown; };
@@ -161,8 +163,7 @@ export async function registerPdf(title, head, rows) {
     y -= 5; page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: line }); y -= 12;
   };
   const start = () => {
-    page = pdf.addPage([595, 842]); y = 800;
-    page.drawText('Caliber Mining and Logistics Ltd', { x: left, y, size: 10, font: regular, color: muted }); y -= 22;
+    page = pdf.addPage([595, 842]); y = pdf.getPageCount() === 1 ? letterhead(page, 816) - 4 : 800;
     page.drawText(latin(title), { x: left, y, size: 16, font: bold, color: ink }); y -= 24;
     draw(head, bold, muted);
   };

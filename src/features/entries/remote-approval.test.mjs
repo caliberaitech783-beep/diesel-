@@ -119,7 +119,7 @@ test('Telegram site approval survives Pulse sign-in and requires the assigned re
   const excel = await request('/entries/export.xlsx?type=E1&from='+day,'r',null,reviewerSite);
   assert.equal(excel.status,200);
   const workbook = readWorkbook(Buffer.from(await excel.arrayBuffer()));
-  const rows = workbookUtils.sheet_to_json(workbook.Sheets['Diesel Entries']);
+  const rows = workbookUtils.sheet_to_json(workbook.Sheets['Diesel Entries'],{range:4});
   assert.equal(rows.length,1);
   assert.match(rows[0].Document,/^CMLL\/MN\/IND\/\d{2}-\d{2}\/001$/);
   assert.equal(rows[0].Site,site);

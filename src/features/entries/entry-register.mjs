@@ -1,4 +1,5 @@
 import { byId } from './catalog.mjs';
+import { letterheadRows } from './letterhead.mjs';
 import { validDate } from './entry-rules.mjs';
 import { utils, write } from 'xlsx';
 import { indentStatus, formatIndentNumber } from './indent-details.mjs';
@@ -121,7 +122,10 @@ export const entryCsvRows = entryExportRows;
 
 export function entryExcel(rows) {
   const workbook = utils.book_new();
-  const sheet = utils.aoa_to_sheet(rows.map(row => row.map(value => String(value ?? '').slice(0,32767))));
+  // The company letterhead tops the sheet; the column headings follow a blank row.
+  const top = letterheadRows(), across = Math.max(1, ...rows.map(row => row.length)) - 1;
+  const sheet = utils.aoa_to_sheet([...top, ...rows.map(row => row.map(value => String(value ?? '').slice(0,32767)))]);
+  sheet['!merges'] = top.slice(0, -1).map((_, r) => ({ s: { r, c: 0 }, e: { r, c: across } }));
   utils.book_append_sheet(workbook,sheet,'Diesel Entries');
   return write(workbook,{bookType:'xlsx',type:'buffer',compression:true});
 }
