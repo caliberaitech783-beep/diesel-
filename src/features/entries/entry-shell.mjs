@@ -52,6 +52,10 @@ function navigation(active, actor) {
     ${canOpenMasters === false ? '' : '<a class="masters-link" href="/">← Masters</a>'}</nav></aside>`;
 }
 
+// The search box, its menu button and the clock, for pages outside the entry shell (the master pages) to add to themselves.
+export const shellParts = actor => `<template id="shell-parts"><button type="button" id="global-search-open" class="rail-search">${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
+  <span class="today-clock" id="today-clock">${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span>${searchDialog(actor, '')}</template>`;
+
 function switcher(actor, back) {
   const role = actor.profile === 'entry-deputy' ? 'Deputy Site In-charge' : entryRole(actor);
   const context = `<i class="location-mark" aria-hidden="true"></i>${esc(actor.site)}<span class="role-name">${esc(role)}</span>`;
@@ -81,7 +85,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.code ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools"><button type="button" id="favourite-toggle" class="page-tool" aria-pressed="false" title="Keep this page on your Dashboard" hidden>☆ Favourite</button><button type="button" id="print-page" class="page-tool" title="Print this page" hidden>Print</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools"><button type="button" id="favourite-toggle" class="page-tool" aria-pressed="false" title="Keep this page on your Dashboard" hidden>☆ Favourite</button><button type="button" id="print-page" class="page-tool" title="Print this page" hidden>Print</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}</body></html>`;
 }

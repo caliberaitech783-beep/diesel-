@@ -64,7 +64,7 @@ export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title} · Master Data · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
   ${themeHead}
-  <link rel="stylesheet" href="/masters/assets/workspace.css">
+  <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   <link rel="stylesheet" href="/masters/assets/records.css">
   <link rel="stylesheet" href="/master-insights/assets/insights.css">

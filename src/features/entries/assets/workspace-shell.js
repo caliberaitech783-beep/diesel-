@@ -1,67 +1,42 @@
-// Search box (Ctrl + K) and the date and clock in the top bar.
-const dialog = document.querySelector('#global-search');
-const opener = document.querySelector('#global-search-open');
-if (dialog && typeof dialog.showModal === 'function') {
-  const input = dialog.querySelector('#global-search-input');
+// What every Diesel page shares: the search box (Ctrl + K), the date and clock, the bell, favourites and recent records,
+// printing, and the helpers on registers and entry forms. Everything remembered is kept on this device only.
+const read = key => { try { return JSON.parse(localStorage.getItem(key)) ?? []; } catch { return []; } };
+const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Nothing is remembered on this device. */ } };
+const forget = key => { try { localStorage.removeItem(key); } catch { /* Nothing was remembered. */ } };
+const make = (tag, props = {}, ...children) => { const node = Object.assign(document.createElement(tag), props); node.append(...children); return node; };
+
+// ---- Search: pages, entries and masters from the list on the page; saved entries fetched as you type.
+function setupSearch(dialog, opener) {
+  if (!dialog || typeof dialog.showModal !== 'function') return;
+  const input = dialog.querySelector('#global-search-input'), empty = dialog.querySelector('#global-search-empty');
   const items = [...dialog.querySelectorAll('#global-search-results li')];
-  const empty = dialog.querySelector('#global-search-empty');
+  const records = make('ul', { id: 'global-search-records' });
+  dialog.querySelector('#global-search-results').after(records);
   const filter = () => {
     const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     let first = null;
     for (const item of items) {
-      const text = item.textContent.toLowerCase();
-      item.hidden = !words.every(word => text.includes(word));
+      item.hidden = !words.every(word => item.textContent.toLowerCase().includes(word));
       item.classList.remove('is-first');
       if (!item.hidden && !first) first = item;
     }
     if (first && words.length) first.classList.add('is-first');
-    empty.hidden = Boolean(first);
-    return first;
+    empty.hidden = Boolean(first) || records.childElementCount > 0;
+    return words.length ? first : null;
   };
-  const open = () => { if (!dialog.open) { input.value = ''; filter(); dialog.showModal(); input.focus(); } };
+  const show = list => {
+    records.replaceChildren(...list.map(found => make('li', {}, make('a', { href: found.href },
+      make('b', { textContent: found.number + ' · ' + found.name }), make('small', { textContent: found.detail })))));
+    filter();
+  };
+  const open = () => { if (!dialog.open) { input.value = ''; show([]); dialog.showModal(); input.focus(); } };
   if (opener) { opener.hidden = false; opener.addEventListener('click', open); }
   document.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); open(); }
   });
-  input.addEventListener('input', filter);
-  // Enter opens the first match.
-  dialog.querySelector('form').addEventListener('submit', event => {
-    event.preventDefault();
-    const first = filter();
-    if (first) location.assign(first.querySelector('a').href);
-  });
-  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-}
-const clock = document.querySelector('#today-clock');
-if (clock) {
-  const date = clock.querySelector('#today-date'), time = clock.querySelector('#today-time');
-  const tick = () => {
-    const now = new Date();
-    date.textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    time.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
-  };
-  tick();
-  clock.hidden = false;
-  setInterval(tick, 30000);
-}
-
-// ---- Saved entries in the search box: number, supplier or vehicle, fetched as you type.
-if (dialog && typeof dialog.showModal === 'function') {
-  const input = dialog.querySelector('#global-search-input'), empty = dialog.querySelector('#global-search-empty');
-  const records = document.createElement('ul');
-  records.id = 'global-search-records';
-  dialog.querySelector('#global-search-results').after(records);
   let timer = 0, asked = '';
-  const show = list => {
-    records.replaceChildren(...list.map(found => {
-      const item = document.createElement('li'), link = document.createElement('a'), name = document.createElement('b'), detail = document.createElement('small');
-      link.href = found.href; name.textContent = found.number + ' · ' + found.name; detail.textContent = found.detail;
-      link.append(name, detail); item.append(link);
-      return item;
-    }));
-    if (list.length) empty.hidden = true;
-  };
   input.addEventListener('input', () => {
+    filter();
     clearTimeout(timer);
     const query = input.value.trim();
     if (query.length < 2) { asked = ''; show([]); return; }
@@ -73,11 +48,41 @@ if (dialog && typeof dialog.showModal === 'function') {
       } catch { /* Pages and masters still match without the network. */ }
     }, 220);
   });
-  // Enter opens the first saved entry when no page matches.
-  dialog.querySelector('form').addEventListener('submit', () => {
-    const page = dialog.querySelector('#global-search-results li:not([hidden])'), record = records.querySelector('a');
-    if ((!page || !input.value.trim()) && record) location.assign(record.href);
+  // Enter opens the first page that matches, or else the first saved entry.
+  dialog.querySelector('form').addEventListener('submit', event => {
+    event.preventDefault();
+    const target = filter()?.querySelector('a') ?? records.querySelector('a');
+    if (target) location.assign(target.href);
   });
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+}
+function setupClock(clock) {
+  if (!clock) return;
+  const date = clock.querySelector('#today-date'), time = clock.querySelector('#today-time');
+  const tick = () => {
+    const now = new Date();
+    date.textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    time.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
+  };
+  tick();
+  clock.hidden = false;
+  setInterval(tick, 30000);
+}
+if (document.querySelector('#global-search')) {
+  setupSearch(document.querySelector('#global-search'), document.querySelector('#global-search-open'));
+  setupClock(document.querySelector('#today-clock'));
+} else if (document.querySelector('#masters-sidebar')) {
+  // A master page borrows the search box and the clock from the entry pages.
+  fetch('/entries/shell-parts.html').then(response => response.ok ? response.text() : '').then(html => {
+    const parts = new DOMParser().parseFromString(html, 'text/html').querySelector('#shell-parts')?.content;
+    if (!parts) return;
+    const opener = parts.querySelector('#global-search-open'), clock = parts.querySelector('#today-clock'), dialog = parts.querySelector('#global-search');
+    document.querySelector('#masters-sidebar .sidebar-tools')?.append(opener);
+    document.querySelector('.masthead .account')?.prepend(clock);
+    document.body.append(dialog);
+    setupSearch(dialog, opener);
+    setupClock(clock);
+  }).catch(() => {});
 }
 
 // ---- Bell: how much is waiting for this person.
@@ -86,14 +91,11 @@ if (bell) fetch('/entries/pending.json', { headers: { Accept: 'application/json'
   if (!waiting) return;
   bell.hidden = false;
   bell.querySelector('#pending-count').textContent = waiting.total ? String(waiting.total) : '';
-  bell.classList.toggle('has-work', waiting.total > 0);
   bell.title = waiting.total ? waiting.approvals + ' approvals to give · ' + waiting.returned + ' returned to you' : 'Nothing is waiting for you';
   if (!waiting.approvals && waiting.returned) bell.href = '/entries?status=Returned';
 }).catch(() => {});
 
-// ---- Favourites and recently opened, kept on this device.
-const read = key => { try { return JSON.parse(localStorage.getItem(key)) ?? []; } catch { return []; } };
-const write = (key, list) => { try { localStorage.setItem(key, JSON.stringify(list)); } catch { /* Nothing is remembered on this device. */ } };
+// ---- Favourites and recently opened.
 const here = location.pathname + location.search;
 const heading = (document.querySelector('main h1')?.textContent ?? document.title).trim();
 if (location.pathname.startsWith('/entries/record/')) {
@@ -114,15 +116,8 @@ if (favourite && !location.pathname.startsWith('/entries/new/')) {
 }
 const shortcuts = document.querySelector('#dash-shortcuts');
 if (shortcuts) {
-  const fill = (id, list, none) => {
-    const target = shortcuts.querySelector(id);
-    target.replaceChildren(...(list.length ? list : [{ title: none }]).map(row => {
-      const item = document.createElement('li');
-      if (row.href && row.href.startsWith('/')) { const link = document.createElement('a'); link.href = row.href; link.textContent = row.title; item.append(link); }
-      else { item.textContent = row.title; item.className = 'none'; }
-      return item;
-    }));
-  };
+  const fill = (id, list, none) => shortcuts.querySelector(id).replaceChildren(...(list.length ? list : [{ title: none }]).map(row =>
+    row.href?.startsWith('/') ? make('li', {}, make('a', { href: row.href, textContent: row.title })) : make('li', { className: 'none', textContent: row.title })));
   fill('#favourite-pages', read('diesel-favourites'), 'Press ☆ Favourite on any page to keep it here.');
   fill('#recent-records', read('diesel-recent'), 'Records you open will show here.');
   shortcuts.hidden = false;
@@ -132,19 +127,141 @@ if (shortcuts) {
 const print = document.querySelector('#print-page');
 if (print) { print.hidden = false; print.addEventListener('click', () => window.print()); }
 
-// ---- Keyboard: Enter moves to the next field instead of saving a half-filled form.
+// ---- Registers: tick records to export them, choose the columns shown, and get back to the last filters used.
+const register = document.querySelector('.register-table');
+if (register) {
+  const head = register.tHead.rows[0], foot = register.tFoot?.rows[0], body = [...register.tBodies[0].rows];
+  const panel = register.closest('section'), tools = make('div', { className: 'register-tools' });
+  register.closest('.scroll').before(tools);
+
+  // Tick boxes, and an export of only the ticked records.
+  const idOf = row => row.querySelector('a.record-link')?.getAttribute('href').split('/').pop();
+  const all = make('input', { type: 'checkbox', title: 'Tick every record listed' });
+  all.setAttribute('aria-label', 'Tick every record listed');
+  head.prepend(make('th', { className: 'pick' }, all));
+  const boxes = body.map(row => {
+    const box = make('input', { type: 'checkbox', value: idOf(row) ?? '' });
+    box.setAttribute('aria-label', 'Tick this record');
+    row.prepend(make('td', { className: 'pick' }, box));
+    return box;
+  });
+  if (foot) foot.cells[0].colSpan += 1;
+  const chosen = make('span', { className: 'register-chosen', hidden: true });
+  const exports = panel?.querySelectorAll('a.export') ?? [];
+  const original = [...exports].map(link => link.getAttribute('href'));
+  const refresh = () => {
+    const ids = boxes.filter(box => box.checked && box.value).map(box => box.value);
+    chosen.hidden = !ids.length;
+    chosen.textContent = ids.length + ' ticked · the Export buttons now export only these';
+    exports.forEach((link, index) => {
+      const url = new URL(original[index], location.origin);
+      if (ids.length) url.searchParams.set('ids', ids.join(','));
+      link.setAttribute('href', url.pathname + url.search);
+    });
+    all.checked = ids.length > 0 && ids.length === boxes.length;
+  };
+  all.addEventListener('change', () => { boxes.forEach(box => { box.checked = all.checked; }); refresh(); });
+  boxes.forEach(box => box.addEventListener('change', refresh));
+
+  // Columns: any column after Document can be hidden. The choice is kept for this register.
+  const key = 'diesel-columns:' + location.pathname, hiddenNames = new Set(read(key));
+  const columns = [...head.cells].map((cell, index) => ({ index, name: cell.textContent.trim(), number: cell.classList.contains('number') })).filter(column => column.index > 2);
+  const apply = () => {
+    for (const column of columns) {
+      const off = hiddenNames.has(column.name);
+      head.cells[column.index].hidden = off;
+      body.forEach(row => { if (row.cells[column.index]) row.cells[column.index].hidden = off; });
+    }
+    if (foot) {
+      // The total row spans the columns before the figures and after them; keep those spans matching what is shown.
+      const firstNumber = columns.find(column => column.number)?.index ?? head.cells.length, lastNumber = columns.findLast(column => column.number)?.index ?? firstNumber;
+      const shown = (from, to) => [...head.cells].slice(from, to).filter(cell => !cell.hidden).length;
+      foot.cells[0].colSpan = Math.max(1, shown(0, firstNumber));
+      [...foot.cells].slice(1, -1).forEach((cell, offset) => { cell.hidden = head.cells[firstNumber + offset]?.hidden ?? false; });
+      const tail = foot.cells[foot.cells.length - 1], left = shown(lastNumber + 1, head.cells.length);
+      tail.hidden = !left; tail.colSpan = Math.max(1, left);
+    }
+  };
+  const menu = make('details', { className: 'column-menu' }, make('summary', { textContent: 'Columns' }),
+    make('div', {}, ...columns.map(column => {
+      const box = make('input', { type: 'checkbox', checked: !hiddenNames.has(column.name) });
+      box.addEventListener('change', () => { if (box.checked) hiddenNames.delete(column.name); else hiddenNames.add(column.name); write(key, [...hiddenNames]); apply(); });
+      return make('label', {}, box, ' ' + column.name);
+    })));
+  tools.append(menu, chosen);
+  apply();
+
+  // Last filters: offered as one click when the register is opened without any.
+  const filters = panel?.querySelector('form.filters'), lastKey = 'diesel-filters:' + location.pathname;
+  if (filters) {
+    const used = new URLSearchParams(location.search);
+    [...used.keys()].forEach(name => { if (!used.get(name) || name === 'ids') used.delete(name); });
+    const last = read(lastKey)[0];
+    if ([...used.keys()].length) write(lastKey, [used.toString()]);
+    else if (typeof last === 'string' && last) tools.append(make('a', { className: 'last-filters', href: location.pathname + '?' + last, textContent: '↺ Use my last filters' }));
+  }
+}
+
+// ---- Entry forms.
 const entryForm = document.querySelector('#entry-form');
 if (entryForm) {
-  const fields = () => [...entryForm.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), select, textarea')]
-    .filter(field => !field.disabled && !field.readOnly && field.offsetParent !== null);
+  const visible = field => !field.disabled && !field.readOnly && field.offsetParent !== null;
+  const typed = () => [...entryForm.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), select, textarea')]
+    .filter(field => field.name && field.form === entryForm && visible(field));
+  // Enter moves to the next field instead of saving a half-filled form.
   entryForm.addEventListener('keydown', event => {
     const field = event.target;
     if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || !field.matches('input, select') || field.matches('[type=submit], [type=button], [list]')) return;
-    const list = fields(), next = list[list.indexOf(field) + 1];
+    const list = typed(), next = list[list.indexOf(field) + 1];
     if (!next) return;
     event.preventDefault();
     next.focus();
   });
-  // A new entry opens ready to type in its first empty field.
-  if (entryForm.dataset.rev === '0' && !document.querySelector(':focus:not(body)')) fields().find(field => !field.value && field.tagName !== 'SELECT')?.focus({ preventScroll: true });
+  const fresh = entryForm.dataset.rev === '0';
+  // Put values into the fields that are on screen, and let the form's own calculations react.
+  const fillIn = values => {
+    let filled = 0;
+    for (const field of typed()) {
+      const value = values[field.name];
+      if (value === undefined || value === null || String(value) === field.value) continue;
+      if (field.tagName === 'SELECT' && ![...field.options].some(option => option.value === String(value))) continue;
+      field.value = String(value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      filled += 1;
+    }
+    return filled;
+  };
+  if (fresh) {
+    // A new entry opens ready to type in its first empty field.
+    if (!document.querySelector(':focus:not(body)')) typed().find(field => !field.value && field.tagName !== 'SELECT')?.focus({ preventScroll: true });
+
+    const note = make('div', { className: 'form-helper', hidden: true });
+    entryForm.before(note);
+    const say = (text, ...buttons) => { note.replaceChildren(make('span', { textContent: text }), ...buttons); note.hidden = false; };
+    const button = (label, action) => { const node = make('button', { type: 'button', textContent: label }); node.addEventListener('click', action); return node; };
+
+    // Autosave: what is typed into a new entry is kept on this device until the entry is saved.
+    const draftKey = 'diesel-autosave:' + entryForm.dataset.type + ':' + entryForm.dataset.site;
+    const snapshot = () => Object.fromEntries(typed().filter(field => field.value).map(field => [field.name, field.value]));
+    const kept = read(draftKey)[0];
+    let saving = 0;
+    const copyButton = button('Copy from previous entry', async () => {
+      try {
+        const response = await fetch('/entries/last/' + encodeURIComponent(entryForm.dataset.type) + '.json', { headers: { Accept: 'application/json' } });
+        const last = response.ok ? await response.json() : null;
+        if (!last) return say('There is no earlier saved entry of this kind at this site to copy.');
+        say(fillIn(last.values) ? 'Copied from ' + last.number + '. Dates, linked documents and row tables are not copied; check every value before saving.' : 'Nothing could be copied from ' + last.number + '.');
+      } catch { say('The previous entry could not be read just now.'); }
+    });
+    if (kept?.values && Object.keys(kept.values).length) say('You left this entry unsaved on ' + new Date(kept.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + '.',
+      button('Restore what I typed', () => { fillIn(kept.values); say('Restored. Check the values, then save.', copyButton); }),
+      button('Discard', () => { forget(draftKey); say('Starting a blank entry.', copyButton); }));
+    else say('What you type is kept on this device until you save.', copyButton);
+    entryForm.addEventListener('input', () => {
+      clearTimeout(saving);
+      saving = setTimeout(() => { const values = snapshot(); if (Object.keys(values).length) write(draftKey, [{ at: Date.now(), values }]); }, 600);
+    });
+    // entry-form.js clears the kept copy once the entry is saved.
+  }
 }

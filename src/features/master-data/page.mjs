@@ -55,7 +55,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${master ? escape(heading) + ' · ' : ''}Master Data · Diesel</title><link rel="icon" href="/masters/assets/pulse.png">
   ${themeHead}${recordDialogAssets}
-  <link rel="stylesheet" href="/masters/assets/workspace.css">
+  <link rel="stylesheet" href="/masters/assets/workspace.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>
   <link rel="stylesheet" href="/master-data/assets/master-data.css">
   ${overview ? '<link rel="stylesheet" href="/masters/assets/records.css"><link rel="stylesheet" href="/master-insights/assets/insights.css">' : ''}
   ${prefix ? '<link rel="stylesheet" href="/masters/assets/records.css">' : ''}
