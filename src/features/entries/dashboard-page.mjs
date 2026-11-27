@@ -2,7 +2,7 @@
 import { byId } from './catalog.mjs';
 import { esc, option, page } from './entry-shell.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
-import { dashboardFigures, period, presets } from './dashboard-figures.mjs';
+import { dashboardFigures, period, presets, previousPeriod } from './dashboard-figures.mjs';
 import { icons } from './workspace-map.mjs';
 
 const tabs = [['overview', 'Overview', 'dashboard'], ['buy', 'Buy', 'buy'], ['receive', 'Receive', 'receive'], ['stock', 'Stock Storage', 'stock'],
@@ -15,29 +15,55 @@ const litres = value => value === null || value === undefined ? null : whole(val
 const rupees = value => '₹ ' + whole(value);
 const dayText = day => day.split('-').reverse().join('-');
 
-// value null means there is nothing to work the figure out from yet.
-const card = ([label, value, unit, note, warn]) => `<div class="kpi${warn ? ' warn' : ''}"><span class="kpi-label">${esc(label)}</span>
-  <strong class="kpi-value">${value === null ? '—' : esc(value)}${value !== null && unit ? `<small>${esc(unit)}</small>` : ''}</strong><span class="kpi-note">${esc(value === null ? 'No data yet' : note)}</span></div>`;
+// Each card: label, value shown (null when there is nothing to work it out from), unit, note, and optionally a warning,
+// the entry whose register the card opens, and the figure now and in the period before, to show the change.
+function change(now, was) {
+  if (typeof now !== 'number' || typeof was !== 'number' || now === was) return '';
+  if (!was) return `<span class="kpi-change up" title="Nothing in the previous period">▲ new</span>`;
+  const percent = Math.round((now - was) / was * 100);
+  return `<span class="kpi-change ${percent >= 0 ? 'up' : 'down'}" title="Against the period just before">${percent >= 0 ? '▲' : '▼'} ${Math.abs(percent)}%</span>`;
+}
+const card = link => ({ label, value, unit = '', note, warn, type, now, was }) => {
+  const inside = `<span class="kpi-label">${esc(label)}</span>
+  <strong class="kpi-value">${value === null ? '—' : esc(value)}${value !== null && unit ? `<small>${esc(unit)}</small>` : ''}</strong><span class="kpi-note">${esc(value === null ? 'No data yet' : note)}${value === null ? '' : change(now, was)}</span>`;
+  return type ? `<a class="kpi${warn ? ' warn' : ''}" href="${esc(link(type))}" title="Open these records">${inside}</a>` : `<div class="kpi${warn ? ' warn' : ''}">${inside}</div>`;
+};
 
-function cards(tab, f) {
+function cards(tab, f, p, link) {
   const o = f.overview, b = f.buy, r = f.receive, s = f.stock, v = f.vehicle, a = f.accounts;
   const stockNote = 'Sites with stock set up', shortageNote = o.shortagePercent === null ? 'Against invoice quantity' : o.shortagePercent + '% of invoice quantity';
+  const cover = { label: 'Days of Cover', value: o.daysOfCover === null ? null : String(o.daysOfCover), unit: 'days', note: 'Closing stock ÷ avg daily issue', warn: o.daysOfCover !== null && o.daysOfCover < 5 };
+  const shortage = { label: 'Shortage', value: litres(o.shortage), unit: 'L', note: shortageNote, warn: o.shortagePercent > 0.3, type: 'E7', now: o.shortage, was: p.overview.shortage };
   return ({
-    overview: [['Diesel Received', litres(o.received), 'L', o.tankers + ' goods receipt notes'], ['Diesel Issued', litres(o.issued), 'L', o.fuelEntries + ' fuel entries'],
-      ['Closing Stock', litres(o.closing), 'L', stockNote], ['Purchase Value', rupees(o.orderValue), '', o.averageRate === null ? 'Approved purchase orders' : 'Avg rate ₹ ' + o.averageRate + ' / L'],
-      ['Shortage', litres(o.shortage), 'L', shortageNote, o.shortagePercent > 0.3], ['Days of Cover', o.daysOfCover === null ? null : String(o.daysOfCover), 'days', 'Closing stock ÷ avg daily issue', o.daysOfCover !== null && o.daysOfCover < 5]],
-    buy: [['Indents Raised', whole(b.indents), '', litres(b.indentLitres) + ' L requested'], ['Purchase Orders', whole(b.orders), '', b.approvedOrders + ' approved'],
-      ['Ordered Qty', litres(b.ordered), 'L', 'On approved purchase orders'], ['PO Value', rupees(b.orderValue), '', 'Approved purchase orders'],
-      ['Payment Advices', whole(b.payments), '', rupees(b.paid) + ' posted'], ['Delivery Schedules', whole(b.schedules), '', litres(b.scheduled) + ' L scheduled']],
-    receive: [['GRNs Made', whole(r.grns), '', 'Posted goods receipt notes'], ['Qty Received', litres(r.received), 'L', 'Accepted quantity'], ['Invoice Qty', litres(r.invoiced), 'L', 'On supplier invoices'],
-      ['Inspections', whole(r.inspections), '', 'Tankers inspected'], ['Shortage', litres(r.shortage), 'L', shortageNote, o.shortagePercent > 0.3], ['Received Value', rupees(r.value), '', 'Received quantity × rate']],
-    stock: [['Closing Stock', litres(s.closing), 'L', stockNote], ['Days of Cover', o.daysOfCover === null ? null : String(o.daysOfCover), 'days', 'At the current issue rate', o.daysOfCover !== null && o.daysOfCover < 5],
-      ['Site to Site Transfers', whole(s.siteTransfers), '', 'In the selected period'], ['Internal Transfers', whole(s.internalTransfers), '', 'Tank and bowser movements'], ['Retail Pump Purchases', whole(s.retail), '', 'In the selected period']],
-    vehicle: [['Diesel Issued', litres(v.issued), 'L', 'To vehicles and equipment'], ['Fuel Entries', whole(v.fuelEntries), '', 'Individual fillings'],
-      ['Avg per Entry', v.perEntry === null ? null : whole(v.perEntry), 'L', 'Litres per filling'], ['Avg Daily Issue', litres(v.perDay), 'L', 'Over ' + f.days + ' day' + (f.days > 1 ? 's' : '')]],
-    accounts: [['Bills Booked', whole(a.bills), '', 'Supplier bills matched'], ['Debit Notes & Freight Bills', whole(a.debitNotes), '', 'In the selected period'],
-      ['Contractor Recoveries', whole(a.recoveries), '', 'In the selected period'], ['Payment Advices', whole(a.payments), '', rupees(a.paid) + ' posted']],
-  })[tab].map(card).join('');
+    overview: [{ label: 'Diesel Received', value: litres(o.received), unit: 'L', note: o.tankers + ' goods receipt notes', type: 'E7', now: o.received, was: p.overview.received },
+      { label: 'Diesel Issued', value: litres(o.issued), unit: 'L', note: o.fuelEntries + ' fuel entries', type: 'E11', now: o.issued, was: p.overview.issued },
+      { label: 'Closing Stock', value: litres(o.closing), unit: 'L', note: stockNote },
+      { label: 'Purchase Value', value: rupees(o.orderValue), note: o.averageRate === null ? 'Approved purchase orders' : 'Avg rate ₹ ' + o.averageRate + ' / L', type: 'E2', now: o.orderValue, was: p.overview.orderValue },
+      shortage, cover],
+    buy: [{ label: 'Indents Raised', value: whole(b.indents), note: litres(b.indentLitres) + ' L requested', type: 'E1', now: b.indents, was: p.buy.indents },
+      { label: 'Purchase Orders', value: whole(b.orders), note: b.approvedOrders + ' approved', type: 'E2', now: b.orders, was: p.buy.orders },
+      { label: 'Ordered Qty', value: litres(b.ordered), unit: 'L', note: 'On approved purchase orders', type: 'E2', now: b.ordered, was: p.buy.ordered },
+      { label: 'PO Value', value: rupees(b.orderValue), note: 'Approved purchase orders', type: 'E2', now: b.orderValue, was: p.buy.orderValue },
+      { label: 'Payment Advices', value: whole(b.payments), note: rupees(b.paid) + ' posted', type: 'E3', now: b.payments, was: p.buy.payments },
+      { label: 'Delivery Schedules', value: whole(b.schedules), note: litres(b.scheduled) + ' L scheduled', type: 'E4', now: b.schedules, was: p.buy.schedules }],
+    receive: [{ label: 'GRNs Made', value: whole(r.grns), note: 'Posted goods receipt notes', type: 'E7', now: r.grns, was: p.receive.grns },
+      { label: 'Qty Received', value: litres(r.received), unit: 'L', note: 'Accepted quantity', type: 'E7', now: r.received, was: p.receive.received },
+      { label: 'Invoice Qty', value: litres(r.invoiced), unit: 'L', note: 'On supplier invoices', type: 'E7', now: r.invoiced, was: p.receive.invoiced },
+      { label: 'Inspections', value: whole(r.inspections), note: 'Tankers inspected', type: 'E6', now: r.inspections, was: p.receive.inspections },
+      shortage, { label: 'Received Value', value: rupees(r.value), note: 'Received quantity × rate', type: 'E7', now: r.value, was: p.receive.value }],
+    stock: [{ label: 'Closing Stock', value: litres(s.closing), unit: 'L', note: stockNote }, { ...cover, note: 'At the current issue rate' },
+      { label: 'Site to Site Transfers', value: whole(s.siteTransfers), note: 'In the selected period', type: 'E12', now: s.siteTransfers, was: p.stock.siteTransfers },
+      { label: 'Internal Transfers', value: whole(s.internalTransfers), note: 'Tank and bowser movements', type: 'E10A', now: s.internalTransfers, was: p.stock.internalTransfers },
+      { label: 'Retail Pump Purchases', value: whole(s.retail), note: 'In the selected period', type: 'E14', now: s.retail, was: p.stock.retail }],
+    vehicle: [{ label: 'Diesel Issued', value: litres(v.issued), unit: 'L', note: 'To vehicles and equipment', type: 'E11', now: v.issued, was: p.vehicle.issued },
+      { label: 'Fuel Entries', value: whole(v.fuelEntries), note: 'Individual fillings', type: 'E11', now: v.fuelEntries, was: p.vehicle.fuelEntries },
+      { label: 'Avg per Entry', value: v.perEntry === null ? null : whole(v.perEntry), unit: 'L', note: 'Litres per filling' },
+      { label: 'Avg Daily Issue', value: litres(v.perDay), unit: 'L', note: 'Over ' + f.days + ' day' + (f.days > 1 ? 's' : '') }],
+    accounts: [{ label: 'Bills Booked', value: whole(a.bills), note: 'Supplier bills matched', type: 'E8', now: a.bills, was: p.accounts.bills },
+      { label: 'Debit Notes & Freight Bills', value: whole(a.debitNotes), note: 'In the selected period', type: 'E9', now: a.debitNotes, was: p.accounts.debitNotes },
+      { label: 'Contractor Recoveries', value: whole(a.recoveries), note: 'In the selected period', type: 'E13', now: a.recoveries, was: p.accounts.recoveries },
+      { label: 'Payment Advices', value: whole(a.payments), note: rupees(a.paid) + ' posted', type: 'E3', now: a.payments, was: p.accounts.payments }],
+  })[tab].map(card(link)).join('');
 }
 
 // Bars drawn as SVG shapes, so the page needs no script and no inline styling.
@@ -71,9 +97,18 @@ function recentTable(rows, sites) {
 const panel = (title, note, body, wide = '') => `<section class="dash-card${wide}"><h2>${esc(title)}</h2><p class="dash-note">${esc(note)}</p>${body}</section>`;
 
 // sites: [[value, name]] this person may look at. rows already hold only the chosen sites' entries.
-export function dashboardPage(actor, rows, query, { sites, site, stock, today }) {
+export function dashboardPage(actor, rows, query, { sites, site, stock, today, waiting }) {
   const range = period(query, today), tab = tabs.some(([id]) => id === query.tab) ? query.tab : 'overview';
   const figures = dashboardFigures(rows, range, stock), all = site === 'all';
+  // The period of the same length just before, for the change shown on each card.
+  const before = dashboardFigures(rows, previousPeriod(range));
+  // A card opens that entry's register for the same dates. The register is the signed-in site's own.
+  const register = type => '/entries/type/' + type + '?' + new URLSearchParams({ from: range.from, to: range.to });
+  const work = waiting ? `<section class="dash-card span-3 dash-work"><h2>Waiting for you</h2><p class="dash-note">At ${esc(actor.site)}</p><div class="work-links">
+      <a href="/entries/approvals"${waiting.approvals ? ' class="has-work"' : ''}><b>${waiting.approvals}</b>Approvals to give</a>
+      <a href="/entries?status=Returned"${waiting.returned ? ' class="has-work"' : ''}><b>${waiting.returned}</b>Returned to you</a>
+      <a href="/entries?status=Draft"><b>${waiting.drafts}</b>Your drafts</a></div></section>` : '';
+  const shortcuts = '<section class="dash-card span-3 dash-shortcuts" id="dash-shortcuts" hidden><div><h2>Favourites</h2><ul id="favourite-pages"></ul></div><div><h2>Recently opened</h2><ul id="recent-records"></ul></div></section>';
   const link = change => '/entries/dashboard?' + new URLSearchParams({ tab, site, ...(range.preset ? { preset: range.preset } : { from: range.from, to: range.to }), ...change });
   const recent = tabTypes[tab].flatMap(type => figures.recent(type)).toSorted((a, b) => b.day.localeCompare(a.day)).slice(0, 8);
   const stockList = figures.stockBySite.length ? `<ul class="stock-bars">${figures.stockBySite.map(row => `<li><span>${esc(row.site)}</span><b>${whole(row.litres)} L</b>
@@ -94,7 +129,7 @@ export function dashboardPage(actor, rows, query, { sites, site, stock, today })
       <label class="dash-range">Site<select name="site">${option('all', 'All sites', all)}${sites.map(([value, name]) => option(value, name, value === site)).join('')}</select></label>
       <button class="primary">Show</button></form>
     <nav class="dash-tabs" aria-label="Dashboard sections">${tabs.map(([id, label, icon]) => `<a href="${esc(link({ tab: id }))}"${id === tab ? ' aria-current="page"' : ''}>${icons[icon]}<span>${esc(label)}</span></a>`).join('')}</nav>
-    <div class="kpi-grid">${cards(tab, figures)}</div>
-    <div class="dash-grid">${charts}${panel(tab === 'overview' ? 'Recent Goods Receipts' : 'Recent Records', recent.length ? 'Latest ' + recent.length + ' in the selected period' : 'In the selected period', recentTable(recent, all), ' span-3')}</div>`;
+    <div class="kpi-grid">${cards(tab, figures, before, register)}</div>
+    <div class="dash-grid">${tab === 'overview' ? work + shortcuts : ''}${charts}${panel(tab === 'overview' ? 'Recent Goods Receipts' : 'Recent Records', recent.length ? 'Latest ' + recent.length + ' in the selected period' : 'In the selected period', recentTable(recent, all), ' span-3')}</div>`;
   return page('Diesel Dashboard', actor, 'dashboard', '/entries/dashboard', body, heading);
 }

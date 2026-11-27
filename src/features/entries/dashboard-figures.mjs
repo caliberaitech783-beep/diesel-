@@ -29,6 +29,12 @@ export function period(query, today) {
   return { preset: preset.id, from: preset.from, to: today };
 }
 
+// The period of the same length that ended the day before this one began.
+export function previousPeriod({ from, to }) {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+  return { from: addDays(from, -days), to: addDays(from, -1) };
+}
+
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : 0;
 const total = (rows, pick) => Math.round(rows.reduce((sum, row) => sum + number(pick(row)), 0) * 100) / 100;
 

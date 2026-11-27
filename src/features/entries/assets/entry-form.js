@@ -213,6 +213,7 @@ form?.addEventListener('submit',async event=>{
   const status=document.querySelector('#entry-message'), action=event.submitter?.value;
   if (!action) return;
   const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+  if(status) delete status.dataset.error;
   try {
     const selectedSite=document.querySelector('select[form="indent-site-switch"]');
     if(selectedSite&&!selectedSite.value) throw Error('Select a location before saving this indent.');
@@ -233,7 +234,10 @@ form?.addEventListener('submit',async event=>{
       await outbox('put',record);status.textContent='Saved on this device. Reconnect with this account, site and role to sync.';
       runSync();
     }
-  }catch(e){status.textContent=e.message;buttons.forEach(b=>b.disabled=false);}
+  }catch(e){
+    // A save that did not go through must be impossible to miss.
+    status.dataset.error='true';status.textContent='Not saved: '+e.message;status.scrollIntoView({block:'center'});buttons.forEach(b=>b.disabled=false);
+  }
 });
 window.addEventListener('online',runSync);
 runSync();
