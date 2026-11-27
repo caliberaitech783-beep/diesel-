@@ -14,9 +14,41 @@ const table = (label, headings, rows) => `<div class="master-data-table insight-
     return index ? `<td data-label="${escape(headings[index])}">${body}</td>` : `<th scope="row">${body}</th>`;
   }).join('')}</tr>`).join('') || `<tr class="master-data-empty"><td colspan="${headings.length}">Nothing to show yet.</td></tr>`}</tbody></table></div>`;
 
+// A simple picture for each master, chosen by what its name is about.
+const glyph = paths => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const glyphs = [
+  [/account/, '<path d="M4 5a2 2 0 0 1 2-2h5v16H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-5v16h5a2 2 0 0 1 2 2z"/>'],
+  [/cost/, '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>'],
+  [/rate|limit/, '<path d="M7 5h10M7 9h10M7 5c6 0 6 8 0 8l7 7"/>'],
+  [/driver|employee|company/, '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 5.2a3.5 3.5 0 0 1 0 5.6M18.5 14.5c2 .8 3 2.6 3 5.5"/>'],
+  [/equipment|instrument/, '<circle cx="7" cy="17" r="3"/><circle cx="18" cy="18" r="2"/><path d="M10 17h6M4 14V7h6l3 6h5v3M10 7v6"/>'],
+  [/gst|tax/, '<path d="m5 19 14-14"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'],
+  [/item/, '<path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/>'],
+  [/storage|depot/, '<path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 17h10"/>'],
+  [/location|site|region/, '<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.800 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'],
+  [/reason|numbering/, '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.500" cy="8.500" r="1.500"/>'],
+  [/route/, '<circle cx="6" cy="6" r="2.500"/><circle cx="18" cy="18" r="2.500"/><path d="M8.500 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.500"/>'],
+  [/shift/, '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  [/transport|freight/, '<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6.500" cy="17.500" r="2"/><circle cx="17" cy="17.500" r="2"/>'],
+];
+const picture = name => glyph(glyphs.find(([about]) => about.test(name.toLowerCase()))?.[1] ?? '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>');
+const arrow = glyph('<path d="M5 12h14m-6-6 6 6-6 6"/>');
+
+// Every master as a card: its record count, whether Pulse owns it, and how many records still miss required fields.
+export function masterCards({ pulse, masters, masterDataPath }) {
+  const cards = [...masters.map(row => ({ ...row, href: masterDataPath + '?master=' + row.slug })),
+    ...pulse.map(row => ({ ...row, fromPulse: true, href: '/pulse-masters?master=' + row.slug }))].toSorted((a, b) => a.name.localeCompare(b.name, 'en'));
+  return `<div class="master-cards-head"><p class="record-meta">${cards.length} masters · reference data used across the Diesel Workspace</p>
+    <label class="master-filter"><span class="sr-only">Filter masters</span><input type="search" id="master-card-filter" placeholder="Filter masters…" autocomplete="off" aria-controls="master-cards" hidden></label></div>
+    <div class="master-cards" id="master-cards">${cards.map(card => `<a class="master-card" href="${escape(card.href)}"><span class="master-card-icon">${picture(card.name)}</span>
+      <span class="master-card-text"><b>${escape(card.name)}</b><small>${Number(card.count).toLocaleString('en-IN')} record${card.count === 1 ? '' : 's'}${card.fromPulse ? ' <i class="from-pulse">Pulse</i>' : ''}</small>
+      ${card.incomplete ? `<em class="record-incomplete">${card.incomplete} missing required fields</em>` : ''}</span><span class="master-card-arrow">${arrow}</span></a>`).join('')}</div>
+    <p class="master-cards-none" id="master-cards-none" hidden>No master matches that filter.</p>`;
+}
+
 // Also shown on the Master Data home, so the page is never empty.
 export function overview({ pulse, masters, masterDataPath, summary }) {
-  return `<h2>From Pulse</h2>
+  return `${masterCards({ pulse, masters, masterDataPath })}<h2>From Pulse</h2>
     ${table('Pulse masters', ['Master', 'Records', 'Last fetched'], pulse.map(row => [
       { html: `<a href="/pulse-masters?master=${row.slug}">${escape(row.name)}</a>` }, row.count,
       row.syncedAt ? istTime.format(new Date(row.syncedAt)) + ' IST' : 'Not fetched yet']))}

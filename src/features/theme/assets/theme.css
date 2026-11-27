@@ -135,3 +135,8 @@
   .theme-toggle-track, .theme-toggle-track::before, .theme-toggle-thumb, .theme-toggle-thumb::before { animation: none; transition: none; }
   [data-theme="dark"] :is(.theme-toggle-track, .theme-toggle-thumb) { animation: none; }
 }
+
+/* Moving from one Diesel page to the next cross-fades instead of flashing, in browsers that support it. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }

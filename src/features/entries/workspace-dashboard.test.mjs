@@ -116,3 +116,17 @@ test('a long register opens with 100 records, totals all of them, and every page
     assert.ok(html.includes(part), part);
   assert.match(dashboardPage(actor, [], {}, { sites: [], site: 'all', stock: [], today: '2026-11-27' }), /Click any card to open the records behind it\./);
 });
+
+test('Master Data shows every master as a card with its count, source and missing-field warning', async () => {
+  const { masterCards, overview } = await import('../master-insights/insights-page.mjs');
+  const data = { masterDataPath: '/master-data', pulse: [{ slug: 'site', name: 'Location Master', count: 3 }],
+    masters: [{ slug: 'account-master', name: 'Account Master', count: 1650, incomplete: 165 }, { slug: 'diesel-rate-master', name: 'Diesel Rate Master', count: 1 }] };
+  const html = masterCards(data);
+  assert.match(html, /3 masters · reference data used across the Diesel Workspace/);
+  assert.match(html, /<a class="master-card" href="\/master-data\?master=account-master">[\s\S]*?<b>Account Master<\/b><small>1,650 records<\/small>\s*<em class="record-incomplete">165 missing required fields<\/em>/);
+  assert.match(html, /href="\/pulse-masters\?master=site">[\s\S]*?<b>Location Master<\/b><small>3 records <i class="from-pulse">Pulse<\/i><\/small>/);
+  assert.match(html, /<b>Diesel Rate Master<\/b><small>1 record<\/small>/);
+  assert.ok(html.indexOf('Account Master') < html.indexOf('Diesel Rate Master') && html.indexOf('Diesel Rate Master') < html.indexOf('Location Master'), 'cards are in name order');
+  const page = overview(data);
+  assert.ok(page.includes('id="master-card-filter"') && page.includes('<h2>From Pulse</h2>') && page.includes('<h2>Diesel masters</h2>'), 'the tables stay below the cards');
+});
