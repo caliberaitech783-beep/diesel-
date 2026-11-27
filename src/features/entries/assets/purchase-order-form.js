@@ -1,5 +1,6 @@
 // Live behaviour for the Diesel Purchase Order form: totals, searchable indent and vendor, and the payment toggle.
 import { purchaseOrderTotals, rupeesInWords } from './purchase-order-totals.js';
+import { pickRate, ratesFor } from './purchase-order-rates.js';
 
 const form = document.querySelector('#entry-form[data-type="E2"]');
 if (form?.querySelector('[name="litres"]')) {
@@ -20,8 +21,7 @@ if (form?.querySelector('[name="litres"]')) {
     const entered = readFooter();
     footStore.value = JSON.stringify(entered.filter(row => row.head).map(({ head, legend, rate }) => ({ head, legend, ...(rate === '' ? {} : { rate }) })));
     // Blank rows still take a place, so each result lines up with its row on the page.
-    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered, basis: el('basis').value, freightRate: el('freightRate').value });
-    out('netRate').textContent = t.netRate || '';
+    const t = purchaseOrderTotals({ litres: el('litres').value, rateAfter: el('rateAfter').value, footerRows: entered, basis: el('basis').value, freightRate: el('freightRate').value, landedRate: el('landedRate').value });
     out('amount').textContent = t.amount ? plain(t.amount) : '';
     out('landedRate').textContent = t.landedRate ? t.landedRate.toFixed(4) : '';
     footRows.forEach((row, index) => {
@@ -106,13 +106,45 @@ if (form?.querySelector('[name="litres"]')) {
   payment();
 
   const gross = form.querySelector('[data-loading-gross]');
-  gross.addEventListener('change', () => { el('loadingOnGross').value = gross.checked ? 'Yes' : 'No'; });
+  gross.addEventListener('change', () => { el('loadingOnGross').value = gross.checked ? 'Yes' : 'No'; rates(true); });
 
-  function shortage() {
-    const needed = ['Percent', 'Fixed'].includes(el('shortageMethod').value), rate = el('freightDeductionRate');
+  // Rates come from the Diesel Rate Master for the vendor, the order's location and the PO date. A box that took its
+  // rate from the master is locked; with no rate in the master the boxes stay open to type in.
+  const rateNote = form.querySelector('[data-rate-note]'), masterRates = JSON.parse(rateNote.dataset.rates || '[]');
+  const lock = (control, on) => { control.readOnly = on; control.classList.toggle('from-master', on); if (on) control.tabIndex = -1; else control.removeAttribute('tabindex'); };
+  let fetched = null;
+  function rates(replace) {
+    const place = form.querySelector('[data-order-location]')?.value || rateNote.dataset.location;
+    const found = pickRate(masterRates, { supplier: el('supplier').value, location: place, depot: el('depot').value, day: el('day').value });
+    fetched = ratesFor(found.rate, { gross: gross.checked });
+    rateNote.textContent = found.reason || (fetched ? 'Rates are from the Diesel Rate Master' + (found.rate.depot ? ' · ' + found.rate.depot : '') + '.' : '');
+    rateNote.hidden = !rateNote.textContent;
+    rateNote.classList.toggle('plain', !found.reason);
+    const fill = (control, value) => {
+      // A rate the master gave is cleared when the master no longer gives one, so it is never mistaken for a typed rate.
+      const given = control.classList.contains('from-master');
+      lock(control, value !== undefined);
+      if (value !== undefined && (replace || control.value === '')) control.value = value;
+      else if (value === undefined && replace && given) control.value = '';
+    };
+    fill(el('rateAfter'), fetched?.netRate);
+    fill(el('freightRate'), fetched?.freightRate);
+    if (fetched?.landedRate !== undefined) el('landedRate').value = fetched.landedRate;
+    else if (replace) el('landedRate').value = '';
+    shortage(replace);
+    calculate();
+  }
+  function shortage(replace) {
+    const method = el('shortageMethod').value, needed = ['Percent', 'Fixed'].includes(method), rate = el('freightDeductionRate');
     rate.disabled = !needed;
-    rate.placeholder = needed ? (el('shortageMethod').value === 'Percent' ? 'Percent of rate' : '₹ per litre') : 'Not required';
+    rate.placeholder = needed ? (method === 'Percent' ? 'Percent of rate' : '₹ per litre') : 'Not required';
     if (needed) rate.dataset.required = 'true'; else { delete rate.dataset.required; rate.value = ''; }
+    // A Fixed deduction is charged at the master's diesel rate. A Percent is a share of the rate, so it is typed.
+    const fromMaster = method === 'Fixed' && fetched?.freightDeductionRate !== undefined;
+    const given = rate.classList.contains('from-master');
+    lock(rate, fromMaster);
+    if (fromMaster && (replace === true || rate.value === '')) rate.value = fetched.freightDeductionRate;
+    else if (!fromMaster && replace === true && given) rate.value = '';
   }
   function freight() {
     const toPay = el('basis').value === 'Ex-depot';
@@ -127,7 +159,7 @@ if (form?.querySelector('[name="litres"]')) {
     el('deliveryDate').min = el('day').value;
   }
 
-  for (const name of ['litres', 'rateBefore', 'rateAfter']) el(name).addEventListener('input', calculate);
+  for (const name of ['litres', 'rateAfter']) el(name).addEventListener('input', calculate);
   for (const row of footRows) { row.addEventListener('input', calculate); row.addEventListener('change', calculate); }
   // Footer rows are shown one at a time as they are needed.
   const addFooterRow = form.querySelector('[data-add-footer-row]');
@@ -141,12 +173,14 @@ if (form?.querySelector('[name="litres"]')) {
   // The hidden footer field must be current before the shared form script reads it on submit.
   form.addEventListener('submit', calculate, true);
   el('supplier').addEventListener('change', showVendor);
-  el('shortageMethod').addEventListener('change', shortage);
+  el('shortageMethod').addEventListener('change', () => shortage(true));
+  for (const name of ['supplier', 'depot', 'day']) el(name).addEventListener('change', () => rates(true));
+  el('depot').addEventListener('input', () => rates(true));
   el('basis').addEventListener('change', freight);
   // The landed rate takes in the freight rate on To Pay and To Bill orders.
   el('basis').addEventListener('change', calculate);
   el('freightRate').addEventListener('input', calculate);
   el('indent').addEventListener('change', indent);
   el('day').addEventListener('change', dates);
-  showVendor(); shortage(); freight(); indent(); calculate();
+  showVendor(); rates(false); freight(); indent(); calculate();
 }

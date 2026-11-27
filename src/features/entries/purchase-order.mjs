@@ -35,8 +35,9 @@ export function singlePageOrder(d,c,indent,allocated) {
   check(!d.deliveryDate || d.deliveryDate>=c.doc.day,'Choose a delivery date on or after the PO date.');
   check(d.undersigned,'Enter the undersigned employee.');
   check(d.transactionType && d.supplyNature,'Select the transaction type and supply nature.');
-  check(d.rateBefore>0 && d.rateAfter>0,'Enter the rate before and after discount.');
-  check(d.rateAfter<=d.rateBefore,'The rate after discount cannot be higher than the rate before discount.');
+  // The net rate comes from the Diesel Rate Master, or is typed when the master has no rate. Earlier orders also carry a rate before discount.
+  check(d.rateAfter>0,'Enter the Net Rate.');
+  check(d.rateBefore===undefined || d.rateAfter<=d.rateBefore,'The rate after discount cannot be higher than the rate before discount.');
   check((d.vatPercent??0)<=100,'VAT cannot be more than 100%.');
   for (const [index,row] of (d.footerRows??[]).entries()) {
     const at='Footer row '+(index+1)+': ';
@@ -84,7 +85,7 @@ export function singlePageOrder(d,c,indent,allocated) {
     : d.shortageMethod==='Percent'?money(rate*d.freightDeductionRate/100) : 0;
   const approvals=['Head – Procurement'];
   if (d.type==='Retail') approvals.push('Director / CMD'); else if (totals.total>review.poSlab) approvals.push('CFO');
-  return { litres, rate, vat:Number(vatRow?.rate??0), invoiceDiscount:money((d.rateBefore-d.rateAfter)*1000),
+  return { litres, rate, vat:Number(vatRow?.rate??0), invoiceDiscount:d.rateBefore===undefined?0:money((d.rateBefore-d.rateAfter)*1000),
     postSaleDiscount:parties.master?.postSaleDiscount??0, ...(parties.master?{rateRef:parties.master.id,rateRevision:parties.master.revision}:{}),
     freight, shortageRate, depot:parties.depot, landed:rate+freight, value:totals.total,
     amount:totals.amount, excise:totals.excise, vatAmount:totals.vat, roundOff:totals.roundOff, footerHeads:totals.footer,

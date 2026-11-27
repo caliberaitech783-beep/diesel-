@@ -179,6 +179,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     }, orderKind) : undefined;
     registerHostedReview(app,{directory:entryReviewDirectory,publicOrigin:publicUrl.origin,assigned,indentApproval,orderApproval,
       siteMasterDb:siteStock ? siteMasterDb : undefined,startSignIn,
+      readDieselRates:itemSubmissions?profile=>itemSubmissions.list({id:profile.login.trim().toLowerCase()},'diesel-rate-master',{search:'',offset:0}):undefined,
       readEmployees:pulseMasterCopies?async request=>(await pulseMasterCopies.read('employee',{
         grant:readCookie(request,sessionCookie),sites:[],
       })).records:undefined,

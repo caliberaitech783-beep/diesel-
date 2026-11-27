@@ -194,12 +194,12 @@ test('the Diesel Rate Master asks for a location before the supplier and searche
   assert.doesNotMatch(form, /name="Location"[^>]*required/);
 });
 
-test('the Diesel Rate Master works per litre, with a transportation rate and a landed cost, and no notification section', async () => {
+test('the Diesel Rate Master works per litre, with a freight rate and a landed cost, and no notification section', async () => {
   const { masterDefinition } = await import('./records-fields.mjs');
   const master = masterDefinition('diesel-rate-master');
   const labels = master.fields.map(field => field.label);
   assert.deepEqual(labels.filter(label => /₹/.test(label)), ['Basic rate (₹/Ltr)', 'Excise duty (₹/Ltr)', 'Discount (₹/Ltr)', 'Diesel rate (₹/Ltr), worked out',
-    'Transportation rate (₹/Ltr)', 'Gross landed cost (₹/Ltr)', 'Net landed cost (₹/Ltr)']);
+    'Freight rate (₹/Ltr)', 'Gross landed cost (₹/Ltr)', 'Net landed cost (₹/Ltr)']);
   assert.deepEqual(master.fields.find(field => field.label === 'Price basis (EXMI / Delivered)').options, ['EXMI', 'Delivered']);
   assert.ok(!labels.includes('Notification copy') && !labels.includes('Approved by'));
   assert.ok(!master.sections.some(section => section.name === 'Notification and approval'));

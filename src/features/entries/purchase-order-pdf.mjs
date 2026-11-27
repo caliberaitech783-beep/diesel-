@@ -31,7 +31,7 @@ export function purchaseOrderSheet(doc, sources = []) {
       ['Tax & Supply', [['Transaction Type', d.transactionType], ['Supply Nature', d.supplyNature], ['PO Type', d.type]]],
       ['Freight & Logistics', [['Lifting Location', d.depot], ['Freight Type', freightTypes[d.basis] ?? d.basis], ['Freight Contract No.', d.freightContract],
         ['Freight Rate (Rs./L)', d.freightRate], ['Landing on Gross', d.loadingOnGross]]],
-      ['Material Details', [['Particular', review.item], ['Diesel Qty (L)', d.litres ?? (d.kl ? d.kl * 1000 : '')], ['Rate Before Disc.', d.rateBefore], ['Rate After Disc.', d.rateAfter],
+      ['Material Details', [['Particular', review.item], ['Diesel Qty (L)', d.litres ?? (d.kl ? d.kl * 1000 : '')], 
         ['Net Rate', totals.netRate || ''], ['Amount', money(totals.amount)]]],
     ],
     footer,

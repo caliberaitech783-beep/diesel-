@@ -178,8 +178,8 @@ export function createMasterStore(db, enabledMasters = ['item-master']) {
       if (!rate) throw new MasterRecordError('Enter a positive basic rate, excise duty, VAT from 0 to 100 and a discount type for any discount to work out the diesel rate.');
       values['Diesel rate (₹/Ltr), worked out'] = String(rate.perKilolitre);
       // The landed cost is the worked-out rate plus what it costs to bring the diesel in.
-      const transport = values['Transportation rate (₹/Ltr)'];
-      if (transport !== undefined && transport !== '' && !(Number(transport) >= 0)) throw new MasterRecordError('Transportation rate cannot be negative.');
+      const transport = values['Freight rate (₹/Ltr)'];
+      if (transport !== undefined && transport !== '' && !(Number(transport) >= 0)) throw new MasterRecordError('Freight rate cannot be negative.');
       const gross = Math.round((rate.perKilolitre + Number(transport || 0) + Number.EPSILON) * 10000) / 10000;
       values['Gross landed cost (₹/Ltr)'] = String(gross);
       // A post-sale discount comes back later by credit note, so it lowers the net cost but not the gross.

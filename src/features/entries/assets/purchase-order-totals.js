@@ -53,8 +53,10 @@ export function purchaseOrderTotals(input) {
   const four = value => Math.round((value + Number.EPSILON) * 10000) / 10000;
   const dieselRate = litres > 0 ? four(total / litres) : 0;
   const freightRate = freightAdded(input.basis) ? num(input.freightRate) : 0;
+  // An order that took its landed rate from the Diesel Rate Master shows that rate; otherwise it is worked out here.
+  const fetched = num(input.landedRate);
   return { litres, netRate: rateAfter, amount, excise, vatBase: vatBase ?? paise(amount + excise), vat, roundOff, footer: paise(total - amount), total,
-    landedRate: litres > 0 ? four(dieselRate + freightRate) : 0, dieselRate, freightRate, rows };
+    landedRate: fetched > 0 ? four(fetched) : litres > 0 ? four(dieselRate + freightRate) : 0, dieselRate, freightRate, rows };
 }
 
 const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',

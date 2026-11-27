@@ -13,6 +13,16 @@ const normalize = value => value.trim().normalize('NFKC').toLowerCase();
 const recordId = /^[0-9a-f]{64}$/;
 const attachmentId = /^[0-9a-f-]{36}$/;
 
+// A field renamed after records were saved: the value is read under its new label.
+const renamed = { 'diesel-rate-master': { 'Transportation rate (₹/Ltr)': 'Freight rate (₹/Ltr)' } };
+function current(record) {
+  const names = renamed[record?.master] ?? renamed['diesel-rate-master'];
+  for (const [before, after] of Object.entries(names)) {
+    if (record?.values && before in record.values) { record.values[after] ??= record.values[before]; delete record.values[before]; }
+  }
+  return record;
+}
+
 export async function openItemSubmissions(directory) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await access(directory, constants.W_OK);
@@ -40,7 +50,7 @@ export async function openItemSubmissions(directory) {
     if (typeof id !== 'string' || !recordId.test(id)) throw new MasterRecordError('Master record not found.', 404);
     for (const folder of await slugDirectories(actor, slug)) {
       try {
-        return { folder, record: JSON.parse(await readFile(join(folder, id, 'record.json'), 'utf8')) };
+        return { folder, record: current(JSON.parse(await readFile(join(folder, id, 'record.json'), 'utf8'))) };
       } catch (error) {
         if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error;
       }
@@ -69,7 +79,7 @@ export async function openItemSubmissions(directory) {
         if (!entry.isDirectory() || !recordId.test(entry.name) || seen.has(entry.name)) continue;
         let record;
         try {
-          record = JSON.parse(await readFile(join(folder, entry.name, 'record.json'), 'utf8'));
+          record = current(JSON.parse(await readFile(join(folder, entry.name, 'record.json'), 'utf8')));
         } catch (error) {
           if (error.code === 'ENOENT') continue;
           throw error;
