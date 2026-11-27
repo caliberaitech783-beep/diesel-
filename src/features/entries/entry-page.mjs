@@ -244,17 +244,25 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
-    : `<p><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
+    : `<p class="record-back"><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(listed&&d.approval.status!=='pending'?d.approval.label:d.status)}</strong>${listed?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}<span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
-  return page(meta.name,actor,d.type,back,`${recordHeading}
+  // On paper a record is its form's details, when it was made, and who approved it. The page's heading, status
+  // badges, site stock, worked-out figures and history are for the screen only.
+  const stamp=value=>value?new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date(value))+' IST':'';
+  const approvedBy=d.approval&&d.approval.status!=='pending'?d.approval.label+' '+d.approval.detail
+    : (found=>found?'Approved by '+found.actor+' · '+stamp(found.stamp):'')(history.findLast?.(h=>/^approve/i.test(h.action)));
+  const printHead=d.rev>0?`<div class="print-only print-head"><h1>${esc(meta.name)}${d.number?' · '+esc(formatIndentNumber(d.number)):''}</h1>
+    <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p></div>`:'';
+  const printFoot=d.rev>0&&approvedBy?`<p class="print-only print-foot">${esc(approvedBy)}</p>`:'';
+  return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
-    ${picture&&!indent&&!order?`<section><h2>Site stock</h2>${stock}</section>`:''}
+    ${picture&&!indent&&!order?`<section class="site-stock"><h2>Site stock</h2>${stock}</section>`:''}
     ${editable?`<section${indent?' class="indent-form-panel"':order?' class="order-form-panel"':''}><h2${indent||order?' class="sr-only"':''}>Entry details</h2>${editableFields(meta,d,rows,actor)}
     ${d.type==='E12'&&!actor.siteEntryTypes?`<p>Receiving site · ${otherSite(d.site)}</p>`:''}
     ${['E5','E6','E10A','E10B','E10C','E11','E12','E14','E15'].includes(d.type)?'<div class="actions gps"><output id="gps-status" aria-live="polite">GPS is stamped automatically when location is allowed.</output><button type="button" id="record-position">Refresh GPS</button></div>':''}
     ${meta.fields.some(f=>['bowser','vehicle','tank'].includes(f.key))?'<details><summary>Scan storage or vehicle tag</summary><div class="camera-scan"><button type="button" id="scan-camera" hidden>Scan with camera</button><video id="scan-video" playsinline muted hidden></video></div><label>Take a QR photo or choose an image<input id="tag-photo" type="file" accept="image/*" capture="environment"></label><label>QR / barcode scanner input<input id="tag-input" autocomplete="off"></label><button type="button" id="use-tag">Use scanned tag</button></details>':''}</section>`:d.type==='E2'&&d.rev>0?purchaseOrderView(d,rows):d.type==='E4'&&d.rev>0?dispatchView(d,d.data.po?displayValue(d.data.po):''):inputRows?`<section><h2>Entry details</h2>${recordDetails}</section>`:''}
     ${indent?`<details class="indent-secondary" open><summary>Site stock</summary>${picture&&Object.keys(picture).length?stock:`<p>${d.rev||d.selectedSite?'Site stock is currently unavailable.':'Select a location to see its stock.'}</p>`}</details>`:''}
-    ${resultRows&&!indent&&!order&&!['E2','E4'].includes(d.type)?`<section><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
+    ${resultRows&&!indent&&!order&&!['E2','E4'].includes(d.type)?`<section class="worked-out"><h2>Calculated and carried forward</h2><dl>${resultRows}</dl></section>`:''}
     ${d.type==='E17'&&d.status==='Posted'&&['Head – Accounts','CFO'].includes(role)?`<p><a href="/entries/accounting/${d.id}.csv">Download month-end journal</a></p>`:''}
     ${next&&d.status==='Awaiting approval'&&!listed?`<p>Awaiting ${esc(next)} · step ${d.stage+1} of ${d.result.approvals.length}</p>`:''}
     ${reviewable?'<label>Reason for return<input name="reason"></label>':''}
@@ -268,7 +276,8 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${indent&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this indent</h2><p>Requested ${esc(d.data.litres??'')} litres. Enter the sanction quantity and select Approve, or select Decline.</p>${decisionForm(d.decide,recordPath(d))}</section>`:''}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${!indent&&history.length?`<section><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
+    ${printFoot}
+    ${!indent&&history.length?`<section class="record-history"><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
       </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?(d.type==='E4'?dispatchHeading(d):d.type==='E7'?grnHeading(d):purchaseOrderHeading(d)):undefined, remoteApproval,indent&&editable);
 }
