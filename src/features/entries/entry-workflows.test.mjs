@@ -9,6 +9,9 @@ import { businessDay, dayBefore } from './entry-rules.mjs';
 import { createLocalApproval } from './local-approval.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
 
+// These tests date entries across months and years, so the three-day limit on entry dates is lifted for this file.
+process.env.DIESEL_ENTRY_DATE_WINDOW_DAYS='off';
+
 const photo=[{name:'test.png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='}];
 const day=businessDay();
 function actor(role,site='Jayant') { return {site,profile:roleKey(role),id:site+'-'+roleKey(role),name:role}; }

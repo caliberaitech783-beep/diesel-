@@ -32,7 +32,7 @@ test('Save indent validates, numbers and persists a saved request without approv
     type:'E2',rev:0,day:input.day,action:'Submit',data:{indent:id,type:'Bulk',supplier:review.supplier,
       depot:review.depot,basis:'Delivered',kl:0.1,terms:'Advance'},
   }),/posted E1/);
-  assert.throws(()=>store.write(randomUUID(),maker,{...input,data:{litres:0,requiredBy:2}}),/positive/);
+  assert.throws(()=>store.write(randomUUID(),maker,{...input,data:{litres:0,requiredBy:2}}),/more than zero/);
   assert.throws(()=>store.write(randomUUID(),maker,{...input,data:{litres:120,requiredBy:1.5}}),/whole number/);
   assert.throws(()=>store.write(randomUUID(),{...maker,profile:roleKey('Procurement Executive')},{...input,type:'E2'}),/only available/);
   const next=store.write(randomUUID(),maker,{...input,data:{...input.data,reason:'Operational demand'}});

@@ -393,3 +393,26 @@ if (workspaceFilter) {
     none.hidden = shown > 0;
   });
 }
+
+// ---- Entry forms: a quantity, rate or amount is never negative, and the entry date stays inside its allowed days.
+if (entryForm) {
+  const numeric = field => field instanceof HTMLInputElement && field.type === 'number';
+  for (const field of entryForm.querySelectorAll('input[type=number]')) if (!field.min && field.name !== 'temperature') field.min = '0';
+  // The minus key does nothing in a number box, and a pasted negative value is cleared.
+  entryForm.addEventListener('keydown', event => { if (numeric(event.target) && event.target.name !== 'temperature' && (event.key === '-' || event.key === 'Subtract')) event.preventDefault(); });
+  entryForm.addEventListener('input', event => {
+    const field = event.target;
+    if (numeric(field) && field.name !== 'temperature' && Number(field.value) < 0) { field.value = ''; field.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  // A date typed by hand outside the allowed days is pulled back to the nearest allowed day.
+  const day = entryForm.querySelector('input[name=day]');
+  day?.addEventListener('change', () => {
+    if (!day.value) return;
+    const allowed = day.min && day.value < day.min ? day.min : day.max && day.value > day.max ? day.max : '';
+    if (!allowed) return;
+    day.value = allowed;
+    day.dispatchEvent(new Event('input', { bubbles: true }));
+    const note = day.parentElement.querySelector('.field-error') ?? day.parentElement.appendChild(make('small', { className: 'field-error' }));
+    note.textContent = 'The date must be between ' + day.min.split('-').reverse().join('-') + ' and ' + day.max.split('-').reverse().join('-') + '.';
+  });
+}

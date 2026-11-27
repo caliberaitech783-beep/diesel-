@@ -14,6 +14,9 @@ import { siteEntryTypes } from './site-masters.mjs';
 import { siteEntryWorkspace } from './site-entry-workspace.mjs';
 import { transferKey } from './transfer-destination.mjs';
 
+// These tests date entries across months and years, so the three-day limit on entry dates is lifted for this file.
+process.env.DIESEL_ENTRY_DATE_WINDOW_DAYS='off';
+
 const proof={name:'meter.png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='};
 const pdf={name:'fixture.pdf',base64:Buffer.from('%PDF-1.4\n%%EOF').toString('base64')};
 

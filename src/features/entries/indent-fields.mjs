@@ -1,3 +1,4 @@
+import { entryDayMin } from './entry-rules.mjs';
 import { esc } from './entry-shell.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { indentFormData, indentDueDate, requiredDate, formatIndentDate, formatIndentNumber } from './indent-details.mjs';
@@ -34,7 +35,7 @@ export function indentFields(actor,doc,meta,render) {
   const requestedBy=requester?`${requester.name} · ${requester.empId}`:doc.requestedBy??(doc.maker===actor.id?actor.requestedBy:undefined)??'Employee details unavailable';
   return `<fieldset class="indent-card"><legend>Request details</legend><div class="indent-details-grid">
     <label>Indent number<input type="text" readonly value="${esc(formatIndentNumber(doc.number)||'')}" placeholder="Generated after saving"></label>
-    <label>Indent date<input name="day" type="date" data-required="true" max="${esc(actor.businessDay??doc.day)}" value="${esc(doc.day)}"></label>
+    <label>Indent date<input name="day" type="date" data-required="true" min="${esc(entryDayMin(actor.businessDay??doc.day,doc))}" max="${esc(actor.businessDay??doc.day)}" value="${esc(doc.day)}"></label>
     ${indentLocationControl(actor,selectedSite)}</div><div class="indent-requester"><span>Requested by</span><strong>${esc(requestedBy)}</strong></div></fieldset>
     <fieldset class="indent-card"><legend>Fuel item</legend><div class="indent-item-grid">
       ${readOnly('Item name',selectedSite?(item?.name??review.item):'Select a location first')}

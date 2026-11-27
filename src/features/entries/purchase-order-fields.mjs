@@ -1,5 +1,6 @@
 // The Diesel Purchase Order form (E2): one page with order details, vendor, tax, freight, material and
 // footer calculation, tolerance and shortage, payment and, last, the record information.
+import { entryDayMin } from './entry-rules.mjs';
 import { esc } from './entry-shell.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
@@ -94,7 +95,7 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   return `<div class="order-top">
     ${card('details', 'Purchase Order Details', `<div class="order-grid three">
       ${placeFields}
-      <label><span>PO Date${star}</span><input name="day" type="date" data-required="true" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
+      <label><span>PO Date${star}</span><input name="day" type="date" data-required="true" min="${esc(entryDayMin(actor.businessDay ?? doc.day, doc))}" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       ${readOnly('PO No.', formatIndentNumber(doc.number) || '', 'placeholder="Auto-generated"')}
       ${input('deliveryDate', 'Delivery Date', { attrs: `min="${esc(doc.day)}"` })}
       <div class="span-two">${search('indent', 'Indent No.', indentChoices, d.indent, indents.length ? 'Search indent number' : 'No approved indent with a balance')}</div>
