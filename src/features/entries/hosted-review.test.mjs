@@ -26,7 +26,8 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   }
   const get=await request('/entries','a');assert.equal(get.status,200);
   const html=await get.text();assert.match(html,/Personal review · sample data/);
-  assert.match(html,/href="\/entries\/opening-stock"/);
+  // Opening stock is off the shared workspace's menu, and All entries has no separate indent button.
+  assert.doesNotMatch(html,/href="\/entries\/opening-stock"|Open diesel indent/);
   assert.match(await (await request('/entries/opening-stock','a')).text(),/Site stock is awaiting setup/);
   assert.equal((await request('/entries/opening-stock','a',{method:'POST',headers:{Origin:origin},
     body:new URLSearchParams({item:'example',measuredAt:'2026-11-18T06:00'})})).status,404);

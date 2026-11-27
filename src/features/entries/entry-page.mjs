@@ -106,9 +106,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const actorRole=entryRole(actor);
   const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
   const title = meta?.name ?? 'All entries';
-  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group) : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div>
-    ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
-      ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
+  const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group) : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div></div>`;
   // sites: the register was opened across sites, from a Dashboard card. The choice travels with every link on the page.
   const wide=typeof query.sites==='string'&&query.sites&&query.sites!==actor.site?query.sites:'';
   const exportQuery=new URLSearchParams({type:type??kind,...filters,...(wide?{sites:wide}:{})});
