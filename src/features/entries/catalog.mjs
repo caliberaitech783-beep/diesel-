@@ -34,7 +34,7 @@ export const entries = [
     {...date('deliveryDate','Delivery date'),optional:true},text('undersigned','Undersigned (employee)',true),
     pick('transactionType','Transaction type',['Inter State','Intra State'],true),pick('supplyNature','Supply nature',['Non-GST Supplies','Taxable Supplies','GST Supplies'],true),
     text('freightContract','Freight contract No.',true),number('freightRate','Freight rate (₹/L)',true),pick('loadingOnGross','Landing on gross',['Yes','No'],true),
-    number('litres','Diesel Qty (L)',true),number('rateBefore','Rate before discount (₹/L)',true),number('rateAfter','Rate after discount (₹/L)',true),
+    number('litres','Diesel Qty (L)',true),number('rateBefore','Rate before discount (₹/L)',true),number('rateAfter','Net rate (₹/L)',true),number('landedRate','Landed rate (₹/L)',true),
     number('exciseRate','Basic excise duty (₹/L)',true),number('vatPercent','VAT (%)',true),
     pick('shortageFrom','Shortage deduction from',['Transporter','Vendor'],true),pick('shortageMethod','Shortage deduction method',['None','Percent','Fixed'],true),
     number('freightDeductionRate','Freight deduction rate',true),number('advanceAmount','Advance amount (₹)',true),

@@ -12,8 +12,8 @@ export function purchaseOrderView(doc, sources) {
   const cells = Object.fromEntries(material[1]);
   return `<div class="order-view">
     <div class="order-top">${card(details)}${card(vendor)}<div class="order-stack">${card(tax)}${card(freight)}</div></div>
-    <section class="order-card"><h2>Material Details</h2><div class="order-table"><table><thead><tr><th>#</th><th>Particular (Material Name)</th><th>Diesel Qty (L)</th><th>Rate Before Disc.</th>
-      <th>Rate After Disc.</th><th>Net Rate</th><th>Amount</th></tr></thead><tbody><tr><td>1</td>${['Particular', 'Diesel Qty (L)', 'Rate Before Disc.', 'Rate After Disc.', 'Net Rate', 'Amount']
+    <section class="order-card"><h2>Material Details</h2><div class="order-table"><table><thead><tr><th>#</th><th>Particular (Material Name)</th><th>Diesel Qty (L)</th>
+      <th>Net Rate</th><th>Amount</th></tr></thead><tbody><tr><td>1</td>${['Particular', 'Diesel Qty (L)', 'Net Rate', 'Amount']
         .map(label => `<td>${shown(cells[label])}</td>`).join('')}</tr></tbody></table></div></section>
     <div class="order-calc"><section class="order-card"><h2>Final Calculation – Footer / Tax</h2><div class="order-table"><table><thead><tr><th>Seq</th><th>Footer Head</th><th>Legend</th><th>Rate / %</th>
       <th>Calculated On</th><th>Value (₹)</th></tr></thead><tbody>${sheet.footer.length ? sheet.footer.map((row, index) => `<tr><td>${index + 1}</td>${row.map((value, at) =>

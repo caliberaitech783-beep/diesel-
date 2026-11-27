@@ -11,7 +11,7 @@ function showDieselRate() {
   const result = dieselRate(Object.fromEntries(Object.entries(inputs).map(([name, input]) => [name, input.value])));
   rate.value = result ? String(result.perKilolitre) : '';
   note.textContent = result ? `₹${format.format(result.perKilolitre)} per litre` : instruction;
-  // Landed cost per litre is the worked-out rate plus the transportation rate.
+  // Landed cost per litre is the worked-out rate plus the freight rate.
   const carriage = Number(transport?.value || 0);
   const gross = result && carriage >= 0 ? Math.round((result.perKilolitre + carriage + Number.EPSILON) * 10000) / 10000 : null;
   if (landed) landed.value = gross === null ? '' : String(gross);

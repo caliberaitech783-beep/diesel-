@@ -113,14 +113,14 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
       <label class="order-check"><input type="checkbox" data-loading-gross${d.loadingOnGross === 'No' ? '' : ' checked'}><input type="hidden" name="loadingOnGross" value="${d.loadingOnGross === 'No' ? 'No' : 'Yes'}">Landing on Gross</label></div>`)}
     </div></div>
     ${card('material', 'Material Details', `<div class="order-table"><table><thead><tr><th>#</th><th>Particular (Material Name)</th><th>HSN Code</th><th>Diesel Qty (L)${star}</th>
-      <th>Rate Before Disc.${star}</th><th>Rate After Disc.${star}</th><th>Net Rate</th><th>Amount</th><th>Landed Rate</th><th>Material In No.</th><th>GRN No.</th></tr></thead>
+      <th>Net Rate${star}</th><th>Amount</th><th>Landed Rate</th><th>GRN No.</th></tr></thead>
       <tbody><tr><td>1</td><td><input type="text" readonly tabindex="-1" aria-label="Particular" value="${esc(itemName)}"></td>
       <td><input type="text" readonly tabindex="-1" aria-label="HSN Code" value="${esc(item?.hsn ?? '—')}"></td>
       <td><input name="litres" type="number" step="any" min="0" inputmode="decimal" data-required="true" aria-label="Diesel Qty (L)" value="${esc(d.litres ?? '')}"></td>
-      <td><input name="rateBefore" type="number" step="any" min="0" inputmode="decimal" data-required="true" aria-label="Rate before discount" value="${esc(d.rateBefore ?? '')}"></td>
-      <td><input name="rateAfter" type="number" step="any" min="0" inputmode="decimal" data-required="true" aria-label="Rate after discount" value="${esc(d.rateAfter ?? '')}"></td>
-      <td><output data-order="netRate">${esc(totals.netRate || '')}</output></td><td><output data-order="amount">${esc(totals.amount ? rupee(totals.amount).slice(2) : '')}</output></td>
-      <td><output data-order="landedRate">${esc(totals.landedRate || '')}</output></td><td>—</td><td>—</td></tr></tbody></table></div>`, 'layers')}
+      <td><input name="rateAfter" type="number" step="any" min="0" inputmode="decimal" data-required="true" aria-label="Net Rate" value="${esc(d.rateAfter ?? '')}"></td>
+      <td><output data-order="amount">${esc(totals.amount ? rupee(totals.amount).slice(2) : '')}</output></td>
+      <td><output data-order="landedRate">${esc(totals.landedRate || '')}</output><input type="hidden" name="landedRate" value="${esc(d.landedRate ?? '')}"></td><td>—</td></tr></tbody></table></div>
+      <p class="order-hint" data-rate-note data-rates="${esc(JSON.stringify(actor.dieselRates ?? []))}" data-location="${esc(locationName(doc.site) ?? '')}" hidden></p>`, 'layers')}
     <div class="order-calc">
     ${card('footer', 'Final Calculation – Footer / Tax', `<div class="order-table"><table><thead><tr><th>Seq</th><th>Footer Head</th><th>Legend</th><th>Rate / %</th><th>Calculated On</th><th>Value (₹)</th></tr></thead><tbody data-footer-rows>
 ${footerRows}
@@ -135,7 +135,7 @@ ${footerRows}
     ${card('tolerance', 'Tolerance &amp; Shortage', `<div class="order-grid two">${input('tolerance', 'Tolerance (%)', { required: true })}
       ${select('shortageFrom', 'Shortage Deduction From', { required: true })}${select('shortageMethod', 'Shortage Deduction Method', { required: true })}
       ${input('freightDeductionRate', 'Freight Deduction Rate', { attrs: 'placeholder="Not required"' })}</div>
-      <p class="order-hint">Rate is required only for Percent or Fixed deduction.</p>`, 'truck')}
+      <p class="order-hint">Rate is required only for Percent or Fixed deduction. A Fixed rate comes from the Diesel Rate Master.</p>`, 'truck')}
     ${card('payment', 'Payment', `<div class="order-toggle" role="group" aria-label="Is full payment as advance?"><span>Is Full Payment as Advance?${star}</span>
       <input type="hidden" name="terms" value="${advance ? 'Advance' : 'Credit'}">
       <button type="button" data-terms="Advance" aria-pressed="${advance}">Yes</button><button type="button" data-terms="Credit" aria-pressed="${!advance}">No</button></div>

@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import express from 'express';
+import { dieselRateRows } from './diesel-rates.mjs';
 import { createEntriesRouter } from './routes.mjs';
 import { createEntryStore } from './entry-store.mjs';
 import { businessDay } from './entry-rules.mjs';
@@ -80,7 +81,7 @@ function gatherPrivateTrials(db, directory) {
   }
 }
 
-export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, indentApproval, orderApproval }) {
+export function registerHostedReview(app, { directory, publicOrigin, getProfile, startSignIn, assigned = false, siteMasterDb, approvalOptions, readEmployees, readDieselRates, indentApproval, orderApproval }) {
   const routers = new Map();
   const secure = new URL(publicOrigin).protocol === 'https:';
   const siteStock = Boolean(siteMasterDb);
@@ -151,6 +152,10 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       if (['/new/E1','/new/E2'].includes(req.path) || req.path.startsWith('/record/')) {
         const employees=readEmployees?await readEmployees(req):siteMasterDb?createPulseMasterStore(siteMasterDb).read('employee').records:[];
         req.dieselActor.employee=indentRequester(profile,employees);
+      }
+      // A purchase order takes its rates from the Diesel Rate Master.
+      if (readDieselRates && (req.path==='/new/E2' || req.path.startsWith('/record/'))) {
+        try { req.dieselActor.dieselRates=dieselRateRows(await readDieselRates(profile)); } catch { req.dieselActor.dieselRates=[]; }
       }
       req.dieselActor.entrySites=directory;
       if (trial) { req.dieselActor.trial = locations.length ? 'role' : 'location'; req.dieselActor.trialReason = trialReason(pulseOutcome,profile,locations); }
