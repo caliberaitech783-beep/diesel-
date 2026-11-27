@@ -1,3 +1,6 @@
+import { entrySiteDirectory } from './entry-sites.mjs';
+import { workspacePage } from './workspace-page.mjs';
+import { dashboardPage } from './dashboard-page.mjs';
 import { lowStorage } from './storage-levels.mjs';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
@@ -105,6 +108,23 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,actor)),null,req.query,sources));
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
+  router.get('/workspace',(req,res)=>res.send(workspacePage(req.dieselActor,visibleRecords(req.dieselActor),req.query)));
+  // The dashboard reads the saved entries of one site, or of every site this person may open.
+  router.get('/dashboard',(req,res)=>{
+    const actor=req.dieselActor, sites=entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
+    const site=sites.some(([value])=>value===req.query.site)?req.query.site:'all', chosen=site==='all'?sites.map(([value])=>value):[site];
+    const found=new Map();
+    for (const place of chosen) for (const doc of store.list(place)) if (canRead(doc,{...actor,site:place})) found.set(doc.id,doc);
+    // Stock is shown only where a site's real opening stock is set up; review sample stock is never presented as a figure.
+    const stock=opening ? chosen.flatMap(place=>{
+      try {
+        if (!siteFor(place)) return [];
+        const picture=store.stockPicture(place);
+        return [{site:place,litres:picture['Tank and bowser stock (L)'],daily:picture['Average daily issue (L)']}];
+      } catch { return []; }
+    }) : [];
+    res.send(dashboardPage(actor,[...found.values()],req.query,{sites,site,stock,today:actor.businessDay??store.dayFor(actor.site)}));
+  });
   // Shift and stock for the role home screen. Stock waits until the site's opening stock is set up.
   function siteToday(actor) {
     let stock = null;
