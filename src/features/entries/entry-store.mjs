@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { byId } from './catalog.mjs';
-import { businessDay,evaluate,validateFields,validDate,requireValue as check,round,money } from './entry-rules.mjs';
+import { businessDay,evaluate,validateFields,validDate,requireValue as check,round,money,earliestEntryDay,entryDateWindow } from './entry-rules.mjs';
 import { entryRole, review, roleKey } from './review-masters.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { entryPolicy } from './entry-policy.mjs';
@@ -255,6 +255,8 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
           'A purchase order already uses this indent, so it cannot be changed.');
         check((saveIndent?['Draft','Returned','Saved','Awaiting approval']:['Draft','Returned']).includes(doc.status) || approvedIndent,'This entry is already submitted.');
         check(validDate(body.day) && body.day<=dayFor(doc.site,now),'Choose today’s business date or an earlier date.');
+        // A new entry, or a changed date, must fall within the last three days. A saved entry keeps the date it has.
+        check((doc.rev>0 && body.day===doc.day) || body.day>=earliestEntryDay(dayFor(doc.site,now)),'Choose a date within the last '+entryDateWindow()+' days. Older dates are not allowed.');
         const config=siteConfig(doc.type,doc.site,body.day);
         doc.day=body.day;checkLocks(doc);doc.data=collect(doc,body.data);
         stampReading(doc,body,now);

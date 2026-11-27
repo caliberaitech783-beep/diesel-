@@ -11,6 +11,9 @@ import { roleKey } from './review-masters.mjs';
 import { validateFields } from './entry-rules.mjs';
 import { entryCsvRows, entryExportRows } from './entry-register.mjs';
 
+// These tests date entries across months and years, so the three-day limit on entry dates is lifted for this file.
+process.env.DIESEL_ENTRY_DATE_WINDOW_DAYS='off';
+
 const actor=(site='Jayant')=>({site,id:'maker-'+site,profile:roleKey('Site In-charge')});
 
 test('indent years roll over on 1 April and required days calculate across months and leap years',()=>{

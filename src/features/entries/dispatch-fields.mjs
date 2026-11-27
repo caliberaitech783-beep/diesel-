@@ -1,4 +1,5 @@
 // The Delivery Schedule (E4) form: one card of dispatch details against an approved purchase order.
+import { entryDayMin } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import storageLocations from '../company-records/storage-location-master-data.mjs';
@@ -28,7 +29,7 @@ export function dispatchFields(actor, doc, meta, rows) {
   const plain = key => field(key).options.map(value => [value, value]);
   return `<fieldset class="order-card order-dispatch"><legend>${truck}<span>Dispatch Details</span></legend><div class="order-grid three">
       <label><span>Location${star}</span><input type="text" readonly tabindex="-1" value="${esc(doc.site)}"></label>
-      <label><span>Date${star}</span><input name="day" type="date" data-required="true" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
+      <label><span>Date${star}</span><input name="day" type="date" data-required="true" min="${esc(entryDayMin(actor.businessDay ?? doc.day, doc))}" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       ${select('po', 'Purchase Order No.', orders, orders.length ? 'Select purchase order' : 'No approved purchase order with a balance')}
       <label>Delivery Schedule No.<input type="text" readonly tabindex="-1" placeholder="Generated on save" value="${esc(doc.number ?? '')}"></label>
       <label><span>Delivery Date${star}</span><input name="deliveryDate" type="date" data-required="true" min="${esc(doc.day)}" value="${esc(d.deliveryDate ?? '')}"></label>

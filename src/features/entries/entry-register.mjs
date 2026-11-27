@@ -11,6 +11,10 @@ const date = value => validDate(value) ? value : '';
 
 export const isRegisterRecord = row => row.type!=='E1' || indentStatus(row)==='Saved';
 
+// "Waiting" gathers everything that waits on someone: an indent saved for sanction, an entry awaiting approval, a
+// payment awaiting Treasury.
+export const waiting = 'Waiting', waitingStates = ['Awaiting approval', 'Saved', 'Awaiting Treasury'];
+
 export function registerFilters(query) {
   return { q: text(query.q), status: text(query.status), from: date(query.from), to: date(query.to),
     truck: text(query.truck), vehicle: text(query.vehicle) };
@@ -28,7 +32,7 @@ export function filterRegister(rows, type, filters, sources=rows) {
   const trace = traceEntries(sources), q = filters.q.toLowerCase();
   return rows.filter(row => {
     if (!isRegisterRecord(row)) return false;
-    if ((type && row.type !== type) || (filters.status && (filters.status==='Saved'?indentStatus(row):row.status) !== filters.status)
+    if ((type && row.type !== type) || (filters.status && (filters.status===waiting ? !waitingStates.includes(row.status) : (filters.status==='Saved'?indentStatus(row):row.status) !== filters.status))
       || (filters.from && row.day < filters.from) || (filters.to && row.day > filters.to)) return false;
     const { truck, vehicle } = trace(row);
     if ((filters.truck && filters.truck.toLowerCase() !== truck?.toLowerCase())

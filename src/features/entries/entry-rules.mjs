@@ -17,6 +17,7 @@ export function businessDay(now = new Date()) {
   return new Date(now.getTime() + (5.5-review.cutOffHour)*3600000).toISOString().slice(0,10);
 }
 export function dayBefore(day, days = 1) { return new Date(Date.parse(day)-days*86400000).toISOString().slice(0,10); }
+const positiveFields = new Set(['litres','sent','received','acceptedQty','amount','rate','rateBefore','rateAfter','total','advanceAmount','invoiceQty']);
 export function validateFields(type,input) {
   const data = {};
   for (const field of type.fields) {
@@ -46,6 +47,8 @@ export function validateFields(type,input) {
     if (field.type === 'number') {
       requireValue(/^-?\d+(\.\d+)?$/.test(value) && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1e12,'Enter a valid number for ' + field.label + '.');
       requireValue(field.key === 'temperature' || Number(value) >= 0,field.label + ' cannot be negative.');
+      // A quantity, rate or amount of zero records nothing, so it is refused like a negative one.
+      if (positiveFields.has(field.key)) requireValue(Number(value) > 0,field.label + ' must be more than zero.');
       if (field.step===1) requireValue(Number.isSafeInteger(Number(value)),field.label+' must be a whole number.');
       if (field.max!==undefined) requireValue(Number(value)<=field.max,field.label+' must be at most '+field.max+'.');
       data[field.key] = Number(value);
@@ -91,3 +94,20 @@ export function evaluate(doc, all, moves, policy = entryPolicy(), siteConfig) {
   }
   return result;
 }
+
+// An entry is dated today or within the three days before it (72 hours), never later. An entry already saved with an
+// older date keeps that date; the limit applies when an entry is made or its date is changed.
+// DIESEL_ENTRY_DATE_WINDOW_DAYS changes the number of days, and "off" lifts the limit, for example while a site's
+// backlog is entered at go-live.
+export function entryDateWindow(env = process.env) {
+  const set = String(env.DIESEL_ENTRY_DATE_WINDOW_DAYS ?? '').trim().toLowerCase();
+  if (['off', 'none', '0'].includes(set)) return null;
+  const days = Number.parseInt(set, 10);
+  return Number.isSafeInteger(days) && days > 0 ? days : 3;
+}
+// The earliest date allowed, or '' when there is no limit.
+export function earliestEntryDay(today, days = entryDateWindow()) {
+  return days === null ? '' : new Date(Date.parse(today + 'T00:00:00Z') - days * 864e5).toISOString().slice(0, 10);
+}
+// The earliest date the date box offers for this entry.
+export const entryDayMin = (today, doc) => { const earliest = earliestEntryDay(today); return earliest && doc.rev > 0 && doc.day < earliest ? doc.day : earliest; };

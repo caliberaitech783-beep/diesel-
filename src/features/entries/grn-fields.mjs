@@ -1,4 +1,5 @@
 // The Goods Receipt Note (E7) form: gate entry and goods receipt in one page.
+import { entryDayMin } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { canonicalSite } from '../pulse-masters/site-names.mjs';
@@ -72,7 +73,7 @@ export function grnFields(actor, doc, meta, rows) {
   return `<div class="order-grid four grn-top">
       <label><span>Site Location${star}</span><input type="text" readonly tabindex="-1" value="${esc(entrySites.find(row => row.site === doc.site)?.name ?? doc.site)}"></label>
       ${select('docType', 'Doc Type', 'Select Doc Type', { required: true })}
-      <label><span>GRN Date${star}</span><input name="day" type="date" data-required="true" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
+      <label><span>GRN Date${star}</span><input name="day" type="date" data-required="true" min="${esc(entryDayMin(actor.businessDay ?? doc.day, doc))}" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       <label><span>GRN No.</span><input type="text" readonly tabindex="-1" placeholder="Generated on save" value="${esc(doc.number ?? '')}"></label>
     </div>
     <div class="order-grid two grn-pair">

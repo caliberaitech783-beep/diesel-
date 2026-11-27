@@ -1,14 +1,14 @@
 import { page, esc, option } from './entry-shell.mjs';
 import { byId, entries } from './catalog.mjs';
 import { entryRole,roleKey,otherSite,review } from './review-masters.mjs';
-import { businessDay, money } from './entry-rules.mjs';
+import { businessDay, money, entryDayMin } from './entry-rules.mjs';
 import { sourceChoices } from './entry-choices.mjs';
 import { canChooseRole, pilotEntry } from './entry-access.mjs';
 import { mayApproveEntry } from './approval-roles.mjs';
 import { approvalCard } from './approval-inbox.mjs';
 import { decisionForm } from '../indent-approval/approver-page.mjs';
 import { orderKind } from '../indent-approval/approval-kinds.mjs';
-import { filterRegister, registerFilters, traceEntries, isRegisterRecord } from './entry-register.mjs';
+import { waiting, waitingStates, filterRegister, registerFilters, traceEntries, isRegisterRecord } from './entry-register.mjs';
 import { formSteps } from './phone-form-steps.mjs';
 import { transferLabel } from './transfer-destination.mjs';
 import { localReadingTime } from './entry-calendar.mjs';
@@ -119,17 +119,30 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const kinds=type?[]:entries.filter(entry=>matching.some(r=>r.type===entry.id));
   const tabs=kinds.length>1?`<nav class="entry-tabs" aria-label="Kinds of entry"><a href="${tabLink('')}"${kind?'':' aria-current="page"'}>All<small>${matching.length}</small></a>${kinds.map(entry=>`<a href="${tabLink(entry.id)}"${kind===entry.id?' aria-current="page"':''}>${esc(entry.name)}<small>${matching.filter(r=>r.type===entry.id).length}</small></a>`).join('')}</nav>`:'';
   const more=relevant.length>limit?`<p class="register-more">Showing ${limit} of ${relevant.length} records · <a href="${rowsLink(limit+100)}">Show 100 more</a> · <a href="${rowsLink('all')}">Show all</a></p>`:'';
+  // The three cards count the tab in view. On the All tab each also says which kinds of entry those records are, so a
+  // draft or a waiting approval can be found in one click. An indent waiting for its sanction counts as awaiting approval.
+  const inState={Draft:r=>r.status==='Draft','Awaiting approval':r=>waitingStates.includes(r.status),Posted:r=>r.status==='Posted'};
+  const scope=kind?rows.filter(r=>r.type===kind):rows;
+  // The status a card's link filters by: every kind of waiting together.
+  const stateFor=value=>value==='Awaiting approval'?waiting:value;
+  const cardLink=(value,entry)=>esc('/entries?'+new URLSearchParams({status:stateFor(value,entry),...(entry?{kind:entry}:{})}));
+  const cards=[['Draft','Drafts','draft'],['Awaiting approval','Awaiting approval','waiting'],['Posted','Posted','posted']];
+  const counts=`<div class="counts">${cards.map(([value,label,tone])=>
+      `<a class="${tone}" href="${cardLink(value,kind)}" ${status===stateFor(value,kind)?'aria-current="true"':''}><span class="count-label">${label}${kind?' · '+esc(byId[kind].name):''}</span><strong>${scope.filter(inState[value]).length}</strong><i class="metric-symbol" aria-hidden="true"></i></a>`).join('')}</div>
+    ${kind?'':`<div class="count-where">${cards.map(([value,label])=>{
+      const found=entries.map(entry=>[entry,rows.filter(r=>r.type===entry.id&&inState[value](r)).length]).filter(([,count])=>count);
+      return `<p aria-label="${label} by entry">${found.map(([entry,count])=>`<a href="${cardLink(value,entry.id)}">${esc(entry.name)} <b>${count}</b></a>`).join('')}</p>`;
+    }).join('')}</div>`}`;
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
     ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
       : meta.maker ? (canChooseRole(actor, actor.site, roleKey(meta.maker)) ? switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker) : '')
       : '<span>Generated after an accepted tank inspection or approved empty confirmation.</span>'}</div>`:''}
-    ${!meta?`<div class="counts">${[['Draft','Drafts','draft'],['Awaiting approval','Awaiting approval','waiting'],['Posted','Posted','posted']].map(([value,label,tone])=>
-      `<a class="${tone}" href="/entries?status=${encodeURIComponent(value)}" ${status===value?'aria-current="true"':''}><span class="count-label">${label}</span><strong>${rows.filter(r=>r.status===value).length}</strong><i class="metric-symbol" aria-hidden="true"></i></a>`).join('')}</div>`:''}
+    ${!meta?counts:''}
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
     <a class="export" href="${esc('/entries/export.xlsx?'+exportQuery)}">Export Excel</a>
     <a class="export" href="${esc('/entries/export.csv?'+exportQuery)}">Export CSV</a>
     <a class="export" href="${esc('/entries/export.pdf?'+exportQuery)}">Export PDF</a></div></div>
-    ${tabs}<form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft','Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
+    ${tabs}<form class="filters"><label class="search-field"><span${type==='E1'?'':' class="sr-only"'}>Search</span><input type="search" name="q" value="${esc(text)}" placeholder="${type==='E1'?'Search indent number':'Search document, truck or vehicle'}"></label><label><span${type==='E1'?'':' class="sr-only"'}>Status</span><select name="status">${(type==='E1'?['Saved']:['','Draft',waiting,'Saved','Awaiting approval','Awaiting Treasury','In transit','Receipt review','Returned','Posted','Superseded']).map(s=>option(s,s===waiting?'Waiting (all kinds)':s||'All statuses',s===status)).join('')}</select></label>${type==='E1'?'':'<button>Filter</button>'}
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
@@ -170,7 +183,7 @@ function editableFields(meta, doc, rows, actor) {
   if (doc.type==='E7') return grnFields(actor,doc,meta,rows);
   const readingControl = actor.siteEntryTypes && ['E11','E15'].includes(doc.type)
     ? `<label>Reading time (IST)<input name="readingTime" type="datetime-local" value="${localReadingTime(doc.readingAt)}"></label>` : '';
-  const dateControl = `<label>Business day<input name="day" type="date" max="${actor.businessDay??businessDay()}" value="${doc.day}"></label>`+readingControl;
+  const dateControl = `<label>Business day<input name="day" type="date" min="${entryDayMin(actor.businessDay??businessDay(),doc)}" max="${actor.businessDay??businessDay()}" value="${doc.day}"></label>`+readingControl;
   const render = fields => fields.map(field=>fieldControl(field,doc,rows,actor)).join('');
   const steps = formSteps(meta);
   if (!steps) return `<div class="fields">${dateControl}${render(meta.fields)}</div>`;

@@ -192,3 +192,42 @@ test('All entries has a tab for each kind of entry with records, and the menu ca
   assert.match(all, /<div class="crumb"><button type="button" id="rail-show" title="Show the menu" hidden>☰ Show menu<\/button>/);
   assert.match(masterSidebar({ masterData: true, pulseMasters: true }), /<button type="button" class="sidebar-hide" data-sidebar-hide hidden>☰ Hide menu<\/button>/);
 });
+
+test('the count cards follow the tab and say which kinds of entry the records are', async () => {
+  const { registerPage } = await import('./entry-page.mjs');
+  const rows = [{ ...row('E2', '2026-11-20', 'Draft'), id: 'a', maker: 'a' }, { ...row('E2', '2026-11-21', 'Awaiting approval'), id: 'b', maker: 'a' }, { ...row('E2', '2026-11-22', 'Posted'), id: 'c', maker: 'a' },
+    { ...row('E1', '2026-11-22', 'Saved', { litres: 50 }), id: 'd', maker: 'a' }, { ...row('E1', '2026-11-23', 'Posted', { litres: 50 }), id: 'e', maker: 'a' }];
+  const all = registerPage(actor, rows, null, {});
+  assert.match(all, /<a class="waiting" href="\/entries\?status=Waiting" ><span class="count-label">Awaiting approval<\/span><strong>2<\/strong>/, 'a saved indent counts as waiting');
+  assert.match(all, /<p aria-label="Drafts by entry"><a href="\/entries\?status=Draft&amp;kind=E2">Purchase order <b>1<\/b><\/a><\/p>/);
+  assert.match(all, /<p aria-label="Awaiting approval by entry"><a href="\/entries\?status=Waiting&amp;kind=E1">Diesel indent <b>1<\/b><\/a><a href="\/entries\?status=Waiting&amp;kind=E2">Purchase order <b>1<\/b><\/a><\/p>/);
+  const orders = registerPage(actor, rows, null, { kind: 'E2' });
+  assert.match(orders, /<a class="posted" href="\/entries\?status=Posted&amp;kind=E2" ><span class="count-label">Posted · Purchase order<\/span><strong>1<\/strong>/);
+  assert.ok(!orders.includes('count-where'), 'a single tab needs no breakdown');
+  const waitingList = registerPage(actor, rows, null, { status: 'Waiting' });
+  assert.equal(waitingList.match(/class="record-link"/g).length, 2, 'the Waiting filter lists every kind of waiting');
+});
+
+test('an entry is dated within the last three days, and a quantity is more than zero', async () => {
+  const { earliestEntryDay, entryDayMin, entryDateWindow, validateFields } = await import('./entry-rules.mjs');
+  assert.equal(earliestEntryDay('2026-11-27'), '2026-11-24');
+  assert.equal(earliestEntryDay('2026-03-02'), '2026-02-27');
+  assert.equal(entryDayMin('2026-11-27', { rev: 0, day: '2026-11-27' }), '2026-11-24');
+  assert.equal(entryDayMin('2026-11-27', { rev: 2, day: '2026-11-10' }), '2026-11-10', 'a saved entry keeps its older date');
+  assert.deepEqual([entryDateWindow({}), entryDateWindow({ DIESEL_ENTRY_DATE_WINDOW_DAYS: '7' }), entryDateWindow({ DIESEL_ENTRY_DATE_WINDOW_DAYS: 'off' })], [3, 7, null]);
+  assert.equal(earliestEntryDay('2026-11-27', null), '');
+  const type = { fields: [{ key: 'litres', label: 'Quantity', type: 'number' }, { key: 'tolerance', label: 'Tolerance', type: 'number', optional: true }] };
+  assert.throws(() => validateFields(type, { litres: 0 }), /Quantity must be more than zero\./);
+  assert.throws(() => validateFields(type, { litres: -5 }), /Quantity cannot be negative\./);
+  assert.deepEqual(validateFields(type, { litres: 10, tolerance: 0 }), { litres: 10, tolerance: 0 });
+
+  const { openDieselDatabase } = await import('../../data/database.mjs');
+  const { createEntryStore } = await import('./entry-store.mjs'), { randomUUID } = await import('node:crypto'), { businessDay } = await import('./entry-rules.mjs');
+  const db = openDieselDatabase(':memory:'), store = createEntryStore(db), maker = { id: 'Jayant-site', site: 'Jayant', profile: 'entry-0', name: 'Site' };
+  const today = businessDay(), back = days => new Date(Date.parse(today) - days * 864e5).toISOString().slice(0, 10);
+  const indent = day => store.write(randomUUID(), maker, { type: 'E1', rev: 0, day, action: 'Save draft', data: { litres: 100, requiredBy: 2 } });
+  assert.equal(indent(back(3)).day, back(3), 'three days back is allowed');
+  assert.throws(() => indent(back(4)), /Choose a date within the last 3 days\. Older dates are not allowed\./);
+  assert.throws(() => indent(back(-1)), /today’s business date or an earlier date/);
+  db.close();
+});
