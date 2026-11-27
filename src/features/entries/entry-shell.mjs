@@ -38,8 +38,7 @@ function navigation(active, actor) {
   const shortMenu = `<a class="nav-main" href="/entries" ${active ? '' : 'aria-current="page"'}>${icons.module}All entries</a>
     ${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Master Data</a>` : ''}
     ${masters && hosted ? `<a class="nav-main" href="/master-insights">${icons.control}Data overview</a>
-    <p class="rail-label">Approvers</p><a class="nav-home" href="/indent-approvers">Indent approvers</a><a class="nav-home" href="/po-approvers">PO approvers</a>` : ''}
-    ${hosted ? `<a class="nav-home" href="/entries/opening-stock" ${active==='opening-stock'?'aria-current="page"':''}>Opening stock</a>` : ''}`;
+    <p class="rail-label">Approvers</p><a class="nav-home" href="/indent-approvers">Indent approvers</a><a class="nav-home" href="/po-approvers">PO approvers</a>` : ''}`;
   const fullMenu = `${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Master Data</a>` : ''}
     <p class="rail-label">Entry</p>
     <a class="nav-home" href="/entries" ${active ? '' : 'aria-current="page"'}><i class="grid-icon" aria-hidden="true"></i>All entries</a>
