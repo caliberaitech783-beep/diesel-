@@ -4,6 +4,7 @@ import { dashboardFigures, period, presets } from './dashboard-figures.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
 import { workspaceFor } from './workspace-map.mjs';
 import { workspacePage } from './workspace-page.mjs';
+import { masterSidebar } from '../masters/master-sidebar.mjs';
 
 const actor = { id: 'Jayant-buyer', site: 'Jayant', profile: 'procurement-executive' };
 const row = (type, day, status, result = {}, data = {}) => ({ id: type + day + status, type, day, status, rev: 1, site: 'Jayant', number: type + '-1', result, data });
@@ -58,4 +59,10 @@ test('dashboard figures come only from saved entries in the period', () => {
   assert.ok(!html.includes(' style='), 'the page keeps to the no-inline-style rule');
   const buy = dashboardPage(actor, rows, { tab: 'buy', site: 'Jayant' }, { sites: [['Jayant', 'Jayant OC']], site: 'Jayant', stock: [], today: '2026-11-27' });
   assert.ok(buy.includes('Indents Raised') && buy.includes('Delivery Schedules') && buy.includes('Recent Records'));
+});
+
+test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
+  const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a><\/div>/s);
+  assert.ok(!masterSidebar({}).includes('main-links'));
 });
