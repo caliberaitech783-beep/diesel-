@@ -246,14 +246,15 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
     : `<p class="record-back"><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(listed&&d.approval.status!=='pending'?d.approval.label:d.status)}</strong>${listed?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}<span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
-  // On paper a record is its form's details, when it was made, and who approved it. The page's heading, status
+  // On paper a record is one page: its form's details, when it was made, and who approved it. The page's heading, status
   // badges, site stock, worked-out figures and history are for the screen only.
   const stamp=value=>value?new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date(value))+' IST':'';
   const approvedBy=d.approval&&d.approval.status!=='pending'?d.approval.label+' '+d.approval.detail
     : (found=>found?'Approved by '+found.actor+' · '+stamp(found.stamp):'')(history.findLast?.(h=>/^approve/i.test(h.action)));
   const printHead=d.rev>0?`<div class="print-only print-head"><h1>${esc(meta.name)}${d.number?' · '+esc(formatIndentNumber(d.number)):''}</h1>
-    <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p></div>`:'';
-  const printFoot=d.rev>0&&approvedBy?`<p class="print-only print-foot">${esc(approvedBy)}</p>`:'';
+    <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p>
+    ${approvedBy?`<p class="print-approval">${esc(approvedBy)}</p>`:''}</div>`:'';
+  // The approval prints in the head, beside when the entry was made, so it is always on the first page.
   return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent&&!order?`<section class="site-stock"><h2>Site stock</h2>${stock}</section>`:''}
@@ -276,7 +277,6 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${indent&&d.decide?`<section class="indent-decision-panel" id="indent-decision"><h2>Approve this indent</h2><p>Requested ${esc(d.data.litres??'')} litres. Enter the sanction quantity and select Approve, or select Decline.</p>${decisionForm(d.decide,recordPath(d))}</section>`:''}
     ${remoteApproval?'<div class="actions"><button type="button" id="send-telegram-approval">Review via Telegram</button><output id="telegram-approval-status" role="status"></output></div>':''}
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
-    ${printFoot}
     ${!indent&&history.length?`<section class="record-history"><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
       </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?(d.type==='E4'?dispatchHeading(d):d.type==='E7'?grnHeading(d):purchaseOrderHeading(d)):undefined, remoteApproval,indent&&editable);

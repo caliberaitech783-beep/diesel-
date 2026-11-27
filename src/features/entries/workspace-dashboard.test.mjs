@@ -252,7 +252,9 @@ test('downloads carry the form fields and the creation time, and a printed recor
   assert.ok(!JSON.stringify(mixed).includes('balance') && !JSON.stringify(mixed).includes('{'), 'no worked-out results and no raw data');
 
   const page = detailPage({ ...actor, profile: roleKey('Procurement Executive') }, schedule, [schedule, order], [{ action: 'Approve', actor: 'Asha', stamp: '2026-11-27T11:12:00.000Z' }], null);
-  assert.match(page, /<div class="print-only print-head"><h1>Delivery Schedule · E4-JAY-2026-0001<\/h1>\s*<p>Created on 27 Nov 2026, 04:40 pm IST by SIDDHARTH HOONKA<\/p><\/div>/);
-  assert.match(page, /<p class="print-only print-foot">Approved by Asha · 27 Nov 2026, 04:42 pm IST<\/p>/);
+  assert.match(page, /<div class="print-only print-head"><h1>Delivery Schedule · E4-JAY-2026-0001<\/h1>\s*<p>Created on 27 Nov 2026, 04:40 pm IST by SIDDHARTH HOONKA<\/p>\s*<p class="print-approval">/);
+  // The approval prints in the head, so it is on the first page however long the form is.
+  assert.match(page, /<p class="print-approval">Approved by Asha · 27 Nov 2026, 04:42 pm IST<\/p><\/div>/);
+  assert.ok(!page.includes('print-foot'));
   assert.match(page, /<p class="record-back">/);
 });

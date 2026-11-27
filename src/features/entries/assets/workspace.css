@@ -307,7 +307,15 @@ section.ws-group { margin: 0 0 22px; padding: 0; border: 0; background: none; bo
   .print-only { display: block; }
   .print-head { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1.5px solid #111 !important; }
   .print-head h1 { margin: 0 0 4px; font-size: 20px; } .print-head p { margin: 0; font-size: 12px; }
-  .print-foot { margin: 16px 0 0; padding-top: 8px; border-top: 1px solid #bbb !important; font-size: 12px; }
+  .print-approval { margin-top: 3px !important; font-weight: 700; }
+  /* One page: nothing keeps the screen's full height, and the form is drawn a little smaller and tighter. */
+  html, body, .shell, main, #entry-form { min-height: 0 !important; height: auto !important; }
+  main:has(.print-head) { zoom: .82; }
+  main:has(.print-head) :is(section, fieldset, .order-card) { margin-block: 6px !important; padding-block: 8px !important; break-inside: avoid; }
+  main:has(.print-head) :is(.fields, .order-grid, .indent-grid, .indent-record-fields, dl) { row-gap: 6px !important; }
+  main:has(.print-head) textarea { min-height: 0 !important; height: 2.6em !important; resize: none; }
+  main:has(.print-head) ::placeholder { color: transparent !important; }
+  #indent-remarks-count { display: none !important; }
   main:has(.print-head) > :is(h1, .heading-meta, .order-heading, .indent-heading, .ws-heading, .register-heading),
   .entry-record-heading, .record-back, main:has(.print-head) .bar, .site-stock, .indent-secondary, .worked-out, .record-history, .indent-decision-panel, .inbox, .legacy-link,
   #entry-message, .gps, #page-help, .pending-bell, .today-clock, .count-where, .entry-tabs, .register-wide, .register-more, .counts { display: none !important; }
