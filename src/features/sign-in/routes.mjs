@@ -204,7 +204,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
         const path = (actor ? masterWorkspacePath : '') + '/records?master=' + request.query.master;
         return response.redirect(303, path + (!actor || actor.canEditMasters ? '&new=1' : ''));
       }
-      // The masters are listed as cards on the Master Data page, so the bare home opens that page.
+      // Diesel opens on the Dashboard. Master Data is one click away in the menu.
+      if (!request.query.master && hostedEntries && entryAllowed(result.profile)) return response.redirect(303, '/entries/dashboard');
+      // Without Entry, the masters are listed as cards on the Master Data page, so the bare home opens that page.
       if (!request.query.master && (itemSubmissions || actor)) return response.redirect(303, actor ? masterWorkspacePath + '/master-data' : '/master-data');
       return page(response, 200, {
         profile: result.profile, master: request.query.master, masterDataEnabled: Boolean(itemSubmissions || actor),

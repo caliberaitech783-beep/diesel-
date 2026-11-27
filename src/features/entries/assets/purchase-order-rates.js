@@ -26,6 +26,7 @@ export function pickRate(rates, { supplier, location, depot, day }) {
 export function ratesFor(rate, { gross = true } = {}) {
   if (!rate) return null;
   const number = value => value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
-  return { netRate: number(rate.diesel), freightRate: number(rate.freight), freightDeductionRate: number(rate.diesel),
+  // Net Rate is the basic rate: excise and VAT are added on the order as footer heads. A shortage is deducted at the full diesel rate.
+  return { netRate: number(rate.basic) ?? number(rate.diesel), freightRate: number(rate.freight), freightDeductionRate: number(rate.diesel),
     landedRate: gross ? number(rate.gross) : number(rate.net) ?? number(rate.gross) };
 }

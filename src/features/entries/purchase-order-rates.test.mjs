@@ -32,7 +32,7 @@ test('a purchase order takes its rates from the Diesel Rate Master record for th
   assert.equal(unsure.rate, null);
   assert.match(unsure.reason, /HAJIRA and JAMNAGAR.*Lifting Location/);
   const hajira = ask({ depot: 'hajira' }).rate;
-  assert.deepEqual(ratesFor(hajira), { netRate: 137, freightRate: 2.5, freightDeductionRate: 137, landedRate: 139.5 });
+  assert.deepEqual(ratesFor(hajira), { netRate: 111.43412, freightRate: 2.5, freightDeductionRate: 137, landedRate: 139.5 });
   assert.equal(ratesFor(hajira, { gross: false }).landedRate, 115.1);
   // No net landed cost on the record: the gross one stands in.
   assert.equal(ratesFor(ask({ depot: 'Reliance Jamnagar terminal' }).rate, { gross: false }).landedRate, 140.2);
