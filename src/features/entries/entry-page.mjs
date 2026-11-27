@@ -41,14 +41,15 @@ function statusCell(r) {
 const quantityOf = r => [r.result?.accepted, r.result?.litres, r.data?.litres].find(value => typeof value === 'number');
 const amountOf = r => [r.result?.value, r.result?.amount].find(value => typeof value === 'number');
 const figure = value => typeof value === 'number' ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
-function table(rows, sources = rows, transport = true, figures = false) {
+function table(rows, sources = rows, transport = true, figures = false, listed = rows) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
   const trace = traceEntries(sources);
   // A register of one entry type also shows quantity and amount, with a total of the records listed.
+  // listed: the records drawn on this page. The total always covers every record that matches, drawn or not.
   const quantity = figures && rows.some(r => quantityOf(r) !== undefined), amount = figures && rows.some(r => amountOf(r) !== undefined);
   const sum = pick => rows.filter(r => !['Draft', 'Returned'].includes(r.status)).reduce((total, r) => total + (pick(r) ?? 0), 0);
   const totals = quantity || amount ? `<tfoot><tr><th scope="row" colspan="${transport ? 3 : 2}">Total · ${rows.length} record${rows.length === 1 ? '' : 's'} <small>drafts and returned entries not added</small></th>${quantity ? `<td class="number">${figure(sum(quantityOf))}</td>` : ''}${amount ? `<td class="number">${figure(sum(amountOf))}</td>` : ''}<td colspan="2"></td></tr></tfoot>` : '';
-  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table class="register-table"><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}${quantity?'<th class="number">Quantity (L)</th>':''}${amount?'<th class="number">Amount (₹)</th>':''}<th>Business day</th><th>Status</th></tr></thead>${totals}<tbody>${rows.map(r=>
+  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table class="register-table"><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}${quantity?'<th class="number">Quantity (L)</th>':''}${amount?'<th class="number">Amount (₹)</th>':''}<th>Business day</th><th>Status</th></tr></thead>${totals}<tbody>${listed.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${byId[r.type].code}</small><span>${esc(byId[r.type].name)}</span></a></td>
     <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}${quantity?`<td class="number">${figure(quantityOf(r))}</td>`:''}${amount?`<td class="number">${figure(amountOf(r))}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -106,6 +107,10 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     ${!meta && (!actor.siteEntryTypes || !actor.assignments || mayViewEntryType('E1',actor))
       ? '<a class="hero-action" href="/entries/type/E1">Open diesel indent <span aria-hidden="true">↗</span></a>' : ''}</div>`;
   const exportQuery=new URLSearchParams({type:type??'',...filters});
+  // A long register opens with its newest 100 records so the page loads quickly; the rest are one click away.
+  const limit=query.rows==='all'?Infinity:Math.min(5000,Math.max(100,Number.parseInt(query.rows,10)||100));
+  const rowsLink=rows=>esc(path+'?'+new URLSearchParams({...Object.fromEntries(Object.entries(filters).filter(([,value])=>value)),rows}));
+  const more=relevant.length>limit?`<p class="register-more">Showing ${limit} of ${relevant.length} records · <a href="${rowsLink(limit+100)}">Show 100 more</a> · <a href="${rowsLink('all')}">Show all</a></p>`:'';
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
     ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
       : meta.maker ? (canChooseRole(actor, actor.site, roleKey(meta.maker)) ? switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker) : '')
@@ -120,7 +125,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
-    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources,type!=='E1',Boolean(type))}</section>
+    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources,type!=='E1',Boolean(type),relevant.slice(0,limit))}${more}</section>
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {

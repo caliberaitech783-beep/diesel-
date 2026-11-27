@@ -102,3 +102,17 @@ test('a register of one entry type shows quantity and amount with a total', asyn
   assert.match(html, /<tfoot><tr><th scope="row" colspan="3">Total · 3 records .*<td class="number">25,000<\/td><td class="number">22,50,000<\/td>/);
   assert.ok(!registerPage(actor, rows, null).includes('<tfoot>'), 'the mixed entry register keeps its columns');
 });
+
+test('a long register opens with 100 records, totals all of them, and every page carries help', async () => {
+  const { registerPage } = await import('./entry-page.mjs');
+  const many = Array.from({ length: 130 }, (_, index) => ({ ...row('E2', '2026-11-20', 'Posted', { litres: 100, value: 1000 }), id: 'po-' + index, maker: 'a' }));
+  const html = registerPage(actor, many, 'E2', { status: 'Posted' });
+  assert.equal(html.match(/class="record-link"/g).length, 100);
+  assert.match(html, /Showing 100 of 130 records · <a href="\/entries\/type\/E2\?status=Posted&amp;rows=200">Show 100 more<\/a> · <a href="\/entries\/type\/E2\?status=Posted&amp;rows=all">Show all<\/a>/);
+  assert.match(html, /Total · 130 records .*<td class="number">13,000<\/td><td class="number">1,30,000<\/td>/);
+  assert.equal(registerPage(actor, many, 'E2', { rows: 'all' }).match(/class="record-link"/g).length, 130);
+  assert.ok(!registerPage(actor, many.slice(0, 5), 'E2').includes('register-more'));
+  for (const part of ['id="help-open"', '<dialog id="page-help"', 'Purchase order — made by the Procurement Executive.', 'Ctrl + K searches every page', '/entries/assets/field-hints.js'])
+    assert.ok(html.includes(part), part);
+  assert.match(dashboardPage(actor, [], {}, { sites: [], site: 'all', stock: [], today: '2026-11-27' }), /Click any card to open the records behind it\./);
+});

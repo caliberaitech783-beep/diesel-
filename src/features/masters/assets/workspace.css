@@ -173,3 +173,13 @@ h1 { margin: 0 0 24px; font-size: clamp(26px, 3vw, 40px); line-height: 1.2; lett
 .sidebar .main-links a { justify-content: flex-start; gap: 12px; min-height: 42px; padding: 10px 14px; border-radius: 9px; color: #dce6f5; font-size: 15px; font-weight: 650; }
 .main-links svg { flex: none; opacity: .9; }
 .sidebar .main-links a[aria-current] { background: #17376a; color: #fff; box-shadow: inset 3px 0 0 #5b8cff; }
+
+/* Master lists and forms take the card look of the Dashboard and Workspace. */
+.layout > main { background: var(--page-bg); }
+.layout > main table { border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px #0b1f3a0d, 0 1px 3px #0b1f3a0a; overflow: hidden; }
+.layout > main thead th { background: var(--readonly-bg); font-weight: 650; }
+.layout > main tbody tr:hover > * { background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.layout > main form fieldset, .layout > main form > section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px #0b1f3a0d, 0 1px 3px #0b1f3a0a; }
+.layout > main :is(input, select, textarea):focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }
+.layout h1 { letter-spacing: -.02em; }
+@media (max-width: 700px) { .masthead .account .today-clock { display: none; } }
