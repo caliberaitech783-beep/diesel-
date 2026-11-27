@@ -4,6 +4,7 @@ import { dashboardFigures, period, presets } from './dashboard-figures.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
 import { workspaceFor } from './workspace-map.mjs';
 import { workspacePage } from './workspace-page.mjs';
+import { roleKey } from './review-masters.mjs';
 import { masterSidebar } from '../masters/master-sidebar.mjs';
 
 const actor = { id: 'Jayant-buyer', site: 'Jayant', profile: 'procurement-executive' };
@@ -17,14 +18,19 @@ test('the workspace groups every menu entry under the department headings and ke
   const placed = list.flatMap(category => category.modules.map(module => module.id));
   assert.equal(new Set(placed).size, placed.length);
   assert.ok(!placed.includes('E5') && !placed.includes('E6') && placed.length === 17, 'every entry except the gate entry and the separate inspection has one place');
-  const html = workspacePage(actor, [row('E2', '2026-11-27', 'Posted'), row('E2', '2026-11-26', 'Draft')], { category: 'buy' });
+  // One page of cards under category headings: the count, anything waiting, the register, and a new entry for the maker.
+  const buyer = { ...actor, profile: roleKey('Procurement Executive') };
+  const html = workspacePage(buyer, [row('E2', '2026-11-27', 'Posted'), { ...row('E2', '2026-11-26', 'Awaiting approval'), id: 'w' }, { ...row('E2', '2026-11-25', 'Returned'), id: 'r' }, { ...row('E2', '2026-11-24', 'Draft'), id: 'd', rev: 0 }]);
   assert.match(html, /<h1>Diesel Workspace<\/h1>/);
-  assert.match(html, /href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b>[\s\S]*?<em>2 records<\/em>/);
-  assert.match(html, /href="\/entries\/workspace\?category=receive"/);
+  assert.match(html, /17 entries · everything the department records/);
+  assert.match(html, /<section class="ws-group cat-buy"><h2><span class="ws-icon small">.*?<\/span>BUY<small>Requirement, ordering, payment and tanker allocation<\/small><\/h2>/s);
+  assert.match(html, /<a class="ws-card-open" href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b><small>3 records<\/small>\s*<em class="ws-badge">1 awaiting approval<\/em><em class="ws-badge returned">1 returned<\/em>/);
+  assert.match(html, /<a class="ws-new" href="\/entries\/new\/E2" title="Start a new Purchase order">\+ New<\/a>/);
+  assert.ok(!html.includes('href="/entries/new/E7"'), 'only the maker role gets + New');
+  assert.ok(html.includes('id="workspace-filter"') && html.indexOf('>BUY<') < html.indexOf('>RECEIVE<') && html.indexOf('>RECEIVE<') < html.indexOf('>CONTROL<'), 'categories stay in work order');
   // The menu and the search box reach the new pages from any entry page.
   for (const part of ['href="/entries/dashboard"', 'href="/entries/workspace" aria-current="page"', 'href="/master-data"', 'id="global-search"', 'Entry register'])
     assert.ok(html.includes(part), part);
-  assert.match(workspacePage(actor, [], { category: 'accounts' }), /<h2>ACCOUNTS &amp; BILLING<\/h2>/);
 });
 
 test('dashboard periods follow the presets, a custom range and the April financial year', () => {
