@@ -56,6 +56,29 @@ function navigation(active, actor) {
 export const shellParts = actor => `<template id="shell-parts"><button type="button" id="global-search-open" class="rail-search">${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
   <span class="today-clock" id="today-clock">${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span>${searchDialog(actor, '')}</template>`;
 
+// "How to use this page": what the page is for and the steps on it, plus the shortcuts that work everywhere.
+const pageHelp = {
+  dashboard: ['Figures and charts for the period and site you choose, worked out from saved entries.',
+    ['Pick a period (Today, 7 Days … or your own From and To dates) and a site, then press Show.', 'Use the tabs to look at Buy, Receive, Stock Storage, Vehicle Fuel or Accounts & Billing.',
+      'Click any card to open the records behind it.', '“Waiting for you” shows approvals to give and entries returned to you.']],
+  workspace: ['Every entry, grouped the way the department works.', ['Choose a category on the left.', 'Click a module on the right to open its register.', 'In the register press New entry to make one.']],
+  approvals: ['Entries waiting for your approval in the role you are signed in as.', ['Open an entry to read it in full.', 'Approve it, or return it to its maker with a reason.']],
+  alerts: ['Things at your site that need attention, such as late approvals or low stock.', ['Open the entry named in the alert and act on it.']],
+  home: ['The entries your role makes, and what is waiting for you today.', ['Pick an entry to start it.', 'Open My approvals or My alerts to clear what is waiting.']],
+};
+const everywhere = ['Ctrl + K searches every page, master and saved entry.', 'Enter moves to the next field; a new entry keeps what you type until you save it.',
+  '☆ Favourite pins this page to your Dashboard, and Print prints it without the menus.'];
+function helpDialog(active) {
+  const entry = byId[active];
+  const [about, steps] = entry ? [entry.name + (entry.maker ? ' — made by the ' + entry.maker + '.' : '.'),
+    ['The register lists every saved ' + entry.name.toLowerCase() + ' of this site; use Search, Status and the dates to narrow it.', 'Press New entry, fill the fields marked * and save. A red “Not saved” message tells you what to correct.',
+      'Tick records to export only those, and use Columns to hide what you do not need.', 'Open a saved record to read, print or download it.']]
+    : pageHelp[active] ?? ['The register of every entry saved at this site.', ['Use Search, Status and the dates to find an entry.', 'Click an entry to open it.', 'Use the menu on the left or Ctrl + K to go anywhere else.']];
+  return `<dialog id="page-help" aria-label="How to use this page"><form method="dialog"><h2>How to use this page</h2><p>${esc(about)}</p>
+    <ol>${steps.map(step => `<li>${esc(step)}</li>`).join('')}</ol><h3>Works on every page</h3><ul>${everywhere.map(tip => `<li>${esc(tip)}</li>`).join('')}</ul>
+    <button class="primary">Close</button></form></dialog>`;
+}
+
 function switcher(actor, back) {
   const role = actor.profile === 'entry-deputy' ? 'Deputy Site In-charge' : entryRole(actor);
   const context = `<i class="location-mark" aria-hidden="true"></i>${esc(actor.site)}<span class="role-name">${esc(role)}</span>`;
@@ -74,7 +97,7 @@ function switcher(actor, back) {
 
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
-    <link rel="stylesheet" href="/entries/assets/entries.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}${active==='E4'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css">':''}${active==='E7'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/grn-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
+    <link rel="stylesheet" href="/entries/assets/entries.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/field-hints.js"></script><script defer src="/entries/assets/workspace-shell.js"></script>${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}${active==='E4'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css">':''}${active==='E7'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/grn-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
     ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>
     ${active==='E11' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/fuel-issue-form.js"></script>' : ''}
@@ -85,7 +108,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools"><button type="button" id="favourite-toggle" class="page-tool" aria-pressed="false" title="Keep this page on your Dashboard" hidden>☆ Favourite</button><button type="button" id="print-page" class="page-tool" title="Print this page" hidden>Print</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools"><button type="button" id="favourite-toggle" class="page-tool" aria-pressed="false" title="Keep this page on your Dashboard" hidden>☆ Favourite</button><button type="button" id="print-page" class="page-tool" title="Print this page" hidden>Print</button><button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
-    <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}</body></html>`;
+    <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}${helpDialog(active)}</body></html>`;
 }

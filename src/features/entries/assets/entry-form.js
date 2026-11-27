@@ -232,7 +232,9 @@ form?.addEventListener('submit',async event=>{
       const path=await transmit(record);
       // The entry is saved, so the copy kept on this device while typing is no longer needed.
       try { localStorage.removeItem('diesel-autosave:'+form.dataset.type+':'+form.dataset.site); } catch { /* Nothing was kept. */ }
-      location.assign(path);
+      // "Save and new": straight on to the next entry of this kind, with a link back to the one just saved.
+      const again=document.querySelector('#save-and-new')?.checked&&!/draft/i.test(action)&&form.dataset.rev==='0';
+      location.assign(again?'/entries/new/'+form.dataset.type+'?saved='+encodeURIComponent(path.split('/').pop()):path);
     }
     catch(e) {
       if(!offlineEnabled||!(e instanceof TypeError)||!['Submit','Save draft','Save indent'].includes(action))throw e;

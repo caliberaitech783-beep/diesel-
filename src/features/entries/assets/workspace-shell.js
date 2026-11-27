@@ -265,3 +265,67 @@ if (entryForm) {
     // entry-form.js clears the kept copy once the entry is saved.
   }
 }
+
+// ---- Help: how to use this page.
+const help = document.querySelector('#page-help'), helpOpen = document.querySelector('#help-open');
+if (help && helpOpen && typeof help.showModal === 'function') {
+  helpOpen.hidden = false;
+  helpOpen.addEventListener('click', () => help.showModal());
+  help.addEventListener('click', event => { if (event.target === help) help.close(); });
+}
+
+if (entryForm) {
+  const fields = () => [...entryForm.querySelectorAll('input:not([type=hidden]), select, textarea')].filter(field => field.name && field.offsetParent !== null);
+  // A label's own words: a label often wraps its field, so the field and its options are taken out first.
+  const labelOf = field => {
+    const label = field.labels?.[0]?.cloneNode(true);
+    label?.querySelectorAll('input, select, textarea, datalist, small, output').forEach(node => node.remove());
+    return (label?.textContent ?? field.getAttribute('aria-label') ?? '').replace(/[*:]/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  // ---- Field hints: one line about the field the cursor is in.
+  const hints = window.dieselFieldHints ?? {};
+  const hint = make('p', { className: 'field-hint', hidden: true });
+  hint.setAttribute('aria-live', 'polite');
+  entryForm.before(hint);
+  entryForm.addEventListener('focusin', event => {
+    const text = hints[event.target.name];
+    hint.hidden = !text;
+    hint.textContent = text ? 'ⓘ ' + labelOf(event.target) + ': ' + text : '';
+  });
+
+  // ---- A save that fails is shown beside the field it is about, whenever the message names that field.
+  const message = document.querySelector('#entry-message');
+  const clearMarks = () => { entryForm.querySelectorAll('.field-error').forEach(node => node.remove()); entryForm.querySelectorAll('[aria-invalid="true"]').forEach(field => field.removeAttribute('aria-invalid')); };
+  if (message) new MutationObserver(() => {
+    clearMarks();
+    if (message.dataset.error !== 'true') return;
+    const text = message.textContent.replace(/^Not saved:\s*/, ''), lower = text.toLowerCase();
+    // The field whose label is named in the message; the longest label wins, so "Delivery date" beats "Date".
+    // The field the message is about: every word of its label appears in the message. The longest label wins,
+    // so "Delivery date" beats "Date". "No." and "Number" are ignored, as messages often leave them out.
+    const words = label => label.toLowerCase().replace(/\(.*?\)/g, ' ').split(/[^a-z0-9]+/).filter(word => word.length > 1 && !['no', 'number', 'the'].includes(word));
+    const named = fields().map(field => ({ field, words: words(labelOf(field)) }))
+      .filter(found => found.words.length && found.words.every(word => lower.includes(word)))
+      .toSorted((a, b) => b.words.join(' ').length - a.words.join(' ').length)[0]?.field;
+    if (!named) return;
+    named.setAttribute('aria-invalid', 'true');
+    named.after(make('small', { className: 'field-error', textContent: text }));
+    named.focus({ preventScroll: true });
+    named.scrollIntoView({ block: 'center' });
+  }).observe(message, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['data-error'] });
+  entryForm.addEventListener('input', event => { if (event.target.getAttribute?.('aria-invalid') === 'true') { event.target.removeAttribute('aria-invalid'); event.target.parentElement?.querySelector('.field-error')?.remove(); } });
+
+  // ---- Save and new.
+  if (entryForm.dataset.rev === '0') {
+    const again = make('input', { type: 'checkbox', id: 'save-and-new', checked: read('diesel-save-and-new')[0] === true });
+    again.addEventListener('change', () => write('diesel-save-and-new', [again.checked]));
+    const actions = entryForm.querySelector('button[value]')?.closest('.actions') ?? entryForm;
+    actions.append(make('label', { className: 'save-and-new' }, again, ' After saving, start another new entry'));
+    const saved = new URLSearchParams(location.search).get('saved');
+    if (/^[0-9a-f-]{36}$/i.test(saved ?? '')) {
+      const note = make('div', { className: 'form-helper saved-note' }, make('span', { textContent: 'Saved. ' }), make('a', { href: '/entries/record/' + saved, textContent: 'Open the entry you just saved' }));
+      entryForm.before(note);
+    }
+  }
+}

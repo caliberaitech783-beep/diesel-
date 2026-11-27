@@ -157,4 +157,38 @@ section.dash-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 24p
 #masters-sidebar button.rail-search { display: flex; align-items: center; gap: 10px; width: 100%; margin: 8px 0 0; padding: 9px 12px; border: 1px solid #2a4573; border-radius: 9px; background: #12284d; color: #a9b9d3; font: 500 13.5px/1.3 inherit; cursor: pointer; }
 #masters-sidebar button.rail-search:hover { border-color: #5b8cff; color: #fff; }
 .masthead .account .today-clock { margin-right: 12px; }
-@media print { .register-tools, .form-helper, .page-tools, td.pick, th.pick { display: none !important; } }
+@media print { .register-tools, .form-helper, .page-tools, td.pick, th.pick, .field-hint, .save-and-new { display: none !important; } }
+
+/* Help, field hints, field errors, save and new, long registers */
+#page-help { width: min(560px, 92vw); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 60px #0b1f3a40; }
+#page-help::backdrop { background: #0b1f3a66; }
+#page-help form { display: grid; gap: 10px; margin: 0; padding: 22px 24px; }
+#page-help h2 { margin: 0; font-size: 19px; } #page-help h3 { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#page-help p, #page-help ol, #page-help ul { margin: 0; font-size: 14.5px; line-height: 1.5; } #page-help ol, #page-help ul { padding-left: 20px; } #page-help li { margin: 5px 0; }
+#page-help button { justify-self: end; }
+/* Fixed to the foot of the window, so showing or hiding it never moves the field being clicked. */
+.field-hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; width: max-content; max-width: min(720px, 92vw); margin: 0; padding: 10px 16px; border: 1px solid var(--blue); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 13.5px; box-shadow: 0 10px 28px #0b1f3a33; pointer-events: none; }
+.field-hint[hidden] { display: none; }
+#entry-form [aria-invalid="true"] { border-color: var(--danger) !important; outline: 2px solid var(--danger); outline-offset: 1px; }
+.field-error { display: block; margin-top: 4px; color: var(--danger); font-size: 12.5px; font-weight: 700; }
+.save-and-new { display: inline-flex; grid-auto-flow: column; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.save-and-new input { min-height: 0 !important; width: 16px; height: 16px; padding: 0; }
+.saved-note { border-color: #047857; } .saved-note a { color: var(--link); font-weight: 700; }
+.register-more { margin: 0; padding: 14px 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; } .register-more a { color: var(--link); font-weight: 600; }
+.register-table tbody tr { content-visibility: auto; contain-intrinsic-size: auto 52px; }
+
+/* Phones */
+@media (max-width: 700px) {
+  .tools .environment, .tools #entry-language { display: none; }
+  #entry-navigation .nav-main { padding: 10px 12px; }
+  .context-bar { flex-wrap: wrap; gap: 8px; padding-block: 8px; } .crumb { flex-wrap: wrap; row-gap: 6px; } .page-tools { margin-right: 0; }
+  .ws-heading h1, main > h1 { font-size: 26px; }
+  .ws-category, .ws-module { padding: 12px; } section.ws-panel { padding: 16px; } .ws-modules { grid-template-columns: 1fr; }
+  .dash-filter { padding: 10px; } .dash-presets { margin-right: 0; width: 100%; overflow-x: auto; flex-wrap: nowrap; } .dash-range { flex: 1 1 130px; } .dash-filter .primary { flex: 1 0 100%; }
+  .dash-tabs { flex-wrap: nowrap; overflow-x: auto; } .dash-tabs a { white-space: nowrap; padding: 10px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi { padding: 12px; } .kpi-value { font-size: 19px; }
+  section.dash-card { padding: 14px; } .work-links { grid-template-columns: 1fr; }
+  .register-tools { padding: 0 12px 10px; } .register-table .pick { display: none; }
+  #global-search, #page-help { width: 96vw; max-height: 86vh; }
+  .form-helper { font-size: 13px; } .form-helper button { min-height: 40px; }
+}
