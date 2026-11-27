@@ -1,5 +1,6 @@
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
+import { pendingWork, searchRecords } from './record-search.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
 import { lowStorage } from './storage-levels.mjs';
 import express from 'express';
@@ -109,12 +110,29 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
   router.get('/workspace',(req,res)=>res.send(workspacePage(req.dieselActor,visibleRecords(req.dieselActor),req.query)));
+  // The sites this person may open, and the saved entries of some of them without repeats.
+  const openSites = actor => entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
+  const recordsOf = (actor,places) => {
+    const found=new Map();
+    for (const place of places) for (const doc of store.list(place)) if (canRead(doc,{...actor,site:place})) found.set(doc.id,doc);
+    return [...found.values()];
+  };
+  // What is waiting for this person at their site: approvals to give, and their own returned or draft entries.
+  const waitingFor = actor => {
+    const rows=withApproval(store.list(actor.site),actor).filter(doc=>canRead(doc,actor));
+    return pendingWork(rows,actor);
+  };
+  router.get('/pending.json',(req,res)=>res.set('Cache-Control','no-store').json(waitingFor(req.dieselActor)));
+  // Search box: saved entries by number, supplier, vehicle or entry name, across the sites this person may open.
+  router.get('/search.json',(req,res)=>{
+    const actor=req.dieselActor;
+    res.set('Cache-Control','no-store').json(searchRecords(recordsOf(actor,openSites(actor).map(([value])=>value)),req.query.q));
+  });
   // The dashboard reads the saved entries of one site, or of every site this person may open.
   router.get('/dashboard',(req,res)=>{
-    const actor=req.dieselActor, sites=entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
+    const actor=req.dieselActor, sites=openSites(actor);
     const site=sites.some(([value])=>value===req.query.site)?req.query.site:'all', chosen=site==='all'?sites.map(([value])=>value):[site];
-    const found=new Map();
-    for (const place of chosen) for (const doc of store.list(place)) if (canRead(doc,{...actor,site:place})) found.set(doc.id,doc);
+    const found=new Map(recordsOf(actor,chosen).map(doc=>[doc.id,doc]));
     // Stock is shown only where a site's real opening stock is set up; review sample stock is never presented as a figure.
     const stock=opening ? chosen.flatMap(place=>{
       try {
@@ -123,7 +141,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
         return [{site:place,litres:picture['Tank and bowser stock (L)'],daily:picture['Average daily issue (L)']}];
       } catch { return []; }
     }) : [];
-    res.send(dashboardPage(actor,[...found.values()],req.query,{sites,site,stock,today:actor.businessDay??store.dayFor(actor.site)}));
+    res.send(dashboardPage(actor,[...found.values()],req.query,{sites,site,stock,today:actor.businessDay??store.dayFor(actor.site),waiting:waitingFor(actor)}));
   });
   // Shift and stock for the role home screen. Stock waits until the site's opening stock is set up.
   function siteToday(actor) {

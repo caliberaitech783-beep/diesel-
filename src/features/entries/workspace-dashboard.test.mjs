@@ -66,3 +66,39 @@ test('the masters menu opens the Dashboard, the Workspace and Master Data from i
   assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a><\/div>/s);
   assert.ok(!masterSidebar({}).includes('main-links'));
 });
+
+test('the search box finds saved entries by number, supplier or vehicle', async () => {
+  const { searchRecords, pendingWork } = await import('./record-search.mjs');
+  const rows = [
+    { ...row('E2', '2026-11-20', 'Posted', { supplier: 'SANDEEP GASOLENES' }), number: 'CMLL/CNG/PO/26-27/002' },
+    { ...row('E4', '2026-11-21', 'Posted', { vehicle: 'MH34BZ4330' }, { transporter: 'ASHOK ROADWAYS' }), number: 'E4-LAL-2026-0001' },
+    { ...row('E2', '2026-11-22', 'Draft'), number: '', rev: 0 },
+  ];
+  assert.deepEqual(searchRecords(rows, 'mh34').map(found => found.number), ['E4-LAL-2026-0001']);
+  assert.deepEqual(searchRecords(rows, 'sandeep po').map(found => [found.name, found.href]), [['Purchase order', '/entries/record/E22026-11-20Posted']]);
+  assert.match(searchRecords(rows, 'ashok')[0].detail, /Jayant · ASHOK ROADWAYS · MH34BZ4330 · Posted/);
+  assert.deepEqual([searchRecords(rows, 'x'), searchRecords(rows, ''), searchRecords(rows, 'nothing here')], [[], [], []]);
+  const mine = [{ ...row('E2', '2026-11-20', 'Returned'), maker: actor.id }, { ...row('E2', '2026-11-21', 'Draft'), maker: actor.id },
+    { ...row('E1', '2026-11-21', 'Saved'), maker: 'someone', decide: { id: 1 } }, { ...row('E2', '2026-11-22', 'Returned'), maker: 'someone' }];
+  assert.deepEqual(pendingWork(mine, actor), { approvals: 1, returned: 1, drafts: 1, total: 2 });
+});
+
+test('dashboard cards open their records and show the change from the period before', () => {
+  const rows = [row('E2', '2026-11-20', 'Posted', { litres: 20000, value: 1800000 }), row('E2', '2026-11-10', 'Posted', { litres: 10000, value: 900000 })];
+  const html = dashboardPage(actor, rows, { from: '2026-11-18', to: '2026-11-27' }, { sites: [['Jayant', 'Jayant OC']], site: 'all', stock: [], today: '2026-11-27',
+    waiting: { approvals: 2, returned: 0, drafts: 1, total: 2 } });
+  assert.match(html, /<a class="kpi" href="\/entries\/type\/E2\?from=2026-11-18&amp;to=2026-11-27" title="Open these records"><span class="kpi-label">Purchase Value<\/span>/);
+  assert.match(html, /class="kpi-change up" title="Against the period just before">▲ 100%<\/span>/);
+  assert.match(html, /<h2>Waiting for you<\/h2>[\s\S]*class="has-work"><b>2<\/b>Approvals to give/);
+  assert.ok(html.includes('id="dash-shortcuts"') && html.includes('id="pending-bell"') && html.includes('id="favourite-toggle"') && html.includes('id="print-page"'));
+});
+
+test('a register of one entry type shows quantity and amount with a total', async () => {
+  const { registerPage } = await import('./entry-page.mjs');
+  const rows = [{ ...row('E2', '2026-11-20', 'Posted', { litres: 20000, value: 1800000 }), maker: 'a' }, { ...row('E2', '2026-11-21', 'Posted', { litres: 5000, value: 450000 }), maker: 'a' },
+    { ...row('E2', '2026-11-22', 'Returned', { litres: 999, value: 999 }), maker: 'a' }];
+  const html = registerPage(actor, rows, 'E2');
+  assert.match(html, /<th class="number">Quantity \(L\)<\/th><th class="number">Amount \(₹\)<\/th>/);
+  assert.match(html, /<tfoot><tr><th scope="row" colspan="3">Total · 3 records .*<td class="number">25,000<\/td><td class="number">22,50,000<\/td>/);
+  assert.ok(!registerPage(actor, rows, null).includes('<tfoot>'), 'the mixed entry register keeps its columns');
+});

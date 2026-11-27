@@ -37,12 +37,20 @@ function statusCell(r) {
   return `<span class="status-pill ${approvalTones[r.approval.status]}">${esc(r.approval.label)}</span>
     <small class="approval-detail">${esc(r.approval.detail)}</small>${r.decide?` <a class="approval-edit" href="${recordPath(r)}#indent-decision">Approve / decline</a>`:''}${r.canEdit?` <a class="approval-edit" href="${recordPath(r)}">Edit</a>`:''}`;
 }
-function table(rows, sources = rows, transport = true) {
+// Quantity and amount as saved on the entry, where it has them.
+const quantityOf = r => [r.result?.accepted, r.result?.litres, r.data?.litres].find(value => typeof value === 'number');
+const amountOf = r => [r.result?.value, r.result?.amount].find(value => typeof value === 'number');
+const figure = value => typeof value === 'number' ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
+function table(rows, sources = rows, transport = true, figures = false) {
   if (!rows.length) return '<p class="empty">No entries match this view.</p>';
   const trace = traceEntries(sources);
-  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}<th>Business day</th><th>Status</th></tr></thead><tbody>${rows.map(r=>
+  // A register of one entry type also shows quantity and amount, with a total of the records listed.
+  const quantity = figures && rows.some(r => quantityOf(r) !== undefined), amount = figures && rows.some(r => amountOf(r) !== undefined);
+  const sum = pick => rows.filter(r => !['Draft', 'Returned'].includes(r.status)).reduce((total, r) => total + (pick(r) ?? 0), 0);
+  const totals = quantity || amount ? `<tfoot><tr><th scope="row" colspan="${transport ? 3 : 2}">Total · ${rows.length} record${rows.length === 1 ? '' : 's'} <small>drafts and returned entries not added</small></th>${quantity ? `<td class="number">${figure(sum(quantityOf))}</td>` : ''}${amount ? `<td class="number">${figure(sum(amountOf))}</td>` : ''}<td colspan="2"></td></tr></tfoot>` : '';
+  return `<div class="scroll" role="region" aria-label="Entry records" tabindex="0"><table class="register-table"><thead><tr><th>Entry</th><th>Document</th>${transport?'<th>Truck / vehicle</th>':''}${quantity?'<th class="number">Quantity (L)</th>':''}${amount?'<th class="number">Amount (₹)</th>':''}<th>Business day</th><th>Status</th></tr></thead>${totals}<tbody>${rows.map(r=>
     `<tr><td><a class="record-link" href="${recordPath(r)}"><small aria-hidden="true">${byId[r.type].code}</small><span>${esc(byId[r.type].name)}</span></a></td>
-    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
+    <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}${quantity?`<td class="number">${figure(quantityOf(r))}</td>`:''}${amount?`<td class="number">${figure(amountOf(r))}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 export function approvalsPage(actor, rows) {
   const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
@@ -112,7 +120,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
     <label>From <input name="from" type="date" value="${esc(from)}"></label><label>To <input name="to" type="date" value="${esc(to)}"></label>
     ${truck ? `<input type="hidden" name="truck" value="${esc(truck)}"><span>Truck · ${esc(truck)}</span>` : ''}
     ${vehicle ? `<input type="hidden" name="vehicle" value="${esc(vehicle)}"><span>Vehicle · ${esc(vehicle)}</span>` : ''}
-    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources,type!=='E1')}</section>
+    ${type==='E1'?'<button>Filter</button>':''}${Object.values(filters).some(Boolean)?`<a href="${path}">Clear filters</a>`:''}</form>${table(relevant,sources,type!=='E1',Boolean(type))}</section>
     ${!meta&&!actor.hosted&&!actor.siteEntryTypes?'<a class="legacy-link" href="/entries/indents">Open existing master-linked indent drafts <span aria-hidden="true">→</span></a>':''}`,heading);
 }
 function fieldControl(f,d,rows,actor) {
