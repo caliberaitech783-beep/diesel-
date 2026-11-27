@@ -40,3 +40,45 @@
 .check-clear span { color: #059669; font-weight: 700; }
 .check-none { color: var(--muted); } .check-none[hidden] { display: none; }
 @media (max-width: 700px) { .check-card header { flex-wrap: wrap; } .check-items { grid-template-columns: 1fr; } }
+
+/* Data overview: closed cards, tools that stay in view, links on each finding, and progress. */
+a.check-tile { color: var(--ink); text-decoration: none; transition: transform .18s, box-shadow .18s, border-color .18s; }
+a.check-tile:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0b1f3a1f; }
+.check-tile small { color: var(--muted); font-size: 12px; }
+.check-tile.better { border-left-color: #059669; } .check-tile.better strong { color: #b45309; } .check-tile.better small { color: #047857; font-weight: 700; }
+:root[data-theme="dark"] .check-tile.better strong { color: #f2b56b; } :root[data-theme="dark"] .check-tile.better small { color: #6fd9b0; }
+.insight-views { position: sticky; top: 6px; z-index: 5; }
+.check-tools { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 -6px 12px; padding: 10px 6px; background: var(--page-bg); border-bottom: 1px solid var(--border); }
+.check-tools[hidden] { display: none; }
+.check-groups { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 9px; background: var(--readonly-bg); }
+.check-tools button { padding: 6px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background-color .16s, color .16s; }
+.check-groups button[aria-pressed="true"] { background: var(--surface); color: #2563eb; box-shadow: 0 1px 3px #0b1f3a1f; }
+:root[data-theme="dark"] .check-groups button[aria-pressed="true"] { color: #8fb1ff; }
+#check-expand { border-color: var(--border); background: var(--surface); margin-left: auto; }
+.check-tools select, .check-tools .check-filter input { margin: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; }
+.check-tools .check-filter input { width: min(300px, 70vw); }
+.check-list { gap: 10px; }
+.master-data-workspace details.check-card { padding: 0; }
+.check-card > summary { display: flex; align-items: center; gap: 14px; padding: 12px 16px; cursor: pointer; list-style: none; border-radius: 12px; }
+.check-card > summary::-webkit-details-marker { display: none; }
+.check-card > summary::after { content: ""; width: 8px; height: 8px; flex: none; border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .2s; }
+.check-card[open] > summary::after { transform: rotate(-135deg); }
+.check-card > summary:hover { background: color-mix(in srgb, #2563eb 5%, var(--surface)); }
+.check-title { display: grid; gap: 2px; flex: 1; min-width: 0; } .check-title b { font-size: 15.5px; } .check-title small { color: var(--muted); font-size: 13px; }
+.check-group { flex: none; padding: 2px 10px; border-radius: 99px; background: var(--readonly-bg); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.check-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 16px 12px; }
+.check-card > .check-items, .check-card > .record-meta { margin: 0 16px 14px; }
+.check-card[open] > .check-items { animation: master-rise .22s ease-out; }
+.check-items { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
+.check-items li { position: relative; padding: 8px 11px; gap: 1px; }
+.check-items a { color: var(--link); font-weight: 650; text-decoration: none; } .check-items a:hover { text-decoration: underline; }
+.check-items small { color: var(--muted); font-size: 11.5px; }
+.check-items form { margin: 4px 0 0; } .check-items form button { padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; opacity: .75; }
+.check-items li:hover form button, .check-items form button:focus-visible { opacity: 1; color: #2563eb; border-color: #2563eb; }
+.check-accepted { margin: 0 16px 14px; } .check-accepted summary { padding: 6px 0; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; } .check-accepted .check-items li { opacity: .8; }
+.check-clear small { margin-left: auto; color: var(--muted); font-size: 12px; }
+.check-progress { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.check-progress li { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13.5px; }
+.check-progress a { color: var(--ink); font-weight: 650; text-decoration: none; } .check-progress a:hover { color: var(--link); } .check-progress span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.check-progress progress { grid-column: 1 / -1; width: 100%; height: 8px; accent-color: #059669; }
+@media (max-width: 700px) { .check-tools { position: static; } #check-expand { margin-left: 0; } .check-group { display: none; } }

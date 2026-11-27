@@ -75,31 +75,42 @@ export function dataChecks({ sites = [], equipment = [], drivers = [], shifts = 
   const known = new Set(sites.map(site => siteKey(site.name)));
   const unknownSite = value => text(value) && !known.has(siteKey(value));
   const repeated = (rows, read, minimum = 2) => groups(rows, read).filter(group => group.length >= minimum);
+  // Where a record is opened to correct it: its master's list, already searched for that record.
+  const inStorage = code => '/master-data?' + new URLSearchParams({ master: 'storage-location-master', q: code });
+  const inAccounts = code => '/master-data?' + new URLSearchParams({ master: 'account-master', q: code });
+  const inPulse = (master, value) => '/pulse-masters?' + new URLSearchParams({ master, q: value });
+  const equipmentName = row => row.door || row.reg || row.equipmentName;
+  const storageMaster = ['Storage Location Master', '/master-data?master=storage-location-master'];
+  // Each finding is { text, href, site }: what is shown, where it is corrected, and the site it belongs to.
   const checks = [
-    { title: 'Storage locations that share a short name', help: 'Two tanks or bowsers under one short name are easy to confuse at issue time.',
-      items: repeated(storage, row => row.values?.['Short Name']).map(group =>
-        group[0].values['Short Name'] + ': ' + group.map(row => row.name + ' (' + text(row.values.Location) + ')').join(', ')) },
-    { title: 'Storage locations at a site that is not in the Location Master', help: 'Add the site in Pulse, or correct the Location on the storage record.',
-      items: storage.filter(row => unknownSite(row.values?.Location)).map(row => row.code + ' · ' + row.name + ' — ' + text(row.values.Location)) },
-    { title: 'Storage locations with no capacity', help: 'Stock limits cannot be checked without a capacity.',
-      items: storage.filter(row => !(Number(row.values?.['Capacity (L)']) > 0)).map(row => row.code + ' · ' + row.name) },
-    { title: 'Equipment with no site, or a site that is not in the Location Master', help: 'Correct the current location in Pulse.',
-      items: equipment.filter(row => !text(row.currentLocation) || unknownSite(row.currentLocation))
-        .map(row => (row.door || row.reg || row.equipmentName) + ' — ' + (text(row.currentLocation) || 'no location')) },
-    { title: 'Equipment that shares a registration number', help: 'One vehicle should appear once in the Equipment Master.',
-      items: repeated(equipment, row => text(row.reg).replace(/[^\p{L}\p{N}]/gu, '')).map(group =>
-        group[0].reg + ': ' + group.map(row => (row.door || row.equipmentName) + ' (' + (text(row.currentLocation) || 'no location') + ')').join(', ')) },
-    { title: 'Drivers listed under more than one employee code', help: 'The same name with two ERP codes is usually one person entered twice.',
-      items: repeated(drivers, row => row.name).filter(group => new Set(group.map(row => lower(row.empId))).size > 1)
-        .map(group => group[0].name + ': ' + group.map(row => row.empId + (row.site ? ' (' + row.site + ')' : '')).join(', ')) },
-    { title: 'Shifts for a site that is not in the Location Master', help: 'Correct the site on the shift in Pulse.',
-      items: shifts.filter(row => unknownSite(row.site)).map(row => row.shiftName + ' — ' + row.site) },
-    { title: 'Accounts that share a GST registration number', help: 'One supplier under two account codes splits its purchases and payments.',
-      items: repeated(accounts, row => row.values?.['Registration No.']).map(group =>
-        group[0].values['Registration No.'] + ': ' + group.map(row => row.code + ' · ' + row.name).join(', ')) },
+    { title: 'Storage locations that share a short name', help: 'Two tanks or bowsers under one short name are easy to confuse at issue time.', group: 'Storage', master: storageMaster,
+      found: repeated(storage, row => row.values?.['Short Name']).map(group => ({ href: inStorage(group[0].code), site: text(group[0].values.Location),
+        text: group[0].values['Short Name'] + ': ' + group.map(row => row.name + ' (' + text(row.values.Location) + ')').join(', ') })) },
+    { title: 'Storage locations at a site that is not in the Location Master', help: 'Add the site in Pulse, or correct the Location on the storage record.', group: 'Storage', master: storageMaster,
+      found: storage.filter(row => unknownSite(row.values?.Location)).map(row => ({ href: inStorage(row.code), site: text(row.values.Location),
+        text: row.code + ' · ' + row.name + ' — ' + text(row.values.Location) })) },
+    { title: 'Storage locations with no capacity', help: 'Stock limits cannot be checked without a capacity.', group: 'Storage', master: storageMaster,
+      found: storage.filter(row => !(Number(row.values?.['Capacity (L)']) > 0)).map(row => ({ href: inStorage(row.code), site: text(row.values?.Location), text: row.code + ' · ' + row.name })) },
+    { title: 'Equipment with no site, or a site that is not in the Location Master', help: 'Correct the current location in Pulse.', group: 'Equipment', master: ['Equipment Master', '/pulse-masters?master=equipment'],
+      found: equipment.filter(row => !text(row.currentLocation) || unknownSite(row.currentLocation))
+        .map(row => ({ href: inPulse('equipment', equipmentName(row)), site: text(row.currentLocation), text: equipmentName(row) + ' — ' + (text(row.currentLocation) || 'no location') })) },
+    { title: 'Equipment that shares a registration number', help: 'One vehicle should appear once in the Equipment Master.', group: 'Equipment', master: ['Equipment Master', '/pulse-masters?master=equipment'],
+      found: repeated(equipment, row => text(row.reg).replace(/[^\p{L}\p{N}]/gu, '')).map(group => ({ href: inPulse('equipment', group[0].reg), site: text(group[0].currentLocation),
+        text: group[0].reg + ': ' + group.map(row => (row.door || row.equipmentName) + ' (' + (text(row.currentLocation) || 'no location') + ')').join(', ') })) },
+    { title: 'Drivers listed under more than one employee code', help: 'The same name with two ERP codes is usually one person entered twice.', group: 'Drivers', master: ['Driver Master', '/pulse-masters?master=driver'],
+      found: repeated(drivers, row => row.name).filter(group => new Set(group.map(row => lower(row.empId))).size > 1)
+        .map(group => ({ href: inPulse('driver', group[0].name), site: text(group[0].site),
+          text: group[0].name + ': ' + group.map(row => row.empId + (row.site ? ' (' + row.site + ')' : '')).join(', ') })) },
+    { title: 'Shifts for a site that is not in the Location Master', help: 'Correct the site on the shift in Pulse.', group: 'Shifts', master: ['Shift Master', '/pulse-masters?master=shift'],
+      found: shifts.filter(row => unknownSite(row.site)).map(row => ({ href: inPulse('shift', row.shiftName), site: text(row.site), text: row.shiftName + ' — ' + row.site })) },
+    { title: 'Accounts that share a GST registration number', help: 'One supplier under two account codes splits its purchases and payments.', group: 'Accounts', master: ['Account Master', '/master-data?master=account-master'],
+      found: repeated(accounts, row => row.values?.['Registration No.']).map(group => ({ href: inAccounts(group[0].code), site: '',
+        text: group[0].values['Registration No.'] + ': ' + group.map(row => row.code + ' · ' + row.name).join(', ') })) },
   ];
-  return checks.map(check => ({ ...check, count: check.items.length }));
+  // items keeps the plain text of each finding; refs holds where it is opened and its site, in the same order.
+  return checks.map(({ found, ...check }) => ({ ...check, items: found.map(row => row.text), refs: found.map(({ href, site }) => ({ href, site })), count: found.length }));
 }
+
 
 // Equipment counted by site and equipment category, with each site's drivers, shifts and storage alongside.
 // Sites come from the Location Master first; a location equipment uses that the Location Master lacks still gets a row.

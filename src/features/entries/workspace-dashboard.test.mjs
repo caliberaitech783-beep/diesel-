@@ -63,7 +63,7 @@ test('dashboard figures come only from saved entries in the period', () => {
 
 test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
   const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
-  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data review<\/a><\/div>/s);
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data overview<\/a><\/div>/s);
   // The short menu: no list of masters and no separate Master list, only the approver lists below the main links.
   assert.ok(!html.includes('master-data-list') && !html.includes('master-list') && !html.includes('master-search'));
   assert.match(html, /<summary>.*Approvers<\/summary><ul aria-label="Approver lists"><li><a href="\/indent-approvers">Indent approvers<\/a><\/li><li><a href="\/po-approvers">PO approvers<\/a><\/li><\/ul>/);

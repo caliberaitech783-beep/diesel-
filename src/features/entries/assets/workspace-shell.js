@@ -343,22 +343,45 @@ if (cardFilter) {
   });
 }
 
-// ---- Data checks: find a code, name or site among the findings.
-const checkFilter = document.querySelector('#check-filter');
-if (checkFilter) {
-  const cards = [...document.querySelectorAll('.check-card')], none = document.querySelector('#check-none');
-  checkFilter.hidden = false;
-  checkFilter.addEventListener('input', () => {
-    const words = checkFilter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+// ---- Data overview: narrow the findings by group, site and words; open or close every check at once.
+const checkTools = document.querySelector('#check-tools');
+if (checkTools) {
+  const cards = [...document.querySelectorAll('#check-list > .check-card')], none = document.querySelector('#check-none');
+  const words = checkTools.querySelector('#check-filter'), site = checkTools.querySelector('#check-site'), expand = checkTools.querySelector('#check-expand');
+  const groupButtons = [...checkTools.querySelectorAll('.check-groups button')];
+  let group = '';
+  checkTools.hidden = false;
+  const apply = () => {
+    const wanted = words.value.trim().toLowerCase().split(/\s+/).filter(Boolean), place = site?.value ?? '', narrowing = wanted.length > 0 || Boolean(place);
     let shown = 0;
     for (const card of cards) {
       let matches = 0;
-      for (const item of card.querySelectorAll('.check-items li')) { item.hidden = !words.every(word => item.textContent.toLowerCase().includes(word)); if (!item.hidden) matches += 1; }
-      card.hidden = !matches;
-      // While searching, the rest of a long list is opened so a match is never hidden behind "Show all".
-      const more = card.querySelector('.check-more'); if (more && words.length) more.open = true;
-      shown += matches;
+      for (const item of card.querySelectorAll(':scope > .check-items > li')) {
+        item.hidden = (place && item.dataset.site !== place) || !wanted.every(word => item.textContent.toLowerCase().includes(word));
+        if (!item.hidden) matches += 1;
+      }
+      card.hidden = (group && card.dataset.group !== group) || !matches;
+      // While narrowing, a check that still has matches opens, so they are in view.
+      if (narrowing && !card.hidden) card.open = true;
+      if (!card.hidden) shown += 1;
     }
     none.hidden = shown > 0;
+  };
+  words.addEventListener('input', apply);
+  site?.addEventListener('change', apply);
+  for (const button of groupButtons) button.addEventListener('click', () => {
+    group = button.dataset.group;
+    groupButtons.forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+    apply();
   });
+  expand.addEventListener('click', () => {
+    const open = expand.getAttribute('aria-pressed') !== 'true';
+    cards.forEach(card => { card.open = open; });
+    expand.setAttribute('aria-pressed', String(open));
+    expand.textContent = open ? 'Close all' : 'Open all';
+  });
+  // A summary tile that points at a check opens it.
+  const openTarget = () => { const target = document.getElementById(location.hash.slice(1)); if (target?.matches('.check-card')) target.open = true; };
+  addEventListener('hashchange', openTarget);
+  openTarget();
 }
