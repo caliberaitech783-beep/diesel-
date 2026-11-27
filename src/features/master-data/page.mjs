@@ -73,8 +73,8 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
   <div class="layout">
     ${masterSidebar({ hidden: Boolean(master), itemRecordsPath, masterData: true, masterDataCurrent: true, masterDataPath:home, pulseMasters: !local })}
     <main id="workspace" class="master-data-workspace" tabindex="-1" aria-labelledby="workspace-title">
-      <header class="workspace-heading${master ? ' master-data-heading' : ''}">
-        ${master ? mastersMenuLink(home, 'Back to Master Data') : ''}
+      <header class="workspace-heading master-data-heading">
+        ${mastersMenuLink(home, 'Back to Master Data')}
         <h1 id="workspace-title">${escape(heading)}</h1>
         ${master ? masterDataSearch({ master, action: home, search, columns, by, sort, dir }) : ''}
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">

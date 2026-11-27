@@ -26,6 +26,6 @@ export function workspacePage(actor, rows) {
       <div class="ws-cards">${category.modules.map(card).join('')}</div></section>`).join('')}
     <p class="master-cards-none" id="workspace-none" hidden>No entry matches that filter.</p>`
     : '<p class="empty">No entry is open to your role at this site.</p>';
-  const heading = `<div class="ws-heading"><h1>Diesel Workspace</h1><p>${esc(actor.site)}</p></div>`;
-  return page('Diesel Workspace', actor, 'workspace', '/entries/workspace', body, heading);
+  const heading = `<div class="ws-heading"><h1>Workspace</h1><p>${esc(actor.site)}</p></div>`;
+  return page('Workspace', actor, 'workspace', '/entries/workspace', body, heading);
 }

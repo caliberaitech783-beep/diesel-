@@ -3,6 +3,8 @@
   const root = document.documentElement;
   try {
     if (localStorage.getItem(key) === 'dark') root.dataset.theme = 'dark';
+    // The menu on the left opens hidden when it was last left hidden, or closed by choosing something from it.
+    if (localStorage.getItem('diesel-menu') === 'hidden') root.dataset.menu = 'hidden';
   } catch {
     // The switch still works when the browser blocks storage.
   }

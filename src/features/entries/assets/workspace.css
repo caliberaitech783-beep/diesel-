@@ -265,3 +265,26 @@ section.ws-group { margin: 0 0 22px; padding: 0; border: 0; background: none; bo
 .ws-new { align-self: center; flex: none; margin-right: 14px; padding: 6px 11px; border: 1px solid var(--cat); border-radius: 8px; color: var(--cat); font-size: 12.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background-color .16s, color .16s; }
 .ws-new:hover { background: var(--cat); color: #fff; } :root[data-theme="dark"] .ws-new:hover { color: #0b1f3a; }
 .ws-card:has(.ws-new) .ws-arrow { display: none; }
+
+/* The menu's own Hide button, and the page's Show button while the menu is hidden */
+:root[data-menu="hidden"] .shell { grid-template-columns: minmax(0, 1fr); }
+:root[data-menu="hidden"] .rail { display: none; }
+.rail-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rail #rail-toggle { min-height: 30px; padding: 4px 10px; border: 1px solid #2a4573; border-radius: 7px; background: transparent; color: var(--rail-muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: color .16s, border-color .16s; }
+.rail #rail-toggle:hover { color: #fff; border-color: #5b8cff; }
+#rail-show { min-height: 32px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+#rail-show[hidden] { display: none; }
+#masters-sidebar .sidebar-hide { margin-left: auto; padding: 5px 10px; border: 1px solid #2a4573; border-radius: 7px; background: transparent; color: #a9b9d3; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#masters-sidebar .sidebar-hide[hidden] { display: none; } #masters-sidebar .sidebar-hide:hover { color: #fff; border-color: #5b8cff; }
+#masters-sidebar .sidebar-tools { flex-wrap: wrap; }
+[data-sidebar-toggle][hidden] { display: none; }
+@media (max-width: 860px) { .rail #rail-toggle { display: none; } }
+#masters-sidebar .sidebar-tools { display: flex; align-items: center; gap: 8px; }
+
+/* All entries: a tab for each kind of entry that has records */
+.entry-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px; margin: 4px 0 14px; border-bottom: 1px solid var(--border); }
+.entry-tabs a { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: color .16s, border-color .16s; }
+.entry-tabs a:hover { color: var(--ink); } .entry-tabs a[aria-current] { color: var(--blue); border-bottom-color: var(--blue); }
+.entry-tabs small { padding: 0 7px; border-radius: 99px; background: var(--readonly-bg); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.entry-tabs a[aria-current] small { background: var(--blue-wash); color: var(--blue); }
+@media (max-width: 700px) { .entry-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px; } }
