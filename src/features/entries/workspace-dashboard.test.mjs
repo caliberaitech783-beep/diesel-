@@ -231,3 +231,28 @@ test('an entry is dated within the last three days, and a quantity is more than 
   assert.throws(() => indent(back(-1)), /today’s business date or an earlier date/);
   db.close();
 });
+
+test('downloads carry the form fields and the creation time, and a printed record carries only its details', async () => {
+  const { entryExportRows, entryCsvRows } = await import('./entry-register.mjs');
+  const { detailPage } = await import('./entry-page.mjs');
+  const order = { ...row('E2', '2026-11-20', 'Posted', { litres: 500, value: 57622, supplier: 'S' }), id: 'po', number: 'CMLL/CMP/PO/26-27/001' };
+  const schedule = { ...row('E4', '2026-11-27', 'Posted', { supplier: 'SANDEEP GASOLENES', balance: 200, order: 'x' },
+    { po: 'po', deliveryDate: '2026-11-28', deliveryLocation: 'CMPL Chandrapur', deliveryAddress: 'Chandrapur', item: 'Diesel', litres: 300, vehicleNo: 'MH34BZ4330', transporter: 'ASHOK ROADWAYS' }),
+    number: 'E4-JAY-2026-0001', created: '2026-11-27T11:10:00.000Z', createdBy: 'SIDDHARTH HOONKA' };
+  const indent = { ...row('E1', '2026-11-27', 'Posted', { sanctioned: 5555, stock: { 'Tank and bowser stock (L)': 9 } }, { litres: 5000, unit: 'Litre', priority: 'Normal', requiredBy: 2 }), id: 'in', number: 'CMLL/JOC/IND/26-27/001', created: '2026-11-27T11:10:00.000Z' };
+  const one = entryExportRows([schedule], [schedule, order]);
+  assert.deepEqual(one[0], ['Document', 'Date', 'Status', 'Site', 'Purchase order', 'Delivery date', 'Delivery location', 'Delivery address', 'Item name', 'DSL Qty (L)', 'Vehicle No.', 'Transporter', 'Creation Date', 'Creation Time', 'Created By']);
+  assert.deepEqual(one[1], ['E4-JAY-2026-0001', '2026-11-27', 'Posted', 'Jayant', 'CMLL/CMP/PO/26-27/001', '2026-11-28', 'CMPL Chandrapur', 'Chandrapur', 'Diesel', 300, 'MH34BZ4330', 'ASHOK ROADWAYS', '27-Nov-2026', '04:40 PM', 'SIDDHARTH HOONKA']);
+  const indents = entryExportRows([indent]);
+  assert.ok(indents[0].includes('Sanction quantity') && indents[1].includes(5555) && indents[0].includes('Status'));
+  assert.ok(!JSON.stringify(indents).includes('Tank and bowser stock'), 'no site stock in a download');
+  const mixed = entryCsvRows([schedule, indent], [schedule, indent, order]);
+  assert.deepEqual(mixed[0], ['Document', 'Entry', 'Site', 'Date', 'Status', 'Details', 'Creation Date', 'Creation Time', 'Created By']);
+  assert.match(mixed[1][5], /^Purchase order: CMLL\/CMP\/PO\/26-27\/001; Delivery date: 2026-11-28; .*Transporter: ASHOK ROADWAYS$/);
+  assert.ok(!JSON.stringify(mixed).includes('balance') && !JSON.stringify(mixed).includes('{'), 'no worked-out results and no raw data');
+
+  const page = detailPage({ ...actor, profile: roleKey('Procurement Executive') }, schedule, [schedule, order], [{ action: 'Approve', actor: 'Asha', stamp: '2026-11-27T11:12:00.000Z' }], null);
+  assert.match(page, /<div class="print-only print-head"><h1>Delivery Schedule · E4-JAY-2026-0001<\/h1>\s*<p>Created on 27 Nov 2026, 04:40 pm IST by SIDDHARTH HOONKA<\/p><\/div>/);
+  assert.match(page, /<p class="print-only print-foot">Approved by Asha · 27 Nov 2026, 04:42 pm IST<\/p>/);
+  assert.match(page, /<p class="record-back">/);
+});

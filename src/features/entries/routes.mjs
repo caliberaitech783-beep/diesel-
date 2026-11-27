@@ -1,3 +1,4 @@
+import { formatIndentNumber } from './indent-details.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
 import { shellParts } from './entry-shell.mjs';
@@ -16,7 +17,7 @@ import { createLocalApproval } from './local-approval.mjs';
 import { pilotEntry } from './entry-access.mjs';
 import { entryPolicy } from './entry-policy.mjs';
 import { entryAlerts } from './entry-alerts.mjs';
-import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows, purchaseOrderExportRows, purchaseOrdersOnly } from './entry-register.mjs';
+import { registerFilters, filterRegister, entryCsv, entryExcel, entryExportRows, entryCsvRows, purchaseOrderExportRows, purchaseOrdersOnly, createdCells } from './entry-register.mjs';
 import { mayViewEntry, mayViewEntryType } from './entry-visibility.mjs';
 import { closeJournalCsv } from './accounting-export.mjs';
 import { purchaseOrderPdf, purchaseOrdersPdf, registerPdf } from './purchase-order-pdf.mjs';
@@ -268,7 +269,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   // Records ticked on the register: only those are exported.
   const picked = (rows,ids) => { const chosen=new Set(String(ids??'').split(',').filter(Boolean)); return chosen.size?rows.filter(doc=>chosen.has(doc.id)):rows; };
   for (const [extension,mime,serialize] of [
-    ['csv','text/csv',(rows,sources)=>entryCsv(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryCsvRows(rows))],
+    ['csv','text/csv',(rows,sources)=>entryCsv(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryCsvRows(rows,sources))],
     ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',(rows,sources)=>entryExcel(purchaseOrdersOnly(rows)?purchaseOrderExportRows(rows,sources):entryExportRows(rows,sources))],
   ]) router.get('/export.'+extension,(req,res)=>{
     const actor=req.dieselActor,sources=registerSources(actor,req.query);
@@ -282,7 +283,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     try {
       const orders=purchaseOrdersOnly(rows);
       const bytes=orders ? await purchaseOrdersPdf(rows.slice(0,200),sources)
-        : await registerPdf('Diesel entries',['Document','Entry','Site','Date','Status'],entryCsvRows(rows).slice(1).map(row=>row.slice(0,5)));
+        : await registerPdf('Diesel entries',['Document','Entry','Site','Date','Status','Created'],rows.map(row=>[formatIndentNumber(row.number),byId[row.type].name,row.site,row.day,row.status,createdCells(row).slice(0,2).join(' ')]));
       res.attachment(orders?'diesel-purchase-orders.pdf':'diesel-entries.pdf').type('application/pdf').send(Buffer.from(bytes));
     } catch(error) { next(error); }
   });

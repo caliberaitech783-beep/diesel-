@@ -47,14 +47,46 @@ export function entryCsv(rows) {
   return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
 }
 
-export function entryExportRows(rows,sources=rows) {
-  const trace = traceEntries(sources);
-  return [['Document','Entry','Site','Business date','Shift','Truck','Vehicle','Status','Details','Results'],
-    ...rows.map(row => {
-      const { truck, vehicle } = trace(row);
-      return [formatIndentNumber(row.number),byId[row.type].name,row.site,row.day,row.shift?.name,truck,vehicle,row.status,
-        JSON.stringify(row.data),formatIndentNumber(JSON.stringify(row.result))];
-    })];
+// The time an entry was first saved, as two cells: 27-Nov-2026 and 04:40 PM, in IST.
+const istPart = (stamp, options) => stamp ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options }).format(new Date(stamp)) : '';
+export const createdCells = row => [istPart(row.created, { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-'),
+  istPart(row.created, { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase(), row.createdBy ?? ''];
+
+// One form field as a cell: a linked document by its number, attachments by name, a table of rows as readable text.
+function fieldCell(field, value, numberOf) {
+  if (value === undefined || value === null || value === '') return '';
+  if (field.type === 'link') return numberOf(value) || '';
+  if (field.type === 'file' || field.type === 'photo') return Array.isArray(value) ? value.map(file => file?.name ?? '').filter(Boolean).join(', ') : '';
+  if (field.type === 'rows') {
+    let rows = value;
+    if (typeof rows === 'string') { try { rows = JSON.parse(rows); } catch { return rows; } }
+    if (!Array.isArray(rows)) return '';
+    const label = key => field.columns?.find(column => column.key === key)?.label ?? key;
+    return rows.map((row, index) => (index + 1) + ') ' + Object.entries(row).filter(([, cell]) => cell !== '' && cell !== undefined && cell !== null)
+      .map(([key, cell]) => label(key) + ': ' + cell).join(', ')).join(' | ');
+  }
+  return typeof value === 'object' ? '' : value;
+}
+
+// A download holds what was entered on the form and when the entry was made, and nothing worked out afterwards:
+// no calculated results, approvals or site stock. Status stays, so a draft is not mistaken for a posted entry.
+// - entries of one kind: one column for each field of that form;
+// - a mix of kinds: the form's details together in one readable column.
+export function entryExportRows(rows, sources = rows) {
+  const numberOf = id => formatIndentNumber(sources.find(row => row.id === id)?.number ?? '');
+  const kinds = new Set(rows.map(row => row.type));
+  if (kinds.size === 1) {
+    const fields = byId[rows[0].type].fields;
+    // The indent form also shows the sanction quantity its approver filled in.
+    const extra = rows[0].type === 'E1' ? [['Sanction quantity', row => row.result?.sanctioned ?? '']] : [];
+    return [['Document', 'Date', 'Status', 'Site', ...fields.map(field => field.label), ...extra.map(([label]) => label), 'Creation Date', 'Creation Time', 'Created By'],
+      ...rows.map(row => [formatIndentNumber(row.number), row.day, row.status, row.site, ...fields.map(field => fieldCell(field, row.data?.[field.key], numberOf)),
+        ...extra.map(([, value]) => value(row)), ...createdCells(row)])];
+  }
+  return [['Document', 'Entry', 'Site', 'Date', 'Status', 'Details', 'Creation Date', 'Creation Time', 'Created By'],
+    ...rows.map(row => [formatIndentNumber(row.number), byId[row.type].name, row.site, row.day, row.status,
+      byId[row.type].fields.map(field => [field.label, fieldCell(field, row.data?.[field.key], numberOf)]).filter(([, cell]) => cell !== '').map(([label, cell]) => label + ': ' + cell).join('; '),
+      ...createdCells(row)])];
 }
 
 // A purchase order download has one column for every field on the form, its totals and its record information.
@@ -84,10 +116,8 @@ export function purchaseOrderExportRows(rows, sources = rows) {
 // A register filtered to purchase orders downloads in that fuller layout.
 export const purchaseOrdersOnly = rows => rows.length > 0 && rows.every(row => row.type === 'E2');
 
-export function entryCsvRows(rows) {
-  return [['Document','Entry','Site','Date','Status','Details','Results'],
-    ...rows.map(row=>[formatIndentNumber(row.number),byId[row.type].name,row.site,row.day,row.status,JSON.stringify(row.data),formatIndentNumber(JSON.stringify(row.result))])];
-}
+// CSV and Excel carry the same columns.
+export const entryCsvRows = entryExportRows;
 
 export function entryExcel(rows) {
   const workbook = utils.book_new();
