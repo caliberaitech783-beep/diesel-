@@ -72,14 +72,34 @@ function sites({ checklist }) {
       row.missing.length ? { html: `<span class="record-incomplete">${escape(row.missing.join(', '))}</span>` } : 'Ready']))}`;
 }
 
+// Where each kind of finding is corrected, worked out from what the check is about.
+const fixes = [[/^Storage/, 'Storage Location Master', '/master-data?master=storage-location-master'], [/^Equipment/, 'Equipment Master', '/pulse-masters?master=equipment'],
+  [/^Drivers/, 'Driver Master', '/pulse-masters?master=driver'], [/^Shifts/, 'Shift Master', '/pulse-masters?master=shift'], [/^Accounts/, 'Account Master', '/master-data?master=account-master']];
+// One finding as a row: the code or name it is about in bold, the detail beside it.
+function finding(item) {
+  const [, lead, mark, rest] = String(item).match(/^(.*?)( — |: | · )(.*)$/s) ?? [null, String(item), '', ''];
+  return `<li><b>${escape(lead)}</b>${rest ? `<span>${escape(rest)}</span>` : ''}</li>`;
+}
+
 function checks({ findings }) {
-  const open = findings.filter(check => check.count);
-  return `<p class="record-meta">${open.length ? open.length + ' of ' + findings.length + ' checks found something to review.' : 'All ' + findings.length + ' checks are clear.'}</p>
-    ${findings.map(check => `<details class="insight-check"${check.count ? ' open' : ''}>
-      <summary>${escape(check.title)} <span class="${check.count ? 'record-incomplete' : 'insight-clear'}">${check.count || 'Clear'}</span></summary>
-      ${check.count ? `<p class="record-meta">${escape(check.help)}</p><ul>${check.items.slice(0, 100).map(item => `<li>${escape(item)}</li>`).join('')}</ul>
-        ${check.count > 100 ? `<p class="record-meta">Showing the first 100 of ${check.count}.</p>` : ''}` : ''}
-    </details>`).join('')}`;
+  const open = findings.filter(check => check.count), clear = findings.filter(check => !check.count);
+  const items = open.reduce((total, check) => total + check.count, 0);
+  const tile = (value, label, tone) => `<div class="check-tile ${tone}"><strong>${value}</strong><span>${label}</span></div>`;
+  return `<div class="check-summary">${tile(findings.length, 'Checks run', '')}${tile(open.length, open.length === 1 ? 'Check needs review' : 'Checks need review', open.length ? 'warn' : '')}
+      ${tile(items.toLocaleString('en-IN'), items === 1 ? 'Record to correct' : 'Records to correct', items ? 'warn' : '')}${tile(clear.length, 'Clear', 'ok')}</div>
+    <p class="record-meta">${open.length ? open.length + ' of ' + findings.length + ' checks found something to review.' : 'All ' + findings.length + ' checks are clear.'}</p>
+    ${open.length ? '<label class="check-filter"><span class="sr-only">Find in the findings</span><input type="search" id="check-filter" placeholder="Find a code, name or site in the findings…" autocomplete="off" hidden></label>' : ''}
+    <div class="check-list">${open.map(check => {
+      const [, master, href] = fixes.find(([about]) => about.test(check.title)) ?? [];
+      const shown = check.items.slice(0, 100);
+      return `<section class="check-card"><header><span class="check-count" title="${check.count} to correct">${check.count}</span>
+        <div><h2>${escape(check.title)}</h2><p>${escape(check.help)}</p></div>${href ? `<a class="check-fix" href="${href}">Open ${escape(master)} →</a>` : ''}</header>
+        <ul class="check-items">${shown.slice(0, 12).map(finding).join('')}</ul>
+        ${shown.length > 12 ? `<details class="check-more"><summary>Show all ${check.count > 100 ? '(first 100 of ' + check.count + ')' : check.count}</summary><ul class="check-items">${shown.slice(12).map(finding).join('')}</ul></details>` : ''}
+        ${check.count > 100 ? `<p class="record-meta">Showing the first 100 of ${check.count}.</p>` : ''}</section>`;
+    }).join('')}</div>
+    <p class="check-none" id="check-none" hidden>Nothing in the findings matches that.</p>
+    ${clear.length ? `<h2 class="check-clear-title">Clear</h2><ul class="check-clear">${clear.map(check => `<li><span aria-hidden="true">✓</span>${escape(check.title)}</li>`).join('')}</ul>` : ''}`;
 }
 
 // Site-wise equipment by category, then each site's drivers, shifts and storage locations.
@@ -120,7 +140,7 @@ export function insightsPage({ actor, view, notice, masterDataPath, ...data }) {
         <nav class="insight-views" aria-label="Master Data views">${views.map(([key, name]) =>
           `<a href="${insightsPath}?view=${key}"${key === view ? ' aria-current="page"' : ''}>${name}</a>`).join('')}</nav>
       </header>
-      ${notice ? `<p class="record-meta" role="alert">${escape(notice)}</p>` : ''}
+      ${notice ? `<p class="record-meta pulse-notice" role="alert">${escape(notice)}</p>` : ''}
       ${view === 'sites' ? sites(data) : view === 'checks' ? checks(data) : overview({ ...data, masterDataPath })}
     </main>
   </div>
