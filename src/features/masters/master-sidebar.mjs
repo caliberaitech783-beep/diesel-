@@ -18,7 +18,7 @@ export function masterSidebar({ itemRecordsPath, masterData, masterDataCurrent, 
         <div class="main-links"><a href="/entries/dashboard">${icon('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>')}Dashboard</a>
         <a href="/entries/workspace">${icon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>')}Diesel Workspace</a>
         <a href="${masterDataPath}"${masterDataCurrent && !checksCurrent ? ' aria-current="page"' : ''}>${icon('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')}Diesel Master Data</a>
-        ${`<a href="/master-insights?view=checks"${checksCurrent ? ' aria-current="page"' : ''}>${icon('<path d="M12 3 5 6v6c0 4.400 3 7.600 7 9 4-1.400 7-4.600 7-9V6z"/><path d="m9 12 2 2 4-4"/>')}Data checks</a>`}</div>
+        ${`<a href="/master-insights?view=checks"${checksCurrent ? ' aria-current="page"' : ''}>${icon('<path d="M12 3 5 6v6c0 4.400 3 7.600 7 9 4-1.400 7-4.600 7-9V6z"/><path d="m9 12 2 2 4-4"/>')}Data review</a>`}</div>
         <details class="master-group" name="diesel-sidebar" open><summary><span class="folder-icon" aria-hidden="true"></span>Approvers</summary><ul aria-label="Approver lists"><li><a href="/indent-approvers">Indent approvers</a></li><li><a href="/po-approvers">PO approvers</a></li></ul></details>
       </nav>
     </aside>`;

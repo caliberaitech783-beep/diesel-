@@ -63,7 +63,7 @@ test('dashboard figures come only from saved entries in the period', () => {
 
 test('the masters menu opens the Dashboard, the Workspace and Master Data from its top links', () => {
   const html = masterSidebar({ masterData: true, masterDataCurrent: true, pulseMasters: true });
-  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data checks<\/a><\/div>/s);
+  assert.match(html, /<div class="main-links"><a href="\/entries\/dashboard">.*Dashboard<\/a>\s*<a href="\/entries\/workspace">.*Diesel Workspace<\/a>\s*<a href="\/master-data" aria-current="page">.*Diesel Master Data<\/a>\s*<a href="\/master-insights\?view=checks">.*Data review<\/a><\/div>/s);
   // The short menu: no list of masters and no separate Master list, only the approver lists below the main links.
   assert.ok(!html.includes('master-data-list') && !html.includes('master-list') && !html.includes('master-search'));
   assert.match(html, /<summary>.*Approvers<\/summary><ul aria-label="Approver lists"><li><a href="\/indent-approvers">Indent approvers<\/a><\/li><li><a href="\/po-approvers">PO approvers<\/a><\/li><\/ul>/);
@@ -132,6 +132,8 @@ test('Master Data shows every master as a card with its count, source and missin
   assert.match(html, /href="\/pulse-masters\?master=site"[^>]*>[\s\S]*?<b>Location Master<\/b><small>3 records <i class="from-pulse">Pulse<\/i><\/small>/);
   assert.match(html, /<b>Diesel Rate Master<\/b><small>1 record<\/small>/);
   assert.ok(html.indexOf('Account Master') < html.indexOf('Diesel Rate Master') && html.indexOf('Diesel Rate Master') < html.indexOf('Location Master'), 'cards are in name order');
+  // The Pulse table lives under Data review, not on the cards page.
   const page = overview(data);
-  assert.ok(page.includes('id="master-card-filter"') && page.includes('<h2>From Pulse</h2>') && page.includes('<h2>Diesel masters</h2>'), 'the tables stay below the cards');
+  assert.ok(html.includes('id="master-card-filter"') && !html.includes('<h2>From Pulse</h2>'));
+  assert.ok(page.includes('<h2>From Pulse</h2>') && page.includes('Pulse data has not been fetched yet.') && !page.includes('master-card'));
 });
