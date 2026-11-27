@@ -47,7 +47,7 @@ test('saved-only indent records, totals and exports hide drafts until Save inden
   assert.ok(csv.includes(saved.number));assert.ok(!csv.includes(draft.number));
   const excel=await fetch(origin+'/entries/export.xlsx?type=E1',{headers});
   const workbook=read(Buffer.from(await excel.arrayBuffer()));
-  assert.deepEqual(utils.sheet_to_json(workbook.Sheets['Diesel Entries']).map(row=>row.Document),[saved.number]);
+  assert.deepEqual(utils.sheet_to_json(workbook.Sheets['Diesel Entries'],{range:4}).map(row=>row.Document),[saved.number]);
   const reopened=await fetch(origin+'/entries/record/'+draft.id,{headers});
   assert.equal(reopened.status,200);
   const response=await fetch(origin+'/entries/record/'+draft.id,{method:'POST',headers,body:JSON.stringify({

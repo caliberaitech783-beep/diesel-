@@ -305,6 +305,11 @@ section.ws-group { margin: 0 0 22px; padding: 0; border: 0; background: none; bo
   body { padding: 12mm 13mm !important; }
   *, *::before, *::after { color: #111 !important; background: #fff !important; box-shadow: none !important; border-color: #bbb !important; animation: none !important; }
   .print-only { display: block; }
+  .letterhead { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #999 !important; }
+  .letterhead img { flex: none; width: 118px; height: auto; }
+  .letterhead div { flex: 1; text-align: center; padding-right: 60px; }
+  .letterhead strong { display: block; font-size: 21px; line-height: 1.2; }
+  .letterhead span { display: block; font-size: 12px; line-height: 1.35; }
   .print-head { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1.5px solid #111 !important; }
   .print-head h1 { margin: 0 0 4px; font-size: 20px; } .print-head p { margin: 0; font-size: 12px; }
   .print-approval { margin-top: 3px !important; font-weight: 700; }

@@ -1,4 +1,5 @@
 import { page, esc, option } from './entry-shell.mjs';
+import { letterheadHtml } from './letterhead.mjs';
 import { byId, entries } from './catalog.mjs';
 import { entryRole,roleKey,otherSite,review } from './review-masters.mjs';
 import { businessDay, money, entryDayMin } from './entry-rules.mjs';
@@ -251,7 +252,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const stamp=value=>value?new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date(value))+' IST':'';
   const approvedBy=d.approval&&d.approval.status!=='pending'?d.approval.label+' '+d.approval.detail
     : (found=>found?'Approved by '+found.actor+' · '+stamp(found.stamp):'')(history.findLast?.(h=>/^approve/i.test(h.action)));
-  const printHead=d.rev>0?`<div class="print-only print-head"><h1>${esc(meta.name)}${d.number?' · '+esc(formatIndentNumber(d.number)):''}</h1>
+  const printHead=d.rev>0?`${letterheadHtml()}<div class="print-only print-head"><h1>${esc(meta.name)}${d.number?' · '+esc(formatIndentNumber(d.number)):''}</h1>
     <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p>
     ${approvedBy?`<p class="print-approval">${esc(approvedBy)}</p>`:''}</div>`:'';
   // The approval prints in the head, beside when the entry was made, so it is always on the first page.
