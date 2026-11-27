@@ -138,13 +138,14 @@ test('Master Data shows the overview, site checklist, data checks, counts, colum
   assert.match(sidebar, /Nowhere<\/a> <small class="record-incomplete"[^>]*>Not in Location Master/);
   assert.match(sidebar, /All sites<\/th><td data-label="Uncategorised">3<\/td>/);
   assert.doesNotMatch(await page('/master-data?master=gst-master'), /From Pulse/);
-  assert.match(sidebar, /data-counts="\/api\/master-insights\/counts"/);
-  assert.match(sidebar, /<a href="\/master-insights">Overview and checks<\/a>/);
+  // The menu is short now: the masters are cards on the page, and the checks have their own link.
+  assert.match(sidebar, /<a href="\/master-insights\?view=checks">.*Data checks<\/a>/);
+  assert.doesNotMatch(sidebar, /master-data-list|Overview and checks/);
   for (const name of ['Driver Master', 'Shift Master']) {
-    assert.match(sidebar, new RegExp('>' + name + ' · Pulse</a>'));
-    assert.doesNotMatch(sidebar, new RegExp('master-data\\?master=[a-z-]+">' + name + '</a>'), name + ' is listed once in Master Data');
+    assert.match(sidebar, new RegExp('<a class="master-card" href="/pulse-masters\\?master=[a-z-]+"[^>]*>[\\s\\S]*?<b>' + name + '</b><small>[^<]*<i class="from-pulse">Pulse</i>'));
+    assert.doesNotMatch(sidebar, new RegExp('master-data\\?master=[a-z-]+"[^>]*>[\\s\\S]{0,200}?<b>' + name + '</b>'), name + ' is listed once in Master Data');
   }
-  assert.match(sidebar, /pulse-masters\?master=site">Location Master · Pulse<\/a>/);
+  assert.match(sidebar, /<a class="master-card" href="\/pulse-masters\?master=site"[^>]*>[\s\S]*?<b>Location Master<\/b>/);
   assert.match(sidebar, /pulse-masters\?master=site">Location Master<\/a>/);
   assert.doesNotMatch(sidebar, /href="[^"]*[?&](?:amp;)?master=location-master"|>Site Master/);
 

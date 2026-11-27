@@ -338,7 +338,7 @@ if (cardFilter) {
   cardFilter.addEventListener('input', () => {
     const words = cardFilter.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     let shown = 0;
-    for (const card of cards) { card.hidden = !words.every(word => card.textContent.toLowerCase().includes(word)); if (!card.hidden) shown += 1; }
+    for (const card of cards) { const text = (card.textContent + ' ' + (card.dataset.fields ?? '')).toLowerCase(); card.hidden = !words.every(word => text.includes(word)); if (!card.hidden) shown += 1; }
     none.hidden = shown > 0;
   });
 }

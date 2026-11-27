@@ -80,7 +80,7 @@ test('Master Data lists the Pulse Location, Region, Equipment, Employee and Driv
   assert.equal((await req('/pulse-masters?master=item-master', 'a')).status, 400);
 
   const sidebar = await page('/master-data', 'a');
-  const order = ['Account Master', 'Company Master · Pulse', 'Driver Master · Pulse', 'Employee Master · Pulse', 'Equipment Master · Pulse', 'Item Master', 'Location Master · Pulse', 'Region Master · Pulse', 'Shift Master · Pulse', 'Volume Correction Table']
+  const order = ['Account Master', 'Company Master', 'Driver Master', 'Employee Master', 'Equipment Master', 'Item Master', 'Location Master', 'Region Master', 'Shift Master', 'Volume Correction Table']
     .map(name => sidebar.indexOf('>' + name + '<'));
   assert.ok(order.every((position, index) => position > 0 && (!index || position > order[index - 1])), 'Master Data mixes Pulse and Diesel masters alphabetically');
 

@@ -78,6 +78,7 @@ export function masterDataPage({ actor, master, canSave, rows, offset, pageSize,
         <h1 id="workspace-title">${escape(heading)}</h1>
         ${master ? masterDataSearch({ master, action: home, search, columns, by, sort, dir }) : ''}
         ${canSave ? `<div class="master-data-tools" data-export-source="${escape(exportPath)}">
+          ${master ? `<a class="master-add-new" href="${master.slug === 'item-master' && itemRecordsPath ? itemRecordsPath : '/?master=' + master.slug}">+ Add new</a>` : ''}
           ${masterDataFileMenu('Download')}
           ${canImport ? masterDataFileMenu('Import', true) : ''}
           ${masterDataFileMenu('Export')}

@@ -79,9 +79,11 @@ test('Azure Item Master saves to app storage and every signed-in Pulse account s
     assert.doesNotMatch(form, /Back to records/);
     const mastersPath = form.match(/href="([^"]+)" aria-label="Back to masters"[^>]*>\s*<svg\b/)?.[1];
     assert.equal(mastersPath, '/');
-    const catalog = await (await request(mastersPath, maker)).text();
-    assert.match(catalog, /Choose a master/);
-    assert.match(catalog, /href="\/master-data\?master=item-master">Item Master<\/a>/);
+    // The bare home now opens Master Data, where every master is a card.
+    const home = await request(mastersPath, maker, { redirect: 'manual' });
+    assert.equal(home.headers.get('location'), '/master-data');
+    const catalog = await (await request('/master-data', maker)).text();
+    assert.match(catalog, /<a class="master-card" href="\/master-data\?master=item-master"[^>]*>[\s\S]*?<b>Item Master<\/b>/);
     assert.doesNotMatch(catalog, /My item submissions/);
     for (const [label, direction] of [['Import', 'import'], ['Export', 'export']]) {
       const menu = form.split('<summary>' + label + '</summary>')[1]?.split('</details>')[0];
