@@ -32,13 +32,15 @@ const searchDialog = (actor, active) => `<dialog id="global-search" aria-label="
 function navigation(active, actor) {
   const { canOpenMasters, siteEntryTypes:types, hosted } = actor;
   const visible = menuEntries(actor, active);
-  return `<aside class="rail"><div class="rail-title"><span>Entry</span>
-    <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="false" hidden>Browse entries</button></div>
-    <nav id="entry-navigation" aria-label="Diesel entries">
-    <button type="button" id="global-search-open" class="rail-search" hidden>${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
-    <a class="nav-main" href="/entries/dashboard" ${active === 'dashboard' ? 'aria-current="page"' : ''}>${icons.dashboard}Dashboard</a>
-    <a class="nav-main" href="/entries/workspace" ${active === 'workspace' ? 'aria-current="page"' : ''}>${icons.workspace}Diesel Workspace</a>
-    ${canOpenMasters === false ? '' : `<a class="nav-main" href="/master-data">${icons.masters}Diesel Master Data</a>`}
+  // A person who works every entry (the shared workspace) gets the short menu: the entries themselves are the cards in
+  // Diesel Workspace. A person with an assigned role or a site stock workspace keeps the full list of their own entries.
+  const simple = !types && !actor.assignments, masters = canOpenMasters !== false;
+  const shortMenu = `<a class="nav-main" href="/entries" ${active ? '' : 'aria-current="page"'}>${icons.module}Entry register</a>
+    ${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Diesel Master Data</a>` : ''}
+    ${masters && hosted ? `<a class="nav-main" href="/master-insights">${icons.control}Data overview</a>
+    <p class="rail-label">Approvers</p><a class="nav-home" href="/indent-approvers">Indent approvers</a><a class="nav-home" href="/po-approvers">PO approvers</a>` : ''}
+    ${hosted ? `<a class="nav-home" href="/entries/opening-stock" ${active==='opening-stock'?'aria-current="page"':''}>Opening stock</a>` : ''}`;
+  const fullMenu = `${masters ? `<a class="nav-main" href="/master-data">${icons.masters}Diesel Master Data</a>` : ''}
     <p class="rail-label">Entry</p>
     <a class="nav-home" href="/entries" ${active ? '' : 'aria-current="page"'}><i class="grid-icon" aria-hidden="true"></i>Entry register</a>
     <a class="nav-home" href="/entries/home" ${active === 'home' ? 'aria-current="page"' : ''}>My work</a>
@@ -48,8 +50,15 @@ function navigation(active, actor) {
     ${groups.filter(group => visible.some(entry => entry.group === group)).map(group => `<details ${(!active && group === 'Buy') || byId[active]?.group === group ? 'open' : ''}>
       <summary><span>${group}</span><small>${visible.filter(e => e.group === group).length}</small></summary>
       ${visible.filter(e => e.group === group).map(e => `<a href="/entries/type/${e.id}" ${active === e.id ? 'aria-current="page"' : ''}><small>${e.code}</small><span>${esc(e.name)}</span></a>`).join('')}
-      </details>`).join('')}
-    ${canOpenMasters === false ? '' : '<a class="masters-link" href="/">← Masters</a>'}</nav></aside>`;
+      </details>`).join('')}`;
+  return `<aside class="rail"><div class="rail-title"><span>${simple ? 'Diesel' : 'Entry'}</span>
+    <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="false" hidden>Browse entries</button></div>
+    <nav id="entry-navigation" aria-label="Diesel entries">
+    <button type="button" id="global-search-open" class="rail-search" hidden>${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
+    <a class="nav-main" href="/entries/dashboard" ${active === 'dashboard' ? 'aria-current="page"' : ''}>${icons.dashboard}Dashboard</a>
+    <a class="nav-main" href="/entries/workspace" ${active === 'workspace' ? 'aria-current="page"' : ''}>${icons.workspace}Diesel Workspace</a>
+    ${simple ? shortMenu : fullMenu}
+    ${canOpenMasters === false || simple ? '' : '<a class="masters-link" href="/">← Masters</a>'}</nav></aside>`;
 }
 
 // The search box, its menu button and the clock, for pages outside the entry shell (the master pages) to add to themselves.
@@ -67,7 +76,7 @@ const pageHelp = {
   home: ['The entries your role makes, and what is waiting for you today.', ['Pick an entry to start it.', 'Open My approvals or My alerts to clear what is waiting.']],
 };
 const everywhere = ['Ctrl + K searches every page, master and saved entry.', 'Enter moves to the next field; a new entry keeps what you type until you save it.',
-  '☆ Favourite pins this page to your Dashboard, and Print prints it without the menus.'];
+  'A saved record has a Print button that prints it without the menus.'];
 function helpDialog(active) {
   const entry = byId[active];
   const [about, steps] = entry ? [entry.name + (entry.maker ? ' — made by the ' + entry.maker + '.' : '.'),
@@ -96,8 +105,10 @@ function switcher(actor, back) {
 }
 
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
+  // Print is offered on a saved record, the one page people print.
+  const printable = String(back).startsWith('/entries/record/');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
-    <link rel="stylesheet" href="/entries/assets/entries.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/field-hints.js"></script><script defer src="/entries/assets/workspace-shell.js"></script>${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}${active==='E4'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css">':''}${active==='E7'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/grn-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script><script defer src="/entries/assets/entry-language.js"></script>
+    <link rel="stylesheet" href="/entries/assets/entries.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}${active==='E4'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css">':''}${active==='E7'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/grn-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
     ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>
     ${active==='E11' && actor.siteEntryTypes ? '<script type="module" src="/entries/assets/fuel-issue-form.js"></script>' : ''}
@@ -106,9 +117,9 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     </head><body class="${active==='E1'?'indent-workspace':['E2','E4','E7'].includes(active)?'order-workspace':''}" data-actor="${esc(actor.actionContext ?? actor.id)}" data-hosted="${Boolean(actor.hosted)}" data-offline-scope="${esc(actor.offlineScope)}">
     <a href="#workspace" class="skip-link">Skip to workspace</a>
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
-    <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span><button type="button" id="entry-language">हिन्दी</button>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
+    <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools"><button type="button" id="favourite-toggle" class="page-tool" aria-pressed="false" title="Keep this page on your Dashboard" hidden>☆ Favourite</button><button type="button" id="print-page" class="page-tool" title="Print this page" hidden>Print</button><button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-toggle" aria-pressed="false" title="Hide or show the menu on the left">☰ Hide menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools">${printable ? '<button type="button" id="print-page" class="page-tool" title="Print this record" hidden>Print</button>' : ''}<button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}${helpDialog(active)}</body></html>`;
 }

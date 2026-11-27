@@ -35,7 +35,7 @@ const purposes = {
 
 export const categories = [
   { id: 'buy', name: 'BUY', icon: 'buy', about: 'Requirement, ordering, payment and tanker allocation', types: ['E1', 'E2', 'E3', 'E4'] },
-  { id: 'receive', name: 'RECEIVE', icon: 'receive', about: 'Tanker arrival, checks and goods receipt', types: ['E6', 'E7'] },
+  { id: 'receive', name: 'RECEIVE', icon: 'receive', about: 'Gate entry, inspection details and goods receipt', types: ['E7'] },
   { id: 'stock', name: 'STOCK STORAGE MANAGEMENT', icon: 'stock', about: 'Movement of diesel between sites and storages', types: ['E12', 'E10A', 'E10B', 'E10C', 'E14'] },
   { id: 'vehicle-fuel', name: 'VEHICLE FUEL ENTRY', icon: 'fuel', about: 'Diesel issued to vehicles and equipment', types: ['E11'] },
   { id: 'accounts', name: 'ACCOUNTS & BILLING', icon: 'accounts', about: 'Supplier bills, debit notes and recoveries', types: ['E8', 'E9', 'E13'] },
@@ -43,8 +43,9 @@ export const categories = [
 ];
 export const categoryOf = type => categories.find(category => category.types.includes(type));
 
-// The gate entry is now part of the goods receipt note, so it no longer has its own place in the menu.
-const offMenu = new Set(['E5']);
+// The gate entry is now part of the goods receipt note, and the separate inspection cannot be made without a gate entry,
+// so neither has its own place in the menu. The goods receipt note carries the inspection details.
+const offMenu = new Set(['E5', 'E6']);
 
 // The entries this person's menu offers, in catalog order. `active` keeps the entry being viewed in the list.
 export function menuEntries(actor, active) {

@@ -124,18 +124,6 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     return pendingWork(rows,actor);
   };
   router.get('/shell-parts.html',(req,res)=>res.set('Cache-Control','no-store').type('html').send(shellParts(req.dieselActor)));
-  // "Copy from previous": the typed values of this site's latest saved entry of a type. Links to other documents,
-  // dates and attachments are left out, since they belong to that one entry.
-  router.get('/last/:type.json',(req,res)=>{
-    const actor=req.dieselActor, meta=byId[req.params.type];
-    if (!meta || !allowedType(req.params.type)) return res.sendStatus(404);
-    const last=store.list(actor.site).filter(doc=>doc.type===meta.id&&doc.rev>0&&doc.status!=='Draft'&&canRead(doc,actor))
-      .toSorted((a,b)=>(b.created??'').localeCompare(a.created??''))[0];
-    if (!last) return res.set('Cache-Control','no-store').json(null);
-    const skip=new Set(meta.fields.filter(field=>['link','date','photo','file'].includes(field.type)||field.link).map(field=>field.key));
-    const values=Object.fromEntries(Object.entries(last.data).filter(([key,value])=>!skip.has(key)&&!/date|day$/i.test(key)&&['string','number'].includes(typeof value)));
-    res.set('Cache-Control','no-store').json({number:last.number,values});
-  });
   router.get('/pending.json',(req,res)=>res.set('Cache-Control','no-store').json(waitingFor(req.dieselActor)));
   // Search box: saved entries by number, supplier, vehicle or entry name, across the sites this person may open.
   router.get('/search.json',(req,res)=>{
