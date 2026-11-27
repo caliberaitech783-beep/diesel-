@@ -58,6 +58,12 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
     null, { headers: { cookie: signIn.headers.get('set-cookie').split(';')[0] } });
   assert.equal(callback.status, 303);
   assert.equal(callback.headers.get('location'), '/entries');
+  // A plain sign-in, with no page asked for, opens the Diesel Dashboard.
+  const plain = await request('/api/sign-in/start');
+  const plainState = new URL(plain.headers.get('location')).searchParams.get('state');
+  const landed = await request('/api/sign-in/callback?' + new URLSearchParams({ state: plainState, code: 'c'.repeat(43) }),
+    null, { headers: { cookie: plain.headers.get('set-cookie').split(';')[0] } });
+  assert.equal(landed.headers.get('location'), '/entries/dashboard');
   assert.equal((await request('/api/master-data/records', 'i')).status, 401);
   assert.equal((await request('/entries', 'l')).status, 403);
   assert.equal((await request('/entries/new/E1', 'm')).status, 403);

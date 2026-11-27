@@ -208,7 +208,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
         masterDataPath:actor ? masterWorkspacePath + '/master-data' : undefined,
       });
     }
-    if (entryAllowed(result?.profile)) return response.redirect(303, '/entries');
+    if (entryAllowed(result?.profile)) return response.redirect(303, '/entries/dashboard');
     if (result?.profile?.login) {
       response.clearCookie(sessionCookie, options);
       return page(response, 403, { message: denied });
@@ -241,8 +241,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       return response.redirect(303,'/entries/opening-stock');
     }
     if (entryAllowed(verified?.profile) && telegramApprovalPath(destination)) return response.redirect(303, destination);
-    const openEntries = hostedEntries && (destination === '/entries' || destination === 'entries' || !canOpenMasters(verified?.profile));
-    response.redirect(303, openEntries ? '/entries' : '/');
+    if (hostedEntries && (destination === '/entries' || destination === 'entries')) return response.redirect(303, '/entries');
+    // A plain sign-in opens the Diesel Dashboard for everyone who may use the entries; a masters-only person opens the masters.
+    response.redirect(303, hostedEntries && entryAllowed(verified?.profile) ? '/entries/dashboard' : '/');
   }));
 
   app.post('/api/sign-out', route(async (request, response) => {
