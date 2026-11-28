@@ -362,8 +362,8 @@ test('location and site are separate: indents go by site, purchase orders by the
   const {store,order}=setup(t);
   const buyer={...actor('Procurement Executive'),businessDay:day};
   const form=detailPage(buyer,store.fresh('E2',buyer),store.list('Jayant'),[],null,store.definition('E2','Jayant'));
-  assert.match(form,/<select data-order-location><option value="">Select location<\/option><option value="CMPL Chandrapur">CMPL Chandrapur<\/option><option value="CMPL Madhya Pradesh" selected>CMPL Madhya Pradesh<\/option><option value="CMPL Nagpur">CMPL Nagpur<\/option><\/select>/);
-  assert.match(form,/<select data-order-site data-role="[^"]+"><option value="">Select site<\/option><option value="Jayant" data-location="CMPL Madhya Pradesh" selected>Jayant OC<\/option><option value="Sasti" data-location="CMPL Nagpur">Sasti OC<\/option>/);
+  assert.match(form,/<select data-order-location data-required="true"><option value="">Select location<\/option><option value="CMPL Chandrapur">CMPL Chandrapur<\/option><option value="CMPL Madhya Pradesh" selected>CMPL Madhya Pradesh<\/option><option value="CMPL Nagpur">CMPL Nagpur<\/option><\/select>/);
+  assert.match(form,/<select data-order-site data-required="true" data-role="[^"]+"><option value="">Select site<\/option><option value="Jayant" data-location="CMPL Madhya Pradesh" selected>Jayant OC<\/option><option value="Sasti" data-location="CMPL Nagpur">Sasti OC<\/option>/);
   const po=store.write(randomUUID(),buyer,{type:'E2',action:'Submit',rev:0,day,data:{...order,litres:1000,deliveries:'',advanceAmount:undefined}});
   const saved=detailPage(buyer,{...po,status:'Draft'},store.list('Jayant'),[],null,store.definition('E2','Jayant'));
   assert.match(saved,/Location<input type="text" readonly tabindex="-1"  value="CMPL Madhya Pradesh">/);

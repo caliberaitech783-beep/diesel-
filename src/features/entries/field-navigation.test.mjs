@@ -8,19 +8,25 @@ const source = readFileSync(new URL('./assets/field-navigation.js', import.meta.
 function setup(specs, type = '') {
   const events = {}, documentEvents = {}, timers = new Map();
   let now = 0, sequence = 0;
-  const form = { dataset: { type }, querySelectorAll: () => fields, addEventListener: (name, handler) => { events[name] = handler; } };
+  const form = { dataset: { type }, querySelectorAll: () => fields, addEventListener: (name, handler, capture = false) => { (events[name] ??= []).push({ handler, capture }); } };
   const document = { activeElement: null, querySelector: () => form,
-    addEventListener: (name, handler) => { documentEvents[name] = handler; } };
+    addEventListener: (name, handler) => { (documentEvents[name] ??= []).push(handler); },
+    createElement: () => ({ setAttribute() {}, remove() { this.removed = true; } }) };
   const fields = specs.map(spec => {
+    const attributes = Object.fromEntries(Object.entries({ 'data-field-picker': spec.fieldPicker, 'data-required': spec.requiredData,
+      'data-loading-gross': spec.gross, 'data-terms': spec.terms, 'data-dispatch-po-number': spec.lookup, 'data-indent-toggle': spec.indentToggle })
+      .filter(([, value]) => value).map(([name]) => [name, 'true']));
     const field = { tagName: 'INPUT', type: 'text', size: spec.tagName === 'SELECT' ? 0 : 20, value: 'Filled', offsetParent: {}, form, validity: { valid: true }, ...spec,
-      focus() { if (document.activeElement && document.activeElement !== field) events.focusout?.({ target: document.activeElement }); document.activeElement = field; },
+      focus() {
+        if (document.activeElement === field) return;
+        if (document.activeElement) fire('focusout', document.activeElement);
+        document.activeElement = field; fire('focusin', field);
+      },
       matches(selector) {
         return selector.split(',').some(part => {
           const tag = /^(input|select|textarea|button)/.exec(part.trim())?.[1];
           if (tag && field.tagName !== tag.toUpperCase()) return false;
-          if (part.includes('[data-dispatch-po-number]')) return Boolean(field.lookup);
-          if (part.includes('[data-loading-gross]') && !field.gross) return false;
-          if (part.includes('[data-terms]') && !field.terms) return false;
+          for (const [, name] of part.matchAll(/\[(data-[\w-]+)\]/g)) if (!Object.hasOwn(attributes, name)) return false;
           if (part.includes('[value=Submit]') && field.value !== 'Submit') return false;
           if (part.includes('[list]') && !field.list) return false;
           if (part.includes(':not([multiple])') && field.multiple) return false;
@@ -30,23 +36,34 @@ function setup(specs, type = '') {
           return true;
         });
       },
-      hasAttribute: name => name === 'data-field-picker' && Boolean(field.fieldPicker),
+      hasAttribute: name => Object.hasOwn(attributes, name),
+      getAttribute: name => attributes[name] ?? null,
+      setAttribute: (name, value) => { attributes[name] = value; },
+      removeAttribute: name => { delete attributes[name]; },
+      after: message => { field.error = message; },
+      scrollIntoView() {},
       dispatchEvent(event) { if (event.type === 'field-picker-open') field.opened = (field.opened ?? 0) + 1; },
-      closest() { return field.lookup ? { querySelector: () => field.button } : null; },
+      closest(selector) {
+        if (selector === '.dispatch-po-field') return field.lookup ? { querySelector: () => field.button } : null;
+        if (selector === '.po-indent-picker') return field.indentToggle ? { querySelector: () => fields.find(item => item.fieldPicker) } : null;
+        return field.matches(selector) ? field : null;
+      },
     };
     if (spec.showPicker !== false && (field.tagName === 'SELECT' || field.list)) field.showPicker = () => { field.opened = (field.opened ?? 0) + 1; };
     return field;
   });
   runInNewContext(source, { document, Event, setTimeout(fn, delay) { const id = ++sequence; timers.set(id, { fn, at: now + delay }); return id; },
     clearTimeout: id => timers.delete(id) });
-  const fire = (name, field, props = {}) => {
+  function fire(name, field, props = {}) {
     const event = { target: field, key: 'Enter', button: 0, pointerType: 'mouse', detail: 1, ...props,
-      preventDefault() { this.defaultPrevented = true; } };
-    if (name === 'pointerdown') documentEvents.pointerdown(event);
-    events[name]?.(event);
+      preventDefault() { this.defaultPrevented = true; }, stopImmediatePropagation() { this.stopped = true; } };
+    if (name === 'pointerdown') for (const handler of documentEvents.pointerdown ?? []) handler(event);
+    for (const capture of [true, false]) for (const listener of events[name] ?? []) {
+      if (!event.stopped && listener.capture === capture) listener.handler(event);
+    }
     if (name === 'pointerdown' && !event.defaultPrevented) field.focus();
     return event;
-  };
+  }
   const click = (field, detail = 1, pointerType = 'mouse') => {
     const down = fire('pointerdown', field, { detail, pointerType });
     fire('click', field, { detail, pointerType });
@@ -78,14 +95,20 @@ test('double Enter opens selects and unnamed lookup suggestions without moving f
   }
 });
 
-test('single-click on a completed focused field moves once; double-click opens its dropdown', () => {
+test('a native dropdown keeps normal single-click opening and never jumps away on click', () => {
   const view = setup([{ tagName: 'SELECT' }, {}]), [choice, next] = view.fields;
   choice.focus();
-  assert.equal(view.click(choice).defaultPrevented, true);
-  view.tick(500); assert.equal(view.document.activeElement, next);
+  assert.equal(view.click(choice).defaultPrevented, undefined, 'native mouse opening must not be suppressed');
+  view.tick(500); assert.equal(view.document.activeElement, choice);
   choice.focus(); view.click(choice); view.tick(200); view.click(choice, 2); view.tick(1000);
   assert.equal(choice.opened, 1);
   assert.equal(view.document.activeElement, choice);
+});
+
+test('one click after completing a focused plain field moves forward', () => {
+  const view = setup([{}, {}]), [field, next] = view.fields;
+  field.focus(); view.click(field); view.tick(500);
+  assert.equal(view.document.activeElement, next);
 });
 
 test('an empty dropdown opens on double-click, while an initial click keeps a field ready to edit', () => {
@@ -105,7 +128,7 @@ test('double actions also open the Delivery Schedule purchase order list', () =>
   assert.equal(view.document.activeElement, lookup);
   view.fire('keydown', lookup); view.fire('keydown', lookup); view.tick(500);
   assert.equal(opened, 1);
-  view.click(lookup); view.click(lookup, 2); view.tick(500);
+  view.fire('dblclick', lookup); view.tick(500);
   assert.equal(opened, 2);
 });
 
@@ -182,6 +205,58 @@ test('the custom PO indent dropdown opens on double Enter and double-click', () 
   const view = setup([{ fieldPicker: true }, {}], 'E2'), [indent] = view.fields;
   indent.focus(); view.fire('keydown', indent); view.fire('keydown', indent); view.tick(500);
   assert.equal(indent.opened, 1); assert.equal(view.document.activeElement, indent);
-  view.click(indent); view.click(indent, 2); view.tick(500);
+  view.fire('dblclick', indent); view.tick(500);
   assert.equal(indent.opened, 2); assert.equal(view.document.activeElement, indent);
+});
+
+test('empty required fields and invalid values cannot be skipped with Enter or Tab', () => {
+  for (const spec of [{ value: '', requiredData: true }, { value: '', required: true }, { validity: { valid: false }, validationMessage: 'Enter a valid quantity.' }]) {
+    for (const key of ['Enter', 'Tab']) {
+      const view = setup([spec, {}]), [field] = view.fields;
+      field.focus(); assert.equal(view.fire('keydown', field, { key }).defaultPrevented, true);
+      view.tick(500); assert.equal(view.document.activeElement, field);
+      assert.equal(field.getAttribute('aria-invalid'), 'true');
+      assert.ok(field.error.textContent);
+    }
+  }
+});
+
+test('mouse, touch, direct focus and paste cannot fill a later field before its required predecessor', () => {
+  for (const action of ['mouse', 'touch', 'focus', 'beforeinput']) {
+    const view = setup([{ requiredData: true, value: '' }, {}, {}]), [first, , later] = view.fields;
+    if (action === 'focus') later.focus();
+    else if (action === 'beforeinput') assert.equal(view.fire('beforeinput', later).defaultPrevented, true);
+    else assert.equal(view.click(later, 1, action === 'touch' ? 'touch' : 'mouse').defaultPrevented, true);
+    assert.equal(view.document.activeElement, first, action);
+    assert.equal(later.value, 'Filled', 'the later value remains untouched');
+  }
+});
+
+test('completing the required field clears the message and unlocks the next field', () => {
+  const view = setup([{ requiredData: true, value: '' }, {}]), [first, next] = view.fields;
+  view.click(next); assert.equal(view.document.activeElement, first);
+  first.value = 'Valid'; view.fire('input', first);
+  assert.equal(first.getAttribute('aria-invalid'), null);
+  assert.equal(first.error.removed, true);
+  view.click(next); assert.equal(view.document.activeElement, next);
+});
+
+test('optional empty fields remain skippable and completed earlier fields remain editable', () => {
+  const view = setup([{ value: '' }, { value: '', requiredData: true }, {}]), [optional, required] = view.fields;
+  optional.focus(); view.fire('keydown', optional); view.tick(500);
+  assert.equal(view.document.activeElement, required);
+  view.click(optional); assert.equal(view.document.activeElement, optional);
+});
+
+test('an empty current dropdown is selectable with one click or double Enter', () => {
+  const view = setup([{ tagName: 'SELECT', value: '', requiredData: true }, {}]), [choice] = view.fields;
+  assert.equal(view.click(choice).defaultPrevented, undefined);
+  view.fire('keydown', choice); view.fire('keydown', choice); view.tick(500);
+  assert.equal(choice.opened, 1); assert.equal(view.document.activeElement, choice);
+});
+
+test('custom dropdown fields open on one click without advancing', () => {
+  const view = setup([{ fieldPicker: true, value: '', requiredData: true }, {}], 'E2'), [choice] = view.fields;
+  view.click(choice); view.tick(500);
+  assert.equal(choice.opened, 1); assert.equal(view.document.activeElement, choice);
 });
