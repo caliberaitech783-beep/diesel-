@@ -87,9 +87,9 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const selectedSite=doc.rev?doc.site:actor.selectedSite??doc.site;
   const current = locationOf(selectedSite);
   const placeFields = doc.rev ? readOnly('Location', locationName(doc.site)) + readOnly('Site', directory.find(row => row.site === doc.site)?.name ?? doc.site)
-    : `<label><span>Location${star}</span><select data-order-location><option value="">Select location</option>${locations.map(location =>
+    : `<label><span>Location${star}</span><select data-order-location data-required="true"><option value="">Select location</option>${locations.map(location =>
         `<option value="${esc(location.name)}"${location === current ? ' selected' : ''}>${esc(location.name)}</option>`).join('')}</select></label>
-      <label><span>Site${star}</span><select data-order-site data-role="${esc(actor.profile)}"><option value="">Select site</option>${directory.map(row =>
+      <label><span>Site${star}</span><select data-order-site data-required="true" data-role="${esc(actor.profile)}"><option value="">Select site</option>${directory.map(row =>
         `<option value="${esc(row.site)}" data-location="${esc(locationName(row.site))}"${row.site === selectedSite ? ' selected' : ''}>${esc(row.name)}</option>`).join('')}</select></label>`;
 
   return `<div class="po-layout">
