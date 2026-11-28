@@ -3,21 +3,18 @@ import test from 'node:test';
 import { once } from 'node:events';
 import { openDieselDatabase } from '../../data/database.mjs';
 import { createLocalWorkspace } from '../local-workspace/app.mjs';
-import { entryCreationSites, newEntryPath } from './entry-creation.mjs';
-import { entryStartPage } from './entry-actions.mjs';
+import { entryCreationContext } from './entry-creation.mjs';
+import { newEntryLink } from './entry-actions.mjs';
 import { byId } from './catalog.mjs';
 import { roleKey } from './review-masters.mjs';
 
 test('New entry uses only verified maker grants without choosing a site by default', () => {
   const actor={id:'manager',site:'Jayant',selectedSite:'',profile:roleKey('Project Manager'),
     assignments:[{site:'Jayant',profile:roleKey('Project Manager')},{site:'Sasti',profile:roleKey('Site In-charge')}]};
-  assert.equal(newEntryPath(actor,byId.E1),'/entries/start/E1');
-  assert.deepEqual(entryCreationSites(actor,byId.E1).map(row=>row.site),['Sasti']);
-  const html=entryStartPage(actor,byId.E1);
-  const form=html.match(/<form[^>]*class="entry-start-form">[\s\S]*?<\/form>/)[0];
-  assert.match(form,/<option value="" selected>Select a site<\/option>/);
-  assert.doesNotMatch(form,/<option value="Jayant"/);
-  assert.deepEqual(entryCreationSites(actor,byId.E2),[]);
+  assert.deepEqual(entryCreationContext(actor,byId.E1),{site:'Sasti',role:roleKey('Site In-charge')});
+  assert.match(newEntryLink(actor,byId.E1),/method="post" action="\/entries\/start\/E1"/);
+  assert.doesNotMatch(newEntryLink(actor,byId.E1),/<select/);
+  assert.equal(entryCreationContext(actor,byId.E2),null);
 });
 
 test('indent New entry and Approval stay available on new forms and after successive saves',async t=>{
@@ -50,6 +47,14 @@ test('indent New entry and Approval stay available on new forms and after succes
     options(await (await get('/entries/record/'+id)).text());
   }
   assert.notEqual(ids[0],ids[1]);
-  assert.equal((await get('/entries/start/E2')).status,200);
+  assert.equal((await get('/entries/start/E2')).status,303);
   assert.equal((await get('/entries/new/E2')).status,403,'the start option does not bypass the maker role');
+  const opened=await fetch(origin+'/entries/start/E2',{method:'POST',redirect:'manual',headers:{Origin:origin}});
+  assert.equal(opened.status,303);
+  assert.equal(opened.headers.get('location'),'/entries/new/E2');
+  const nextCookie=opened.headers.get('set-cookie').split(';')[0];
+  const nextHtml=await (await fetch(origin+opened.headers.get('location'),{headers:{Cookie:nextCookie}})).text();
+  assert.match(nextHtml,/id="entry-form"[^>]*data-type="E2"/);
+  assert.doesNotMatch(nextHtml,/Choose a site to start|entry-start-form/);
+  assert.match(nextHtml,/<option value="" selected>Select a site<\/option>/,'no site is selected by clicking New entry');
 });

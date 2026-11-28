@@ -76,7 +76,7 @@ Sign-in opens the Dashboard for users of the assigned or shared workspace. Dashb
 
 The top-right control selects a site only; it starts at **Select a site** and retains a site you explicitly choose during the session. Pulse still determines your role and permitted sites. With no site filter selected, Dashboard and Workspace show the accessible sites together. New indent and purchase-order site fields start blank; saved records keep their site.
 
-Every Workspace module has **New entry**. If it needs another maker assignment, choose from the sites permitted by Pulse. The indent's **Options** dropdown offers **New entry** and **Approval**; New entry also remains available after saving an indent.
+Every Workspace module has **New entry**, which opens the form directly using a permitted maker assignment. The indent page's **Options** dropdown offers **New entry** and **Approval**; New entry also remains available after saving an indent.
 
 Run `npm test` to check Item Master saves, local review, the form previews, and Pulse sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`. Master definitions are registered in `src/features/masters/catalog.mjs`.
 

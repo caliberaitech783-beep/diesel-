@@ -26,7 +26,8 @@ test('the workspace groups every menu entry under the department headings and ke
   assert.match(html, /<section class="ws-group cat-buy"><h2><span class="ws-icon small">.*?<\/span>BUY<\/h2>/s);
   assert.match(html, /<a class="ws-card-open" href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b><\/span>/);
   assert.match(html, /<a class="ws-new" href="\/entries\/new\/E2" title="Start a new Purchase order">New entry<\/a>/);
-  assert.match(html, /class="ws-new" href="\/entries\/start\/E7"/, 'another module keeps its New entry option and checks the required assignment');
+  assert.match(html, /method="post" action="\/entries\/start\/E7"><button class="ws-new"/, 'another module opens its form through a verified assignment');
+  assert.doesNotMatch(html,/entry-action-menu/,'Workspace has no Options button');
   assert.equal((html.match(/class="ws-new"/g)??[]).length, placed.length, 'every workspace module has New entry');
   assert.ok(html.includes('id="workspace-filter"') && html.indexOf('>BUY<') < html.indexOf('>RECEIVE<') && html.indexOf('>RECEIVE<') < html.indexOf('>CONTROL<'), 'categories stay in work order');
   // The menu and the search box reach the new pages from any entry page.
