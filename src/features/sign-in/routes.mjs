@@ -266,7 +266,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     if (request.get('origin') !== publicUrl.origin) return response.sendStatus(403);
     const grant = readCookie(request, sessionCookie);
     sessions.forget(grant);
-    if (configured && isProof(grant)) await pulse.request('revoke', { grant });
+    // signOut: the person pressed Sign out here, which signs out of Pulse, MIS and HR Pulse too
+    // (owner, 28 Nov 2026). The revoke after a refused sign-in above does not carry it.
+    if (configured && isProof(grant)) await pulse.request('revoke', { grant, signOut: true });
     response.clearCookie(sessionCookie, options);
     for(const cookie of siteContextCookies(secure))response.clearCookie(cookie,options);
     response.redirect(303, pulseOrigin.origin + '/');

@@ -71,6 +71,8 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
           : Response.json({ profile: { login: 'test', name: '<Operator>' } });
       }
       assert.ok(url.pathname.endsWith('/revoke'));
+      // Sign out in Diesel signs out of Pulse, MIS and HR Pulse too (owner, 28 Nov 2026).
+      assert.equal(data.signOut, true);
       revoked = true;
       return new Response(null, { status: 204 });
     },
