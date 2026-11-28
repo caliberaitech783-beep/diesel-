@@ -278,7 +278,6 @@ section.ws-group { margin: 0 0 22px; padding: 0; border: 0; background: none; bo
 #masters-sidebar .sidebar-hide[hidden] { display: none; } #masters-sidebar .sidebar-hide:hover { color: #fff; border-color: #5b8cff; }
 #masters-sidebar .sidebar-tools { flex-wrap: wrap; }
 [data-sidebar-toggle][hidden] { display: none; }
-@media (max-width: 860px) { .rail #rail-toggle { display: none; } }
 #masters-sidebar .sidebar-tools { display: flex; align-items: center; gap: 8px; }
 
 /* All entries: a tab for each kind of entry that has records */
