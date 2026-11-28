@@ -82,6 +82,8 @@ Purchase orders use `CMLL/<site initials>/PO/<financial year>/<sequence>` in bot
 
 Delivery Schedules use `CMLL/<site initials>/DS/<financial year>/<sequence>`, for example `CMLL/JOC/DS/26-27/001`, with a separate sequence for each site and April–March year. Saving a valid schedule assigns its unique number; drafts remain unnumbered and existing assigned numbers stay intact.
 
+In Delivery Schedule, choosing a parent Location opens **List of Purchase Orders** with PO No., PO Date and Diesel Qty across its permitted sites. Selecting an approved PO fills DSL Qty from the PO and saves the schedule at that PO's site. Existing approval, date and remaining-quantity checks apply. Delivery Address is omitted from Delivery Schedule forms, views and exports.
+
 Run `npm test` to check Item Master saves, local review, the form previews, and Pulse sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`. Master definitions are registered in `src/features/masters/catalog.mjs`.
 
 ## Deploy

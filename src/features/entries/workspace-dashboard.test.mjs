@@ -244,8 +244,8 @@ test('downloads carry the form fields and the creation time, and a printed recor
     number: 'E4-JAY-2026-0001', created: '2026-11-27T11:10:00.000Z', createdBy: 'SIDDHARTH HOONKA' };
   const indent = { ...row('E1', '2026-11-27', 'Posted', { sanctioned: 5555, stock: { 'Tank and bowser stock (L)': 9 } }, { litres: 5000, unit: 'Litre', priority: 'Normal', requiredBy: 2 }), id: 'in', number: 'CMLL/JOC/IND/26-27/001', created: '2026-11-27T11:10:00.000Z' };
   const one = entryExportRows([schedule], [schedule, order]);
-  assert.deepEqual(one[0], ['Document', 'Date', 'Status', 'Site', 'Purchase order', 'Delivery date', 'Delivery location', 'Delivery address', 'Item name', 'DSL Qty (L)', 'Vehicle No.', 'Transporter', 'Creation Date', 'Creation Time', 'Created By']);
-  assert.deepEqual(one[1], ['E4-JAY-2026-0001', '2026-11-27', 'Posted', 'Jayant', 'CMLL/CMP/PO/26-27/001', '2026-11-28', 'CMPL Chandrapur', 'Chandrapur', 'Diesel', 300, 'MH34BZ4330', 'ASHOK ROADWAYS', '27-Nov-2026', '04:40 PM', 'SIDDHARTH HOONKA']);
+  assert.deepEqual(one[0], ['Document', 'Date', 'Status', 'Site', 'Purchase order', 'Location', 'Delivery date', 'Delivery location', 'Item name', 'DSL Qty (L)', 'Vehicle No.', 'Transporter', 'Creation Date', 'Creation Time', 'Created By']);
+  assert.deepEqual(one[1], ['E4-JAY-2026-0001', '2026-11-27', 'Posted', 'Jayant', 'CMLL/CMP/PO/26-27/001', '', '2026-11-28', 'CMPL Chandrapur', 'Diesel', 300, 'MH34BZ4330', 'ASHOK ROADWAYS', '27-Nov-2026', '04:40 PM', 'SIDDHARTH HOONKA']);
   const indents = entryExportRows([indent]);
   assert.ok(indents[0].includes('Sanction quantity') && indents[1].includes(5555) && indents[0].includes('Status'));
   assert.ok(!JSON.stringify(indents).includes('Tank and bowser stock'), 'no site stock in a download');

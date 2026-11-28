@@ -2,6 +2,7 @@ import { formatIndentNumber } from './indent-details.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
 import { entryCreationContext, mayStartEntry } from './entry-creation.mjs';
+import { deliveryScheduleSites, deliveryScheduleOrders, deliveryScheduleSelection } from './delivery-schedule-orders.mjs';
 import { shellParts } from './entry-shell.mjs';
 import { pendingWork, searchRecords } from './record-search.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
@@ -122,6 +123,22 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     for (const place of places) for (const doc of store.list(place)) if (canRead(doc,{...actor,site:place})) found.set(doc.id,doc);
     return [...found.values()];
   };
+  const scheduleRecords=actor=>{
+    const rows=new Map();
+    for(const site of deliveryScheduleSites(actor)) {
+      carryApprovals(site);
+      for(const row of store.list(site)) rows.set(row.id,row);
+    }
+    return [...rows.values()];
+  };
+  router.get('/delivery-schedule/orders.json',(req,res)=>{
+    if (!allowedType('E4')) return res.sendStatus(404);
+    const actor=req.dieselActor;
+    if (!mayStartEntry(actor,byId.E4)) return res.sendStatus(403);
+    const rows=scheduleRecords(actor), existing=rows.find(row=>row.id===req.query.record&&row.type==='E4');
+    res.set('Cache-Control','no-store').json(deliveryScheduleOrders(actor,rows,{location:req.query.location,
+      day:typeof req.query.day==='string'?req.query.day:actor.businessDay,recordId:existing?.id,savedSite:existing?.site}));
+  });
   // What is waiting for this person at their site: approvals to give, and their own returned or draft entries.
   const waitingFor = actor => {
     const rows=withApproval(store.list(actor.site),actor).filter(doc=>canRead(doc,actor));
@@ -329,7 +346,16 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
       return res.status(422).json({error:'This purchase order is approved or declined by the people on the purchase order approver list.'});
     }
     try {
-      const doc=store.write(req.params.id,actor,req.body);
+      let writer=actor;
+      if(req.body.type==='E4' && ['Submit','Save draft'].includes(req.body.action) && req.body.data?.po) {
+        const rows=scheduleRecords(actor), existing=rows.find(row=>row.id===req.params.id);
+        if(existing&&existing.type!=='E4') throw Error('Choose a Delivery Schedule entry.');
+        writer=deliveryScheduleSelection(actor,rows,{po:req.body.data.po,location:req.body.data.location,day:req.body.day,
+          recordId:existing?.id,savedSite:existing?.site,requireSelectable:req.body.action==='Submit'});
+        if((writer.site!==actor.site||writer.profile!==actor.profile)&&!req.activateEntryContext) throw Error('Open the Delivery Schedule from its permitted site.');
+      }
+      const doc=store.write(req.params.id,writer,req.body);
+      if(doc.type==='E4'&&(writer.site!==actor.site||writer.profile!==actor.profile)) req.activateEntryContext({site:writer.site,role:writer.profile});
       // A saved indent goes to its approvers on Telegram. Delivery never holds up or fails the save.
       if (req.body.action==='Save indent' && doc.type==='E1') indentApproval?.requested(doc);
       // A saved purchase order goes to its own approvers with its PDF. Taking it back to edit withdraws the request.
