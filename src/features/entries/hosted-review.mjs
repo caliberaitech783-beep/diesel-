@@ -19,6 +19,7 @@ import { createLocationsFromPulseSites } from '../masters/pulse-site-locations.m
 import { createPulseMasterStore } from '../pulse-masters/pulse-master-store.mjs';
 import { readEntrySiteDirectory } from './entry-site-directory.mjs';
 import { indentRequester } from './indent-requester.mjs';
+import { siteContextChoice } from './site-selection.mjs';
 
 const profiles = new Set([...roles.map(roleKey), 'entry-deputy']);
 function reviewActor(site, profile) {
@@ -146,6 +147,7 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       req.dieselActor = live ?? (assigned && !trial ? null
         : reviewActor(sites.includes(site)||directory.some(row=>row.site===site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
+      req.dieselActor.selectedSite=site===req.dieselActor.site&&role===req.dieselActor.profile?site:'';
       req.dieselActor.offlineScope = owner;
       req.dieselActor.requestedBy=profile.name||profile.login;
       req.dieselActor.login=profile.login.trim().toLowerCase();
@@ -166,9 +168,8 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
     } catch { res.status(503).send('Pulse sign-in is temporarily unavailable.'); }
   };
   app.post('/workspace/role',gate,express.urlencoded({extended:false,limit:'2kb'}),(req,res)=>{
-    const { assignment, returnTo } = req.body ?? {};
-    const selected = req.dieselActor.assignments?.find(grant => grant.key === assignment);
-    const { site, role } = selected ? { site: selected.site, role: selected.profile } : (req.body ?? {});
+    const { returnTo } = req.body ?? {};
+    const { site, role } = siteContextChoice(req.dieselActor,req.body);
     if (!canChooseRole(req.dieselActor, site, role)) return res.sendStatus(assigned && !req.dieselActor.trial ? 403 : 400);
     res.cookie(cookie,site+'.'+role,{httpOnly:true,secure,sameSite:'strict',path:'/'});
     const target=typeof returnTo==='string' && /^\/entries(?:\/[a-zA-Z0-9-]+)*$/.test(returnTo) ? returnTo:'/entries';

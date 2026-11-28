@@ -111,7 +111,11 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),null,req.query,sources));
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
-  router.get('/workspace',(req,res)=>res.send(workspacePage(req.dieselActor,visibleRecords(req.dieselActor),req.query)));
+  router.get('/workspace',(req,res)=>{
+    const actor=req.dieselActor;
+    const rows=actor.selectedSite===''?recordsOf(actor,openSites(actor).map(([site])=>site)):visibleRecords(actor);
+    res.send(workspacePage(actor,rows,req.query));
+  });
   // The sites this person may open, and the saved entries of some of them without repeats.
   const openSites = actor => entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
   const recordsOf = (actor,places) => {
@@ -141,7 +145,8 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   // The dashboard reads the saved entries of one site, or of every site this person may open.
   router.get('/dashboard',(req,res)=>{
     const actor=req.dieselActor, sites=openSites(actor);
-    const site=sites.some(([value])=>value===req.query.site)?req.query.site:'all', chosen=site==='all'?sites.map(([value])=>value):[site];
+    const requested=req.query.site??actor.selectedSite??'';
+    const site=requested==='all'||sites.some(([value])=>value===requested)?requested:'', chosen=!site||site==='all'?sites.map(([value])=>value):[site];
     const found=new Map(recordsOf(actor,chosen).map(doc=>[doc.id,doc]));
     // Stock is shown only where a site's real opening stock is set up; review sample stock is never presented as a figure.
     const stock=opening ? chosen.flatMap(place=>{
@@ -151,7 +156,8 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
         return [{site:place,litres:picture['Tank and bowser stock (L)'],daily:picture['Average daily issue (L)']}];
       } catch { return []; }
     }) : [];
-    res.send(dashboardPage(actor,[...found.values()],req.query,{sites,site,stock,today:actor.businessDay??store.dayFor(actor.site),waiting:waitingFor(actor)}));
+    const waiting=actor.selectedSite===''?undefined:waitingFor(actor);
+    res.send(dashboardPage(actor,[...found.values()],req.query,{sites,site,stock,today:actor.businessDay??store.dayFor(actor.site),waiting}));
   });
   // Shift and stock for the role home screen. Stock waits until the site's opening stock is set up.
   function siteToday(actor) {

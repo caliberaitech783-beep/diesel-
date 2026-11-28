@@ -98,11 +98,11 @@ const panel = (title, note, body, wide = '') => `<section class="dash-card${wide
 // sites: [[value, name]] this person may look at. rows already hold only the chosen sites' entries.
 export function dashboardPage(actor, rows, query, { sites, site, stock, today, waiting }) {
   const range = period(query, today), tab = tabs.some(([id]) => id === query.tab) ? query.tab : 'overview';
-  const figures = dashboardFigures(rows, range, stock), all = site === 'all';
+  const figures = dashboardFigures(rows, range, stock), all = !site || site === 'all';
   // The period of the same length just before, for the change shown on each card.
   const before = dashboardFigures(rows, previousPeriod(range));
   // A card opens that entry's register for the same dates and the same site or sites the Dashboard is showing.
-  const register = type => '/entries/type/' + type + '?' + new URLSearchParams({ from: range.from, to: range.to, ...(site === actor.site ? {} : { sites: site }) });
+  const register = type => '/entries/type/' + type + '?' + new URLSearchParams({ from: range.from, to: range.to, ...(site === actor.site ? {} : { sites: site||'all' }) });
   const work = waiting ? `<section class="dash-card span-3 dash-work"><h2>Waiting for you</h2><p class="dash-note">At ${esc(actor.site)}</p><div class="work-links">
       <a href="/entries/approvals"${waiting.approvals ? ' class="has-work"' : ''}><b>${waiting.approvals}</b>Approvals to give</a>
       <a href="/entries?status=Returned"${waiting.returned ? ' class="has-work"' : ''}><b>${waiting.returned}</b>Returned to you</a>
@@ -125,7 +125,7 @@ export function dashboardPage(actor, rows, query, { sites, site, stock, today, w
   const body = `<form class="dash-filter" method="get" action="/entries/dashboard"><input type="hidden" name="tab" value="${esc(tab)}">
       <div class="dash-presets" role="group" aria-label="Period">${presets(today).map(preset => `<a href="${esc(link({ preset: preset.id, from: '', to: '' }))}"${preset.id === range.preset ? ' aria-current="true"' : ''}>${esc(preset.label)}</a>`).join('')}</div>
       <label class="dash-range">From<input type="date" name="from" value="${esc(range.from)}" max="${esc(today)}"></label><label class="dash-range">To<input type="date" name="to" value="${esc(range.to)}" max="${esc(today)}"></label>
-      <label class="dash-range">Site<select name="site">${option('all', 'All sites', all)}${sites.map(([value, name]) => option(value, name, value === site)).join('')}</select></label>
+      <label class="dash-range">Site<select name="site">${option('','Select a site',!site)}${option('all', 'All sites', site==='all')}${sites.map(([value, name]) => option(value, name, value === site)).join('')}</select></label>
       <button class="primary">Show</button></form>
     <nav class="dash-tabs" aria-label="Dashboard sections">${tabs.map(([id, label, icon]) => `<a href="${esc(link({ tab: id }))}"${id === tab ? ' aria-current="page"' : ''}>${icons[icon]}<span>${esc(label)}</span></a>`).join('')}</nav>
     <div class="kpi-grid">${cards(tab, figures, before, register)}</div>
