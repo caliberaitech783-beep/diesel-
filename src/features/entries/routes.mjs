@@ -114,9 +114,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
   router.get('/workspace',(req,res)=>{
-    const actor=req.dieselActor;
-    const rows=actor.selectedSite===''?recordsOf(actor,openSites(actor).map(([site])=>site)):visibleRecords(actor);
-    res.send(workspacePage(actor,rows,req.query));
+    res.send(workspacePage(req.dieselActor));
   });
   // The sites this person may open, and the saved entries of some of them without repeats.
   const openSites = actor => entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
