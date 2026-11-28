@@ -1,8 +1,7 @@
 import { formatIndentNumber } from './indent-details.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
-import { entryStartPage } from './entry-actions.mjs';
-import { mayStartEntry } from './entry-creation.mjs';
+import { entryCreationContext, mayStartEntry } from './entry-creation.mjs';
 import { shellParts } from './entry-shell.mjs';
 import { pendingWork, searchRecords } from './record-search.mjs';
 import { dashboardPage } from './dashboard-page.mjs';
@@ -114,9 +113,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
   });
   router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
   router.get('/workspace',(req,res)=>{
-    const actor=req.dieselActor;
-    const rows=actor.selectedSite===''?recordsOf(actor,openSites(actor).map(([site])=>site)):visibleRecords(actor);
-    res.send(workspacePage(actor,rows,req.query));
+    res.send(workspacePage(req.dieselActor));
   });
   // The sites this person may open, and the saved entries of some of them without repeats.
   const openSites = actor => entrySiteDirectory(actor).filter(row=>row.allowed!==false).map(row=>[row.site,row.name]);
@@ -198,7 +195,15 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const module=byId[req.params.type], actor=req.dieselActor;
     if (!allowedType(req.params.type) || !module.maker) return res.sendStatus(404);
     if (mayStartEntry(actor,module)) return res.redirect(303,'/entries/new/'+module.id);
-    res.send(entryStartPage(actor,module));
+    res.redirect(303,'/entries/workspace');
+  });
+  router.post('/start/:type',(req,res)=>{
+    const module=byId[req.params.type], actor=req.dieselActor;
+    if (!allowedType(req.params.type) || !module.maker) return res.sendStatus(404);
+    const context=entryCreationContext(actor,module);
+    if (!context) return res.status(403).send('Your account has no maker assignment for this module.');
+    if (!mayStartEntry(actor,module) && !req.activateEntryContext?.(context)) return res.sendStatus(403);
+    res.redirect(303,'/entries/new/'+module.id);
   });
   router.get('/new/:type',(req,res)=>{
     const a=req.dieselActor, t=byId[req.params.type];

@@ -33,13 +33,20 @@ export function registerLocalSession(app) {
     const cookie = (request.get('cookie') || '').split(';').map(value => value.trim()).find(value => value.startsWith('diesel_local='));
     let context='';
     try { context=decodeURIComponent(cookie?.slice('diesel_local='.length) || ''); } catch { /* Ignore a damaged cookie. */ }
-    const [role, site, mac] = context.split('.');
+    const [role, site, mac, siteFilter] = context.split('.');
     const expected = signature(role + '.' + site);
     const valid = Object.hasOwn(profiles, role) && sites.includes(site) && mac?.length === expected.length
       && /^[a-zA-Z0-9_-]+$/.test(mac) && timingSafeEqual(Buffer.from(expected), Buffer.from(mac));
     const key = valid ? role : 'maker';
     const activeSite = valid ? site : sites[0];
-    request.dieselActor = { id: activeSite + '-' + key, profile:key, role: profiles[key].name, site: activeSite, selectedSite:valid?activeSite:'', ...profiles[key] };
+    request.dieselActor = { id: activeSite + '-' + key, profile:key, role: profiles[key].name, site: activeSite, selectedSite:valid&&siteFilter!=='unfiltered'?activeSite:'', ...profiles[key] };
+    request.activateEntryContext=({site:nextSite,role:nextRole})=>{
+      if (!Object.hasOwn(profiles,nextRole)||!sites.includes(nextSite)) return false;
+      const value=nextRole+'.'+nextSite;
+      const suffix=request.dieselActor.selectedSite===nextSite?'':'.unfiltered';
+      response.cookie('diesel_local',value+'.'+signature(value)+suffix,{httpOnly:true,sameSite:'strict',path:'/'});
+      return true;
+    };
     next();
   });
   app.get(['/login', '/workspace'], (request, response) => {

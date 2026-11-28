@@ -135,19 +135,25 @@ export function registerHostedReview(app, { directory, publicOrigin, getProfile,
       const stored = (req.get('cookie') ?? '').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookie+'='))?.slice(cookie.length+1);
       let context;
       try { if (stored) context = decodeURIComponent(stored); } catch { /* Ignore damaged context cookies. */ }
-      const [site,role] = (context ?? '').split('.');
+      const [site,role,siteFilter] = (context ?? '').split('.');
       const pulseOutcome = siteStock ? locationsFromPulse(profile) : null;
       const locations = siteStock ? approvedLocationDirectory(siteMasterDb) : [];
       // A person with no Entry role at an approved site works in the trial workspace, which everyone in the trial shares:
       // a record one person saves is seen by all of them.
       // It never touches the live ledger, and live Entry opens for them once Pulse assigns a role at an approved site.
-      const live = assigned && (!siteStock || locations.length) ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), context) : null;
+      const live = assigned && (!siteStock || locations.length) ? assignedEntryActor(profile, entryAssignments(profile,siteStock,locations), site+'.'+role) : null;
       const trial = siteStock && !live;
       const directory = readEntrySiteDirectory(siteMasterDb,locations);
       req.dieselActor = live ?? (assigned && !trial ? null
         : reviewActor(sites.includes(site)||directory.some(row=>row.site===site)?site:sites[0],profiles.has(role)?role:roleKey('Site In-charge')));
       if (!req.dieselActor) return res.status(403).send('Your Pulse account needs a Diesel Entry role for an approved site.');
-      req.dieselActor.selectedSite=site===req.dieselActor.site&&role===req.dieselActor.profile?site:'';
+      req.dieselActor.selectedSite=siteFilter!=='unfiltered'&&site===req.dieselActor.site&&role===req.dieselActor.profile?site:'';
+      req.activateEntryContext=({site:nextSite,role:nextRole})=>{
+        if (!canChooseRole(req.dieselActor,nextSite,nextRole)) return false;
+        const suffix=req.dieselActor.selectedSite===nextSite?'':'.unfiltered';
+        res.cookie(cookie,nextSite+'.'+nextRole+suffix,{httpOnly:true,secure,sameSite:'strict',path:'/'});
+        return true;
+      };
       req.dieselActor.offlineScope = owner;
       req.dieselActor.requestedBy=profile.name||profile.login;
       req.dieselActor.login=profile.login.trim().toLowerCase();

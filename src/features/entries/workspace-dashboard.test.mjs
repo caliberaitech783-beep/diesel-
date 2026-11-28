@@ -18,15 +18,16 @@ test('the workspace groups every menu entry under the department headings and ke
   const placed = list.flatMap(category => category.modules.map(module => module.id));
   assert.equal(new Set(placed).size, placed.length);
   assert.ok(!placed.includes('E5') && !placed.includes('E6') && placed.length === 17, 'every entry except the gate entry and the separate inspection has one place');
-  // One page of cards under category headings: the count, anything waiting, the register, and a new entry for the maker.
+  // The workspace keeps names and actions without small explanatory lines.
   const buyer = { ...actor, profile: roleKey('Procurement Executive') };
   const html = workspacePage(buyer, [row('E2', '2026-11-27', 'Posted'), { ...row('E2', '2026-11-26', 'Awaiting approval'), id: 'w' }, { ...row('E2', '2026-11-25', 'Returned'), id: 'r' }, { ...row('E2', '2026-11-24', 'Draft'), id: 'd', rev: 0 }]);
   assert.match(html, /<h1>Workspace<\/h1>/);
-  assert.match(html, /17 entries · everything the department records/);
-  assert.match(html, /<section class="ws-group cat-buy"><h2><span class="ws-icon small">.*?<\/span>BUY<small>Requirement, ordering, payment and tanker allocation<\/small><\/h2>/s);
-  assert.match(html, /<a class="ws-card-open" href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b><small>3 records<\/small>\s*<em class="ws-badge">1 awaiting approval<\/em><em class="ws-badge returned">1 returned<\/em>/);
+  assert.doesNotMatch(html, /everything the department records|Requirement, ordering, payment and tanker allocation|ws-badge|<small>3 records/);
+  assert.match(html, /<section class="ws-group cat-buy"><h2><span class="ws-icon small">.*?<\/span>BUY<\/h2>/s);
+  assert.match(html, /<a class="ws-card-open" href="\/entries\/type\/E2">[\s\S]*?<b>Purchase order<\/b><\/span>/);
   assert.match(html, /<a class="ws-new" href="\/entries\/new\/E2" title="Start a new Purchase order">New entry<\/a>/);
-  assert.match(html, /class="ws-new" href="\/entries\/start\/E7"/, 'another module keeps its New entry option and checks the required assignment');
+  assert.match(html, /method="post" action="\/entries\/start\/E7"><button class="ws-new"/, 'another module opens its form through a verified assignment');
+  assert.doesNotMatch(html,/entry-action-menu/,'Workspace has no Options button');
   assert.equal((html.match(/class="ws-new"/g)??[]).length, placed.length, 'every workspace module has New entry');
   assert.ok(html.includes('id="workspace-filter"') && html.indexOf('>BUY<') < html.indexOf('>RECEIVE<') && html.indexOf('>RECEIVE<') < html.indexOf('>CONTROL<'), 'categories stay in work order');
   // The menu and the search box reach the new pages from any entry page.
