@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { createPulseClient, isProof, newProof, sameProof } from './pulse-client.mjs';
+import { createSessionValidation } from './session-validation.mjs';
 import { loginPage, signInPage } from './page.mjs';
 import { registerItemSubmissions } from '../masters/item-submission-routes.mjs';
 import { registerHostedReview } from '../entries/hosted-review.mjs';
@@ -86,6 +87,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     secret: env.DIESEL_SSO_CLIENT_SECRET,
     fetcher,
   });
+  const sessions = createSessionValidation({ validate: grant => pulse.request('validate', { grant }) });
   const page = (response, status, data = {}) => response.status(status).type('html').send(signInPage(data));
   const route = handler => async (request, response) => {
     try {
@@ -105,7 +107,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
 
   function verifySession(request) {
     const grant = readCookie(request, sessionCookie);
-    return configured && isProof(grant) ? pulse.request('validate', { grant }) : null;
+    return configured ? sessions.verify(request, grant) : null;
   }
 
   let pulseMasterCopies, pulseMasterAccess;
@@ -246,6 +248,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
       return page(response, 403, { message: denied });
     }
     response.cookie(sessionCookie, result.grant, options);
+    sessions.remember(result.grant, verified);
     // A fresh plain sign-in starts with no remembered site. Explicit workflow
     // destinations keep their existing context so deep links still reopen.
     if(!destination)for(const cookie of siteContextCookies(secure))response.clearCookie(cookie,options);
@@ -262,6 +265,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   app.post('/api/sign-out', route(async (request, response) => {
     if (request.get('origin') !== publicUrl.origin) return response.sendStatus(403);
     const grant = readCookie(request, sessionCookie);
+    sessions.forget(grant);
     if (configured && isProof(grant)) await pulse.request('revoke', { grant });
     response.clearCookie(sessionCookie, options);
     for(const cookie of siteContextCookies(secure))response.clearCookie(cookie,options);

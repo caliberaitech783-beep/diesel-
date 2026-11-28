@@ -70,6 +70,8 @@ Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://127.0.0.1:3000
 
 To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret. Open Diesel to enter Pulse with Diesel selected. If prompted, complete the Pulse sign-in requirements before continuing to Diesel.
 
+The callback's verified Pulse profile is reused once for the landing page within five seconds. Multiple handlers in one request share a verification. Later page requests, saves and approvals verify with Pulse again, with no fallback to a previous profile if validation fails.
+
 Sign-in opens the Dashboard for users of the assigned or shared workspace. Dashboard and Workspace open with the side menu expanded; opening an entry register or form collapses it. Use **Show menu** or **Hide menu** to change it on the current page.
 
 The top-right control selects a site only; it starts at **Select a site** and retains a site you explicitly choose during the session. Pulse still determines your role and permitted sites. With no site filter selected, Dashboard and Workspace show the accessible sites together. New indent and purchase-order site fields start blank; saved records keep their site.
@@ -81,7 +83,7 @@ Run `npm test` to check Item Master saves, local review, the form previews, and 
 Production runs on `caliber-diesel-783` in `caliber-diesel-rg`. It shares the Central India P2v3 plan with Pulse Fleet and the HR API. Hostinger handles the DNS for `pulse-lll.cmll.in`. Azure supplies the HTTPS certificate.
 
 1. Merge the tested change into `main`.
-2. The merge starts **Test and deploy Diesel** in [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml), which tests, builds and deploys that commit in about two minutes; wait for the `deploy` job. To redeploy without a new commit, choose **Run workflow** on `main`, or run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
+2. The merge starts **Test and deploy Diesel** in [GitHub Actions](https://github.com/caliberaitech783-beep/diesel-/actions/workflows/azure.yml). Its **Test and build** job installs once, tests, builds, packages the tested production dependencies and deploys on the same runner; wait for **Verify deployed commit and Diesel access**. Releases run one at a time, and obsolete pending releases are replaced. Do not start another workflow after a merge. To redeploy without a new commit, choose **Run workflow** on `main`, or run `gh workflow run azure.yml --ref main --repo caliberaitech783-beep/diesel-`.
 3. Check that the workflow verified the expected commit and `sharedMasters: ready` at the [production health endpoint](https://pulse-lll.cmll.in/healthz). With an assigned Master Maker and a separate Master Checker, verify save and approval at the same site.
 
 If the GitHub deployment workflow is unavailable, select **Sync** in the Diesel app’s Azure Deployment Center. Confirm the expected commit in the deployment log and check that the live site responds.

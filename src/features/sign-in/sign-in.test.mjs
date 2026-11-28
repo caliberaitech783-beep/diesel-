@@ -44,7 +44,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
   const grant = 'g'.repeat(43);
   const code = 'c'.repeat(43);
   const origin = 'https://diesel.test';
-  let started, exchanged, revoked;
+  let started, exchanged, revoked, validations = 0;
   const app = createApp({
     env: {
       DIESEL_ACCESS_MODE: 'pulse',
@@ -66,6 +66,7 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
       }
       assert.equal(data.grant, grant);
       if (url.pathname.endsWith('/validate')) {
+        validations++;
         return revoked ? new Response(null, { status: 401 })
           : Response.json({ profile: { login: 'test', name: '<Operator>' } });
       }
@@ -97,12 +98,17 @@ test('Pulse authorization creates a Diesel session, rejects cross-browser callba
     assert.equal(finish.headers.get('location'), '/');
     const sessionHeader = finish.headers.getSetCookie().find(header => header.startsWith('__Host-diesel_session='));
     assert.match(sessionHeader, /HttpOnly; Secure; SameSite=Lax/);
+    assert.equal(validations, 1, 'the callback verifies the exchanged grant');
     const Cookie = sessionHeader.split(';', 1)[0];
     const profile = await request('/?master=shift-master', { headers: { Cookie } });
     const profilePage = await profile.text();
     assert.match(profilePage, /Signed in as &lt;Operator&gt;/);
     assert.match(profilePage, /<h1[^>]*>Shift Master<\/h1>/);
     assert.doesNotMatch(profilePage, /Form preview|Use sample details/);
+    assert.equal(validations, 1, 'the landing page reuses the callback verification');
+
+    await request('/?master=shift-master', { headers: { Cookie } });
+    assert.equal(validations, 2, 'subsequent pages check Pulse again');
 
     const catalog = await (await request('/', { headers: { Cookie } })).text();
     const loginPath = catalog.match(/href="([^"]+)" aria-label="Back to login"/)?.[1];
