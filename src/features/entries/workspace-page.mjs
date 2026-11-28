@@ -1,23 +1,21 @@
 // Diesel Workspace: every entry as a card under its category heading, in the order the work is done.
 // Each card shows the entry's record count and anything waiting, opens its register, and can start a new entry.
 import { esc, page } from './entry-shell.mjs';
-import { entryRole } from './review-masters.mjs';
+import { newEntryLink, indentActionMenu } from './entry-actions.mjs';
 import { icons, workspaceFor } from './workspace-map.mjs';
 
 const plural = (count, word) => count + ' ' + word + (count === 1 ? '' : 's');
 
 export function workspacePage(actor, rows) {
-  const list = workspaceFor(actor), saved = rows.filter(row => row.rev > 0), role = entryRole(actor);
+  const list = workspaceFor(actor), saved = rows.filter(row => row.rev > 0);
   const count = (type, test = () => true) => saved.filter(row => row.type === type && test(row)).length;
-  // The same rule as the register's "New entry" button: the entry's maker role starts it.
-  const mayStart = module => module.maker && (module.maker === role || module.id === 'E16' || (module.id === 'E15' && role === 'Site Store'));
   const card = module => {
     const waiting = count(module.id, row => row.status === 'Awaiting approval'), returned = count(module.id, row => row.status === 'Returned');
     return `<div class="ws-card" data-name="${esc(module.name.toLowerCase() + ' ' + module.about.toLowerCase())}"><a class="ws-card-open" href="/entries/type/${module.id}">
         <span class="ws-icon">${icons.module}</span><span class="ws-text"><b>${esc(module.name)}</b><small>${plural(count(module.id), 'record')}</small>
         ${waiting ? `<em class="ws-badge">${waiting} awaiting approval</em>` : ''}${returned ? `<em class="ws-badge returned">${returned} returned</em>` : ''}</span>
         <span class="ws-arrow">${icons.arrow}</span></a>
-      ${mayStart(module) ? `<a class="ws-new" href="/entries/new/${module.id}" title="Start a new ${esc(module.name)}">+ New</a>` : ''}</div>`;
+      <div class="ws-card-actions">${newEntryLink(actor, module, 'ws-new')}${module.id === 'E1' ? indentActionMenu(actor, module) : ''}</div></div>`;
   };
   const total = list.reduce((sum, category) => sum + category.modules.length, 0);
   const body = list.length ? `<div class="master-cards-head"><p class="record-meta">${total} entries · everything the department records, in the order the work is done</p>
