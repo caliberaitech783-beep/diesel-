@@ -52,7 +52,7 @@ function navigation(active, actor) {
       </details>`).join('')}`;
   return `<aside class="rail"><div class="rail-title"><span>${simple ? 'Diesel' : 'Entry'}</span>
     <button type="button" id="rail-toggle" title="Hide the menu">☰ Hide menu</button>
-    <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="false" hidden>Browse entries</button></div>
+    <button id="nav-toggle" aria-controls="entry-navigation" aria-expanded="${['dashboard','workspace'].includes(active)}" hidden>Browse entries</button></div>
     <nav id="entry-navigation" aria-label="Diesel entries">
     <button type="button" id="global-search-open" class="rail-search" hidden>${icons.search}<span>Search modules…</span><kbd>Ctrl K</kbd></button>
     <a class="nav-main" href="/entries/dashboard" ${active === 'dashboard' ? 'aria-current="page"' : ''}>${icons.dashboard}Dashboard</a>
@@ -113,7 +113,8 @@ function switcher(actor, back) {
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
   // Print is offered on a saved record, the one page people print.
   const printable = String(back).startsWith('/entries/record/');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
+  const menuDefault=['dashboard','workspace'].includes(active)?'shown':'hidden';
+  return `<!doctype html><html lang="en" data-menu-default="${menuDefault}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Diesel entries</title>${themeHead}
     <link rel="stylesheet" href="/entries/assets/entries.css"><link rel="stylesheet" href="/entries/assets/workspace.css"><script defer src="/entries/assets/workspace-shell.js"></script>${active==='E1'?'<link rel="stylesheet" href="/entries/assets/indent.css">':''}${active==='E2'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/purchase-order-form.js"></script>':''}${active==='E4'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css">':''}${active==='E7'?'<link rel="stylesheet" href="/entries/assets/purchase-order.css"><script type="module" src="/entries/assets/grn-form.js"></script>':''}<script defer src="/entries/assets/entry-form.js"></script>
     ${remoteApproval ? '<script defer src="/entries/assets/remote-approval.js"></script>' : ''}
     ${active==='approvals' ? '<script defer src="/entries/assets/approval-inbox.js"></script>' : ''}<script defer src="/entries/assets/field-states.js"></script>

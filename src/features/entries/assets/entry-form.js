@@ -55,8 +55,8 @@ indentRemarks?.addEventListener('input',()=>{
 const syncStatus=document.querySelector('#sync-status');
 const offlineEntries=document.querySelector('#offline-entries');
 // The menu on the left: "Hide menu" sits at the top of the menu itself, and "Show menu" appears at the top of the page
-// while it is hidden. Choosing something from the menu closes it, so the page opens at full width; the choice is
-// remembered on this device and shared with the master pages.
+// while it is hidden. Dashboard and Workspace start open; entry pages start
+// collapsed. Manual controls remain available, including on small screens.
 const railToggle = document.querySelector('#rail-toggle'), railShow = document.querySelector('#rail-show'), rail = document.querySelector('.rail');
 if (railToggle && railShow && rail) {
   const remember = hidden => { try { localStorage.setItem('diesel-menu', hidden ? 'hidden' : 'shown'); } catch { /* The choice simply lasts for this page. */ } };
@@ -64,11 +64,18 @@ if (railToggle && railShow && rail) {
     document.documentElement.dataset.menu = hidden ? 'hidden' : 'shown';
     document.body.classList.toggle('rail-hidden', hidden);
     railShow.hidden = !hidden;
+    document.querySelector('#nav-toggle')?.setAttribute('aria-expanded', String(!hidden));
   };
   apply(document.documentElement.dataset.menu === 'hidden');
   railToggle.addEventListener('click', () => { remember(true); apply(true); railShow.focus(); });
   railShow.addEventListener('click', () => { remember(false); apply(false); railToggle.focus(); });
-  rail.addEventListener('click', event => { if (event.target.closest('a[href]')) remember(true); });
+  rail.addEventListener('click', event => {
+    const link=event.target.closest('a[href]');
+    if(link)remember(!['/entries/dashboard','/entries/workspace'].includes(link.getAttribute('href')));
+  });
+  window.addEventListener('pageshow', event => {
+    if(event.persisted)apply(document.documentElement.dataset.menuDefault==='hidden');
+  });
 }
 const navigationToggle = document.querySelector('#nav-toggle');
 if (navigationToggle) {

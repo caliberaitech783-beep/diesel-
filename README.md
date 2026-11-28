@@ -70,6 +70,8 @@ Use Node.js 24. Run `npm ci` and `npm run dev`, then open `http://127.0.0.1:3000
 
 To test Pulse sign-in, copy `.env.example` to `.env`, set `DIESEL_ACCESS_MODE=pulse`, and configure the issuer and shared secret. Open Diesel to enter Pulse with Diesel selected. If prompted, complete the Pulse sign-in requirements before continuing to Diesel.
 
+Sign-in opens the Dashboard for users of the assigned or shared workspace. Dashboard and Workspace open with the side menu expanded; opening an entry register or form collapses it. Use **Show menu** or **Hide menu** to change it on the current page.
+
 Run `npm test` to check Item Master saves, local review, the form previews, and Pulse sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`. Master definitions are registered in `src/features/masters/catalog.mjs`.
 
 ## Deploy

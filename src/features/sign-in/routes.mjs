@@ -61,6 +61,10 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
   const assigned = entryMode === 'assigned-pilot' || siteStock;
   const entryAllowed = profile => Boolean(entryReviewDirectory && assigned
     && entryAssignments(profile,siteStock,siteStock ? approvedLocationDirectory(siteMasterDb) : []).length);
+  // The site-stock workspace already admits master users to the shared trial
+  // when they have no Entry assignment. Its Dashboard is their home as well.
+  const dashboardAllowed = profile => Boolean(entryReviewDirectory && (entryAllowed(profile)
+    || (siteStock && canOpenMasters(profile)) || (!assigned && allowed(profile))));
   const denied = 'This Pulse account does not have access to Diesel.';
   const publicUrl = new URL(env.DIESEL_PUBLIC_ORIGIN || 'http://localhost:3000');
   const secure = publicUrl.protocol === 'https:';
@@ -205,7 +209,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
         return response.redirect(303, path + (!actor || actor.canEditMasters ? '&new=1' : ''));
       }
       // Diesel opens on the Dashboard. Master Data is one click away in the menu.
-      if (!request.query.master && hostedEntries && entryAllowed(result.profile)) return response.redirect(303, '/entries/dashboard');
+      if (!request.query.master && dashboardAllowed(result.profile)) return response.redirect(303, '/entries/dashboard');
       // Without Entry, the masters are listed as cards on the Master Data page, so the bare home opens that page.
       if (!request.query.master && (itemSubmissions || actor)) return response.redirect(303, actor ? masterWorkspacePath + '/master-data' : '/master-data');
       return page(response, 200, {
@@ -247,8 +251,8 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     }
     if (entryAllowed(verified?.profile) && telegramApprovalPath(destination)) return response.redirect(303, destination);
     if (hostedEntries && (destination === '/entries' || destination === 'entries')) return response.redirect(303, '/entries');
-    // A plain sign-in opens the Diesel Dashboard for everyone who may use the entries; a masters-only person opens the masters.
-    response.redirect(303, hostedEntries && entryAllowed(verified?.profile) ? '/entries/dashboard' : '/');
+    // A plain sign-in opens the Dashboard for both assigned and shared-workspace users.
+    response.redirect(303, dashboardAllowed(verified?.profile) ? '/entries/dashboard' : '/');
   }));
 
   app.post('/api/sign-out', route(async (request, response) => {
