@@ -78,13 +78,14 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   const startContext=canStart.headers.get('set-cookie').split(';')[0];
   const directForm=await (await request('/entries/new/E2','m',{headers:{Cookie:'__Host-diesel_session='+'m'.repeat(43)+'; '+startContext}})).text();
   assert.match(directForm,/id="entry-form"[^>]*data-type="E2"/);
-  assert.match(directForm,/<option value="" selected>Select a site<\/option>/);
+  assert.match(directForm,/<select data-order-site[^>]*><option value="">Select site<\/option>/);
   assert.doesNotMatch(directForm,/entry-start-form/);
   assert.equal((await request('/entries/start/E3', 'i')).status,404);
   assert.equal((await request('/entries/type/E3', 'i')).status, 404);
   const initial = await (await request('/entries', 'i')).text();
   assert.match(initial, /Role-based pilot · sample data/);
-  assert.match(initial, /No entries match this view/);
+  assert.match(initial, /<h1>All entries<\/h1>/);
+  assert.match(initial, /class="ws-card-open" href="\/entries\/type\/E1"/);
   assert.doesNotMatch(initial, /Sasti|Review role/);
 
   const indent = randomUUID(), day = businessDay();

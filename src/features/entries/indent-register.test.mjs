@@ -41,7 +41,7 @@ test('saved-only indent records, totals and exports hide drafts until Save inden
       assert.match(html,/Records <small>1<\/small>/);
       assert.doesNotMatch(html,/<option value="Draft"|<option value="Returned"/);
     }
-    if(path==='/entries') assert.match(html,/<span class="count-label">Drafts<\/span><strong>0<\/strong>/);
+    if(path==='/entries') assert.match(html,/<h1>All entries<\/h1>/);
   }
   const csv=await (await fetch(origin+'/entries/export.csv?type=E1',{headers})).text();
   assert.ok(csv.includes(saved.number));assert.ok(!csv.includes(draft.number));

@@ -56,5 +56,5 @@ test('indent keeps only New entry in its heading on new forms and after successi
   const nextHtml=await (await fetch(origin+opened.headers.get('location'),{headers:{Cookie:nextCookie}})).text();
   assert.match(nextHtml,/id="entry-form"[^>]*data-type="E2"/);
   assert.doesNotMatch(nextHtml,/Choose a site to start|entry-start-form/);
-  assert.match(nextHtml,/<option value="" selected>Select a site<\/option>/,'no site is selected by clicking New entry');
+  assert.match(nextHtml,/<select data-order-site[^>]*><option value="">Select site<\/option>/,'no site is selected by clicking New entry');
 });
