@@ -9,7 +9,7 @@ import { masterDefinition } from '../masters/records-fields.mjs';
 import { syncPulseProjects } from '../masters/pulse-projects.mjs';
 import { businessDay, dayBefore } from './entry-rules.mjs';
 import { createEntryStore } from './entry-store.mjs';
-import { roleKey } from './review-masters.mjs';
+import { roleKey, review } from './review-masters.mjs';
 import { siteEntryTypes } from './site-masters.mjs';
 import { siteEntryWorkspace } from './site-entry-workspace.mjs';
 import { transferKey } from './transfer-destination.mjs';
@@ -156,6 +156,13 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.match(order.number,/^CMLL\/JOC\/PO\/\d{2}-\d{2}\/001$/,'site-stock POs use the same site-based pattern as the shared workspace');
   assert.equal(order.result.value,19750);
   assert.equal(order.result.landed,100250);
+  const scheduleInput={po:order.id,deliveryDate:last,deliveryLocation:'Jayant OC',deliveryAddress:'Jayant storage',item:review.item,
+    litres:100,vehicleNo:'MH34BZ4428',transporter:'LORRY-1'};
+  const firstSchedule=await submit('E4','Procurement Executive',scheduleInput);
+  const secondSchedule=await submit('E4','Procurement Executive',scheduleInput);
+  const schedulePrefix=order.number.replace('/PO/','/DS/').replace(/001$/,'');
+  assert.deepEqual([firstSchedule.number,secondSchedule.number],[schedulePrefix+'001',schedulePrefix+'002'],
+    'site-stock Delivery Schedules use their own site and financial-year sequence');
   const advice=await approve(await submit('E3','Accounts Executive',{po:order.id,amount:19750}));
   assert.equal(advice.status,'Awaiting Treasury');
   await action(advice,'Treasury','Confirm UTR',{utr:'TEST-UTR-001',paymentDate:last});
@@ -246,7 +253,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.equal(close.result.closingValue,147970.23);
   assert.equal(close.result.journal[0].account,'EXP');
   assert.equal(close.result.journal[0].debit+close.result.journal[1].debit,close.result.journal[2].credit);
-  // A delivery schedule is an optional step between the order and the gate, so this walk-through does not raise one.
-  assert.deepEqual(new Set(store.list('Jayant').map(row=>row.type)),new Set(siteEntryTypes.filter(type=>type!=='E4')));
+  // Include the optional Delivery Schedule so its live numbering is covered too.
+  assert.deepEqual(new Set(store.list('Jayant').map(row=>row.type)),new Set(siteEntryTypes));
   assert.equal(createEntryStore(mastersDb).list('Jayant').length,0);
 });

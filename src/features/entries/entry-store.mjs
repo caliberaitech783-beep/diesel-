@@ -58,13 +58,14 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       check(!all().some(row=>formatIndentNumber(row.number)===doc.number),'This indent number already exists.');
       return;
     }
-    if (doc.type==='E2') {
-      // Purchase orders run in their own series per site and financial year: CMLL/JOC/PO/26-27/001, 002, 003…
+    if (doc.type==='E2' || doc.type==='E4') {
+      // PO and Delivery Schedule each run their own site and financial-year series, starting at 001.
       // Use the same pattern in the shared and site-stock workspaces.
-      const series=indentSeries(doc), label=series.label.replace('/IND/','/PO/');
+      const code=doc.type==='E2'?'PO':'DS';
+      const series=indentSeries(doc), label=series.label.replace('/IND/','/'+code+'/');
       let number;
       do {
-        const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,'E2',series.year);
+        const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,doc.type,series.year);
         number=label+'/'+String(n).padStart(3,'0');
       } while (all().some(row=>row.number===number));
       doc.number=number;

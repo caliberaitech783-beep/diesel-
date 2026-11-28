@@ -233,7 +233,8 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
   assert.throws(()=>submit('E4',schedule),/Choose a posted E2/,'the purchase order must be approved first');
   const po=approve(waiting);
   const first=submit('E4',schedule);
-  assert.deepEqual([first.status,first.number,first.result.litres,first.result.vehicle,first.result.balance,first.result.order],['Posted','E4-JAY-2026-0001',14000,'MH34BZ4428',26000,po.number]);
+  const financialYear=po.number.split('/')[3];
+  assert.deepEqual([first.status,first.number,first.result.litres,first.result.vehicle,first.result.balance,first.result.order],['Posted','CMLL/JOC/DS/'+financialYear+'/001',14000,'MH34BZ4428',26000,po.number]);
   assert.throws(()=>submit('E4',{...schedule,vehicleNo:'TRUCK'}),/vehicle number like MH34BZ4428/);
   assert.throws(()=>submit('E4',{...schedule,deliveryDate:'2000-01-01'}),/delivery date on or after/);
   assert.throws(()=>submit('E4',{...schedule,deliveryLocation:'Nowhere'}),/Delivery location/);
@@ -257,7 +258,7 @@ test('E4 Delivery Schedule dispatches an approved purchase order within its quan
     assert.ok(saved.includes('<dt>'+label+'</dt>'),label);
   assert.ok(!saved.includes('Calculated and carried forward')&&!saved.includes('<h2>Entry details</h2>'));
   assert.doesNotMatch(form,new RegExp('value="'+po.id+'"'),'a fully scheduled order is no longer offered');
-  assert.match(registerPage(buyer,store.list('Jayant'),'E4'),/E4-JAY-2026-0002/);
+  assert.ok(registerPage(buyer,store.list('Jayant'),'E4').includes('CMLL/JOC/DS/'+financialYear+'/002'));
 });
 
 test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up one by one', t => {
@@ -270,6 +271,36 @@ test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up 
   const draft=store.write(randomUUID(),maker,{type:'E2',action:'Save draft',rev:0,day,data:{}});
   assert.equal(draft.number,'','a draft takes no number');
   assert.match(detailPage(maker,store.list('Jayant').find(row=>row.number===first),store.list('Jayant'),[]),new RegExp(first.replaceAll('/','\\/')));
+});
+
+test('Delivery Schedule numbers are unique by site and financial year and independent of PO numbers',t=>{
+  const {db,order}=setup(t);
+  let today='2026-03-31';
+  const store=createEntryStore(db,{calendarFor:()=>({day:()=>today})});
+  function save(site,day) {
+    today=day;
+    const indent=store.write(randomUUID(),actor('Site In-charge',site),{type:'E1',action:'Save indent',rev:0,day,
+      data:{litres:5000,requiredBy:0,reason:review.reasons[0]}});
+    store.approveIndent(indent.id,{sanctioned:5000,by:'Approver'});
+    const maker=actor('Procurement Executive',site);
+    let po=store.write(randomUUID(),maker,{type:'E2',action:'Submit',rev:0,day,
+      data:{...order,indent:indent.id,deliveryDate:day,litres:1000,deliveries:'',advanceAmount:undefined}});
+    while(po.status==='Awaiting approval') po=store.write(po.id,actor(po.result.approvals[po.stage],site),{action:'Approve',rev:po.rev});
+    const id=randomUUID(),body={type:'E4',action:'Submit',rev:0,day,token:randomUUID(),data:{po:po.id,deliveryDate:day,
+      deliveryLocation:'Jayant OC',deliveryAddress:'Site storage',item:review.item,litres:100,vehicleNo:'MH34BZ4428',transporter:'SANDEEP GASOLENES'}};
+    const doc=store.write(id,maker,body);
+    assert.equal(store.write(id,maker,body).number,doc.number,'retrying the same save keeps the assigned number');
+    return {doc,po};
+  }
+  const first=save('Jayant','2026-03-31');
+  assert.equal(first.doc.number,'CMLL/JOC/DS/25-26/001');
+  assert.equal(first.po.number,'CMLL/JOC/PO/25-26/001','PO keeps its separate series');
+  db.prepare('DELETE FROM entry_review_numbers WHERE site=? AND type=? AND year=?').run('JOC','E4','25-26');
+  assert.equal(save('Jayant OC','2026-03-31').doc.number,'CMLL/JOC/DS/25-26/002','aliases share the series and an existing number cannot be reused');
+  assert.equal(save('Sasti','2026-03-31').doc.number,'CMLL/SOC/DS/25-26/001');
+  assert.equal(save('Jayant','2026-04-01').doc.number,'CMLL/JOC/DS/26-27/001');
+  assert.equal(store.read(first.doc.id,'Jayant').number,first.doc.number,'existing schedules keep their assigned numbers');
+  assert.equal(store.write(randomUUID(),actor('Procurement Executive'),{type:'E4',action:'Save draft',rev:0,day:today,data:{}}).number,'');
 });
 
 test('PO numbering skips existing site numbers and keeps each site and financial year separate', t=>{
