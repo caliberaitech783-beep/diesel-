@@ -36,6 +36,18 @@ test('approvals inbox shows each waiting entry with photos and inline approve or
   assert.match(approvalsPage(manager, []), /Nothing is waiting for your approval/);
 });
 
+test('Payment Advice drill-down shows only payment advice the current person may approve',()=>{
+  const payment={...waiting,id:'payment',type:'E3',number:'PAYMENT-APPROVE',data:{},result:{approvals:['Project Manager']},stage:0};
+  const docs=[payment,waiting,{...payment,id:'own',maker:manager.id,number:'OWN-PAYMENT'},
+    {...payment,id:'other-site',site:'Sasti',number:'OTHER-SITE-PAYMENT'},
+    {...payment,id:'other-role',result:{approvals:['CFO']},number:'OTHER-ROLE-PAYMENT'}];
+  const html=approvalsPage(manager,docs,'E3');
+  assert.match(html,/Payment advice and UTR · Approval/);
+  assert.match(html,/1 waiting for you as Project Manager/);
+  assert.match(html,/PAYMENT-APPROVE/);
+  assert.doesNotMatch(html,/E6-0001|OWN-PAYMENT|OTHER-SITE-PAYMENT|OTHER-ROLE-PAYMENT/);
+});
+
 test('role home shows shift, stock and today, with waiting approvals as the biggest tile', () => {
   const stock = { 'Tank and bowser stock (L)': 18250, 'Days of stock': 4.26, 'In transit (L)': 6000 };
   const html = roleHomePage(manager, [waiting], [], { shift: 'Day shift', stock });

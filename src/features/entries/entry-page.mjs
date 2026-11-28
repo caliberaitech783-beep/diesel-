@@ -55,9 +55,10 @@ function table(rows, sources = rows, transport = true, figures = false, listed =
     `<tr><td><a class="record-link" href="${recordPath(r)}"><span>${esc(byId[r.type].name)}</span></a></td>
     <td class="doc-number">${esc(formatIndentNumber(r.number||'Draft'))}</td>${sites?`<td>${esc(r.site)}</td>`:''}${transport?`<td>${traceLinks(trace(r)) || '—'}</td>`:''}${quantity?`<td class="number">${figure(quantityOf(r))}</td>`:''}${amount?`<td class="number">${figure(amountOf(r))}</td>`:''}<td><time datetime="${esc(r.day)}">${formatDay.format(new Date(r.day+'T00:00:00Z'))}</time></td><td>${statusCell(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
-export function approvalsPage(actor, rows) {
-  const waiting = rows.filter(doc => doc.type!=='E1'&&mayApproveEntry(doc, actor));
-  return page('My approvals', actor, 'approvals', '/entries/approvals', waiting.length
+export function approvalsPage(actor, rows, type) {
+  const module=typeof type==='string'&&Object.hasOwn(byId,type)?byId[type]:null;
+  const waiting = rows.filter(doc => doc.type!=='E1'&&(!module||doc.type===type)&&mayApproveEntry(doc, actor));
+  return page(module?module.name+' · Approval':'My approvals', actor, 'approvals', '/entries/approvals'+(module?'?type='+type:''), waiting.length
     ? `<p class="inbox-count">${waiting.length} waiting for you as ${esc(entryRole(actor))}</p><div class="approval-list">${waiting.map(doc => approvalCard(doc, rows)).join('')}</div>`
     : '<p class="empty">Nothing is waiting for your approval.</p>');
 }
@@ -242,7 +243,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
   const state=indentStatus(d);
   const stock=picture?`<dl>${Object.entries(picture).map(([name,value])=>`<dt>${esc(name)}</dt><dd>${display(value)}</dd>`).join('')}</dl>`:'';
   const recordDetails=indent?`<div class="indent-record-fields">${inputRows}</div>`:`<dl>${inputRows}</dl>`;
-  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}</div>`
+  const recordHeading=indent?`<div class="entry-record-heading"><a href="/entries/type/E1">← All indents</a><span class="indent-state ${state==='Saved'?'is-saved':''}">${esc(state)}</span>${d.approval?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}${indentEntryActions(actor,meta)}</div>`
     : `<p class="record-back"><a href="/entries/type/${d.type}">← ${meta.code} register</a>${d.type==='E2'&&d.rev>0?` <a class="export pdf-button" href="${recordPath(d)}/purchase-order.pdf">⬇ Download PDF</a>`:''}</p>
       <div class="bar"><strong>${esc(formatIndentNumber(d.number||'New draft'))} · ${esc(listed&&d.approval.status!=='pending'?d.approval.label:d.status)}</strong>${listed?`<span class="indent-approval is-${d.approval.status}"><strong>${esc(d.approval.label)}</strong> ${esc(d.approval.detail)}</span>`:''}<span>${esc(d.site)} · ${esc(d.day)}${d.shift ? ' · '+esc(d.shift.name) : ''}</span></div>`;
   // On paper a record is one page: its form's details, when it was made, and who approved it. The page's heading, status
@@ -254,7 +255,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p>
     ${approvedBy?`<p class="print-approval">${esc(approvedBy)}</p>`:''}</div>`:'';
   // The approval prints in the head, beside when the entry was made, so it is always on the first page.
-  return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}${indent?indentEntryActions(actor,meta):''}
+  return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent&&!order?`<section class="site-stock"><h2>Site stock</h2>${stock}</section>`:''}
     ${editable?`<section${indent?' class="indent-form-panel"':order?' class="order-form-panel"':''}><h2${indent||order?' class="sr-only"':''}>Entry details</h2>${editableFields(meta,d,rows,actor)}

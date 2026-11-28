@@ -6,10 +6,6 @@ export function newEntryLink(actor, module, className = 'primary') {
   return `<a class="${className}" href="${newEntryPath(actor, module)}" title="Start a new ${esc(module.name)}">New entry</a>`;
 }
 
-export function indentActionMenu(actor, module) {
-  return `<details class="entry-action-menu"><summary>Options</summary><nav aria-label="Diesel indent options">${newEntryLink(actor, module, 'entry-action-link')}<a href="/indent-approvals">Approval</a></nav></details>`;
-}
-
 export function indentEntryActions(actor, module) {
-  return `<div class="entry-actions">${newEntryLink(actor, module)}${indentActionMenu(actor, module)}</div>`;
+  return `<div class="entry-actions">${newEntryLink(actor, module)}</div>`;
 }

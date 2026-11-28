@@ -2,14 +2,14 @@
 // Each card names the module, opens its register, and can start a new entry.
 import { esc, page } from './entry-shell.mjs';
 import { newEntryLink } from './entry-actions.mjs';
+import { workspaceModuleMenu } from './workspace-module-menu.mjs';
 import { icons, workspaceFor } from './workspace-map.mjs';
 
 export function workspacePage(actor) {
   const list = workspaceFor(actor);
   const card = module => {
-    return `<div class="ws-card" data-name="${esc(module.name.toLowerCase() + ' ' + module.about.toLowerCase())}"><a class="ws-card-open" href="/entries/type/${module.id}">
-        <span class="ws-icon">${icons.module}</span><span class="ws-text"><b>${esc(module.name)}</b></span>
-        <span class="ws-arrow">${icons.arrow}</span></a>
+    const label=`<span class="ws-icon">${icons.module}</span><span class="ws-text"><b>${esc(module.name)}</b></span>`;
+    return `<div class="ws-card" data-name="${esc(module.name.toLowerCase() + ' ' + module.about.toLowerCase())}">${workspaceModuleMenu(module,label)}
       <div class="ws-card-actions">${newEntryLink(actor, module, 'ws-new')}</div></div>`;
   };
   const body = list.length ? `<div class="master-cards-head">

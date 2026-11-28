@@ -17,7 +17,7 @@ test('New entry uses only verified maker grants without choosing a site by defau
   assert.equal(entryCreationContext(actor,byId.E2),null);
 });
 
-test('indent New entry and Approval stay available on new forms and after successive saves',async t=>{
+test('indent keeps only New entry in its heading on new forms and after successive saves',async t=>{
   const db=openDieselDatabase(':memory:');
   const server=createLocalWorkspace(db).listen(0,'127.0.0.1');
   await once(server,'listening');
@@ -28,15 +28,15 @@ test('indent New entry and Approval stay available on new forms and after succes
   const cookie=switched.headers.get('set-cookie').split(';')[0];
   const get=path=>fetch(origin+path,{redirect:'manual',headers:{Cookie:cookie}});
   const options=html=>{
-    assert.match(html,/class="entry-action-menu"/);
     assert.match(html,/>New entry<\/a>/);
-    assert.match(html,/href="\/indent-approvals">Approval<\/a>/);
+    assert.doesNotMatch(html,/class="entry-action-menu"|href="\/indent-approvals"/);
   };
   options(await (await get('/entries/type/E1')).text());
   const ids=[];
   for(let i=0;i<2;i++){
     const html=await (await get('/entries/new/E1?site=Jayant')).text();
     options(html);
+    assert.match(html,/<div class="entry-record-heading">[\s\S]*?<div class="entry-actions"><a class="primary"[^>]*>New entry<\/a><\/div><\/div>/);
     const id=html.match(/id="entry-form"[^>]*data-id="([^"]+)"/)[1];
     ids.push(id);
     const actor=html.match(/<body[^>]*data-actor="([^"]+)"/)[1];

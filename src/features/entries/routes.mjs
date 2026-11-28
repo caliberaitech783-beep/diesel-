@@ -111,7 +111,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     const actor=req.dieselActor, sources=registerSources(actor,req.query);
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),null,req.query,sources));
   });
-  router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor))));
+  router.get('/approvals',(req,res)=>res.send(approvalsPage(req.dieselActor,visibleRecords(req.dieselActor),req.query.type)));
   router.get('/workspace',(req,res)=>{
     res.send(workspacePage(req.dieselActor));
   });
