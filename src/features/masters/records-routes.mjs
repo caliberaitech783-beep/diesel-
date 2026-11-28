@@ -128,7 +128,7 @@ export function registerMasterRecords(app, { db, getActor = request => request.d
     const rows = !record && req.query.new !== '1' ? (slug === costCentreSlug && costCentres ? await costCentreRows(actor, req, page)
       : slug==='item-master' && itemDirectory ? await itemDirectory.list(actor,page) : taxMasters.has(slug)
         ? withTaxSources(store.listSaved([slug], { site:actor.site }), [slug], page) : store.list(slug, { ...page, site: actor.site })) : [];
-    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; form-action 'self'; base-uri 'none'; frame-ancestors 'self'; frame-src 'self'`);
+    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; form-action 'self'; base-uri 'none'; frame-ancestors 'self' https://pulse.cmll.in; frame-src 'self'`);
     const project = slug === 'location-master' ? masterLocationProject(db, actor.site, actor) : null;
     const locations = slug === 'storage-location-master' ? readActiveMasters(db, actor.site, ['location-master'])['location-master'] : [];
     const hasLocation = Boolean(existingLocation);
