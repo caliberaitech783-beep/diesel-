@@ -21,6 +21,7 @@ import { createItemDirectory } from '../masters/item-directory.mjs';
 import { registerItemDirectoryRoutes } from '../masters/item-directory-routes.mjs';
 import { pulseProject } from '../masters/pulse-projects.mjs';
 import { DatabaseSync } from 'node:sqlite';
+import { siteContextCookies } from '../entries/site-selection.mjs';
 
 const styles = fileURLToPath(new URL('./sign-in.css', import.meta.url));
 const unavailable = 'Pulse sign-in is temporarily unavailable. Please try again.';
@@ -248,6 +249,9 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     }
     response.cookie(sessionCookie, result.grant, options);
     sessions.remember(result.grant, verified);
+    // A fresh plain sign-in starts with no remembered site. Explicit workflow
+    // destinations keep their existing context so deep links still reopen.
+    if(!destination)for(const cookie of siteContextCookies(secure))response.clearCookie(cookie,options);
     if (destination===masterWorkspacePath && masterAllowed(verified?.profile)) return response.redirect(303, masterWorkspacePath);
     if (hostedEntries && (destination==='/entries/opening-stock' || destination==='opening-stock')) {
       return response.redirect(303,'/entries/opening-stock');
@@ -264,6 +268,7 @@ export function registerSignIn(app, { env, fetcher, itemSubmissions, entryReview
     sessions.forget(grant);
     if (configured && isProof(grant)) await pulse.request('revoke', { grant });
     response.clearCookie(sessionCookie, options);
+    for(const cookie of siteContextCookies(secure))response.clearCookie(cookie,options);
     response.redirect(303, pulseOrigin.origin + '/');
   }));
 }

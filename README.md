@@ -74,6 +74,8 @@ The callback's verified Pulse profile is reused once for the landing page within
 
 Sign-in opens the Dashboard for users of the assigned or shared workspace. Dashboard and Workspace open with the side menu expanded; opening an entry register or form collapses it. Use **Show menu** or **Hide menu** to change it on the current page.
 
+The top-right control selects a site only; it starts at **Select a site** and retains a site you explicitly choose during the session. Pulse still determines your role and permitted sites. With no site filter selected, Dashboard and Workspace show the accessible sites together. New indent and purchase-order site fields start blank; saved records keep their site.
+
 Run `npm test` to check Item Master saves, local review, the form previews, and Pulse sign-in against a simulated issuer. Run `npm run build` to build `dist/`. The server starts in `src/server.mjs`. Add features under `src/features/`. Master definitions are registered in `src/features/masters/catalog.mjs`.
 
 ## Deploy

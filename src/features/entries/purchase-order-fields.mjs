@@ -85,12 +85,13 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   // A purchase order belongs to a location, the office that buys, and is raised for one site under it.
   // A new order chooses both; choosing the site opens that site's indents. A saved order keeps its site.
   const directory = entrySiteDirectory(actor).filter(row => row.allowed);
-  const current = locationOf(doc.site);
+  const selectedSite=doc.rev?doc.site:actor.selectedSite??doc.site;
+  const current = locationOf(selectedSite);
   const placeFields = doc.rev ? readOnly('Location', locationName(doc.site)) + readOnly('Site', directory.find(row => row.site === doc.site)?.name ?? doc.site)
     : `<label><span>Location${star}</span><select data-order-location><option value="">Select location</option>${locations.map(location =>
         `<option value="${esc(location.name)}"${location === current ? ' selected' : ''}>${esc(location.name)}</option>`).join('')}</select></label>
       <label><span>Site${star}</span><select data-order-site data-role="${esc(actor.profile)}"><option value="">Select site</option>${directory.map(row =>
-        `<option value="${esc(row.site)}" data-location="${esc(locationName(row.site))}"${row.site === doc.site ? ' selected' : ''}>${esc(row.name)}</option>`).join('')}</select></label>`;
+        `<option value="${esc(row.site)}" data-location="${esc(locationName(row.site))}"${row.site === selectedSite ? ' selected' : ''}>${esc(row.name)}</option>`).join('')}</select></label>`;
 
   return `<div class="order-top">
     ${card('details', 'Purchase Order Details', `<div class="order-grid three">

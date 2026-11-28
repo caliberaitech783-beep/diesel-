@@ -15,7 +15,7 @@ export function indentLocationControl(actor,selectedSite='') {
 export function indentSiteForm(actor,inForm=false) {
   const path=entryRole(actor)==='Site In-charge'?'/entries/new/E1':'/entries/type/E1';
   return `<form id="indent-site-switch" class="indent-site-switch" method="post" action="/workspace/role"${inForm?' hidden':''}><input type="hidden" name="role" value="${esc(actor.profile)}"><input type="hidden" name="returnTo" value="${path}"><input type="hidden" name="indentSite" value="1">
-    ${inForm?'':indentLocationControl(actor,actor.site)}</form>`;
+    ${inForm?'':indentLocationControl(actor,actor.selectedSite??'')}</form>`;
 }
 
 export function indentHeading(doc) {

@@ -1,8 +1,7 @@
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { byId } from './catalog.mjs';
-import { entryRole, roles, roleKey, sites } from './review-masters.mjs';
 import { indentSiteForm } from './indent-fields.mjs';
-import { entrySiteDirectory } from './entry-sites.mjs';
+import { siteContextOptions } from './site-selection.mjs';
 import { icons, menuEntries, workspaceFor } from './workspace-map.mjs';
 import { masters } from '../masters/catalog.mjs';
 
@@ -95,19 +94,13 @@ function helpDialog(active) {
 }
 
 function switcher(actor, back) {
-  const role = actor.profile === 'entry-deputy' ? 'Deputy Site In-charge' : entryRole(actor);
-  const context = `<i class="location-mark" aria-hidden="true"></i>${esc(actor.site)}<span class="role-name">${esc(role)}</span>`;
-  if (actor.assignments?.length === 1) return `<div class="assigned-context">${context}</div>`;
-  if (actor.assignments) return `<details class="context"><summary>${context}</summary>
-    <form class="switch" method="post" action="/workspace/role"><input type="hidden" name="returnTo" value="${esc(back)}">
-    <label>Assigned site and role<select name="assignment">${actor.assignments.map(grant =>
-    option(grant.key, grant.site + ' · ' + grant.role, grant.site === actor.site && grant.profile === actor.profile)).join('')}</select></label>
-    <button class="primary">Switch</button></form></details>`;
-  return `<details class="context"><summary><i class="location-mark" aria-hidden="true"></i>${esc(actor.site)}<span class="role-name">${esc(role)}</span></summary>
-    <form class="switch" method="post" action="/workspace/role"><input type="hidden" name="returnTo" value="${esc(back)}">
-    <label>Site<select name="site">${(actor.entrySites ? entrySiteDirectory(actor).map(row => [row.site, row.name]) : sites.map(s => [s, s])).map(([s, name]) => option(s, name, s === actor.site)).join('')}</select></label>
-    <label>Review role<select name="role">${roles.map(r => option(roleKey(r), r, r === role)).join('')}${option('entry-deputy', 'Deputy Site In-charge', actor.profile === 'entry-deputy')}</select></label>
-    <button class="primary">Switch</button></form></details>`;
+  const choices=siteContextOptions(actor);
+  const selected=String(back).startsWith('/entries/record/')?actor.site:actor.selectedSite??'';
+  const name=choices.find(row=>row.site===selected)?.name??'Select a site';
+  return `<details class="context"><summary><i class="location-mark" aria-hidden="true"></i>${esc(name)}</summary>
+    <form id="site-context" class="switch" method="post" action="/workspace/role"><input type="hidden" name="returnTo" value="${esc(back)}"><input type="hidden" name="siteOnly" value="1">
+    <label>Site<select name="site" required>${option('','Select a site',!selected)}${choices.map(row=>option(row.site,row.name,row.site===selected)).join('')}</select></label>
+    <button class="primary">Use site</button></form></details>`;
 }
 
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
