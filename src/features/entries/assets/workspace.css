@@ -265,6 +265,20 @@ section.ws-group { margin: 0 0 22px; padding: 0; border: 0; background: none; bo
 .ws-new { align-self: center; flex: none; margin-right: 14px; padding: 6px 11px; border: 1px solid var(--cat); border-radius: 8px; color: var(--cat); font-size: 12.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background-color .16s, color .16s; }
 .ws-new:hover { background: var(--cat); color: #fff; } :root[data-theme="dark"] .ws-new:hover { color: #0b1f3a; }
 .ws-card:has(.ws-new) .ws-arrow { display: none; }
+.ws-card { flex-direction: column; }
+.ws-card:has(.entry-action-menu[open]) { z-index: 5; }
+.ws-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 14px; }
+.ws-card-actions .ws-new { margin: 0; }
+.entry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.bar .entry-actions { margin: 0; }
+.entry-action-menu { position: relative; }
+.entry-action-menu summary { cursor: pointer; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; }
+.entry-action-menu nav { position: absolute; top: calc(100% + 5px); right: 0; z-index: 20; min-width: 170px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px #0b1f3a26; }
+.entry-action-menu nav a { display: block; padding: 10px 12px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 14px; }
+.entry-action-menu nav a:hover, .entry-action-menu nav a:focus-visible { background: var(--blue-wash); }
+.entry-start-form { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 20px 0; }
+.entry-start-form label { display: grid; gap: 6px; }
+@media print { .entry-actions, .entry-action-menu, .ws-card-actions { display: none !important; } }
 
 /* The menu's own Hide button, and the page's Show button while the menu is hidden */
 :root[data-menu="hidden"] .shell { grid-template-columns: minmax(0, 1fr); }

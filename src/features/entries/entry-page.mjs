@@ -1,4 +1,5 @@
 import { page, esc, option } from './entry-shell.mjs';
+import { newEntryLink, indentEntryActions } from './entry-actions.mjs';
 import { letterheadHtml } from './letterhead.mjs';
 import { byId, entries } from './catalog.mjs';
 import { entryRole,roleKey,otherSite,review } from './review-masters.mjs';
@@ -104,8 +105,6 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
   const matching=filterRegister(rows, type, filters,sources);
   const kind=!type&&byId[query.kind]&&matching.some(r=>r.type===query.kind)?query.kind:'';
   const relevant=kind?matching.filter(r=>r.type===kind):matching;
-  const actorRole=entryRole(actor);
-  const canCreate=meta?.maker && (meta.maker===actorRole||type==='E16'||(type==='E15'&&actorRole==='Site Store'));
   const title = meta?.name ?? 'All entries';
   const heading = `<div class="register-heading"><div><p class="heading-meta">${meta ? esc(meta.group) : esc(actor.site)+' <span> / </span> '+formatDay.format(new Date((actor.businessDay??businessDay())+'T00:00:00Z'))}</p><h1>${esc(title)}</h1></div></div>`;
   // sites: the register was opened across sites, from a Dashboard card. The choice travels with every link on the page.
@@ -133,8 +132,7 @@ export function registerPage(actor,rows,type,query={},sources=rows) {
       return `<p aria-label="${label} by entry">${found.map(([entry,count])=>`<a href="${cardLink(value,entry.id)}">${esc(entry.name)} <b>${count}</b></a>`).join('')}</p>`;
     }).join('')}</div>`}`;
   return page(title,actor,type,path,`${meta?`<div class="bar"><p>${esc(meta.maker??'Generated on approval')}</p>
-    ${canCreate?`<a class="primary" href="/entries/new/${type}">New entry</a>`
-      : meta.maker ? (canChooseRole(actor, actor.site, roleKey(meta.maker)) ? switchTo(roleKey(meta.maker),actor.site,'/entries/new/'+type,'Start as '+meta.maker) : '')
+    ${meta.maker ? (type==='E1'?indentEntryActions(actor,meta):newEntryLink(actor,meta))
       : '<span>Generated after an accepted tank inspection or approved empty confirmation.</span>'}</div>`:''}
     ${!meta?counts:''}
     <section class="register-panel"><div class="panel-head"><h2>Records <small>${relevant.length}</small></h2><div class="actions">
@@ -256,7 +254,7 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     <p>Created on ${esc(stamp(d.created))}${d.createdBy?' by '+esc(d.createdBy):''}</p>
     ${approvedBy?`<p class="print-approval">${esc(approvedBy)}</p>`:''}</div>`:'';
   // The approval prints in the head, beside when the entry was made, so it is always on the first page.
-  return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}
+  return page(meta.name,actor,d.type,back,`${printHead}${recordHeading}${indent?indentEntryActions(actor,meta):''}
     <form id="entry-form" data-id="${d.id}" data-type="${d.type}" data-rev="${d.rev}" data-site="${esc(actor.site)}">
     ${picture&&!indent&&!order?`<section class="site-stock"><h2>Site stock</h2>${stock}</section>`:''}
     ${editable?`<section${indent?' class="indent-form-panel"':order?' class="order-form-panel"':''}><h2${indent||order?' class="sr-only"':''}>Entry details</h2>${editableFields(meta,d,rows,actor)}

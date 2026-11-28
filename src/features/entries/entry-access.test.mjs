@@ -67,6 +67,14 @@ test('verified Pulse role grants share pilot entries by site and require a diffe
   assert.equal((await request('/api/master-data/records', 'i')).status, 401);
   assert.equal((await request('/entries', 'l')).status, 403);
   assert.equal((await request('/entries/new/E1', 'm')).status, 403);
+  const cannotStart = await (await request('/entries/start/E1', 'm')).text();
+  assert.match(cannotStart,/Your account has no maker assignment/);
+  const canStart = await (await request('/entries/start/E2', 'm')).text();
+  const startForm=canStart.match(/<form[^>]*class="entry-start-form">[\s\S]*?<\/form>/)[0];
+  assert.match(startForm,/<option value="" selected>Select a site<\/option>/);
+  assert.match(startForm,/<option value="Sasti">/);
+  assert.doesNotMatch(startForm,/<option value="Jayant">/);
+  assert.equal((await request('/entries/start/E3', 'i')).status,404);
   assert.equal((await request('/entries/type/E3', 'i')).status, 404);
   const initial = await (await request('/entries', 'i')).text();
   assert.match(initial, /Role-based pilot · sample data/);
