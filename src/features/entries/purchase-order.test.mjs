@@ -93,8 +93,9 @@ test('New entry on Purchase order opens the one-page form', t => {
   for (const text of ['Diesel Purchase Order','Purchase Order Details','Vendor Details','Tax &amp; Supply','Freight &amp; Logistics','Record Information',
     'Material Details','Final Calculation – Footer / Tax','P.O. Amount','Tolerance &amp; Shortage','Is Full Payment as Advance?','Landing on Gross',
     'value="Save draft">Save as Draft<','value="Submit">Save PO<','purchase-order-form.js']) assert.ok(html.includes(text),text);
-  assert.match(html,new RegExp('data-search-for="indent"[^>]*value="">\\s*<input type="hidden" name="indent" value="">'),'the indent starts blank and is searched');
-  assert.match(html,new RegExp('<option value="[^"]*IND[^"]*" data-value="'+indent.id+'" data-remaining="40000">'));
+  assert.match(html,/data-search-for="indent"[^>]*value=""/,'the indent starts blank and is searched');
+  assert.ok(html.includes('&quot;value&quot;:&quot;'+indent.id+'&quot;') && html.includes('&quot;remaining&quot;:40000'));
+  assert.match(html,/aria-label="Show approved indents"/);
   assert.match(html,/data-search-for="supplier"/);
   assert.match(html,/<option value="SANDEEP GASOLENES" data-value="SANDEEP GASOLENES">/);
   assert.match(html,/SANDEEP GASOLENES&quot;:\{&quot;address&quot;:&quot;2, AT-GHUGGUS PHATA, GHUGGUS ROAD, CHANDRAPUR, MAHARASHTRA, 442401&quot;/);
@@ -105,9 +106,10 @@ test('New entry on Purchase order opens the one-page form', t => {
   assert.match(html,/name="deliveryDate" type="date" min=/);
   assert.ok(html.indexOf('Record Information')>html.indexOf('Is Full Payment as Advance?'),'record information comes last');
   assert.match(html,/id="rail-toggle"/);
-  assert.match(html,/name="undersigned" type="text" readonly[^>]*value="Pratik Ashok Bisen · E100"/);
+  assert.match(html,/name="undersigned" type="hidden"[^>]*value="Pratik Ashok Bisen · E100"/);
+  assert.ok(html.indexOf('class="po-employee"') < html.indexOf('<form id="entry-form"'), 'employee is outside the form');
   const {employee:_none,...unmatched}=buyer;
-  assert.match(detailPage({...unmatched,requestedBy:'SIDDHARTH HOONKA'},draft,[indent],[],null,store.definition('E2','Jayant')),/name="undersigned" type="text" readonly[^>]*value="SIDDHARTH HOONKA"/);
+  assert.match(detailPage({...unmatched,requestedBy:'SIDDHARTH HOONKA'},draft,[indent],[],null,store.definition('E2','Jayant')),/name="undersigned" type="hidden"[^>]*value="SIDDHARTH HOONKA"/);
   assert.match(html,/<option value="Ex-depot">To Pay<\/option>/);
   assert.doesNotMatch(html,/name="kl"/);
   assert.doesNotMatch(html,/data-step/);

@@ -279,5 +279,5 @@ export function detailPage(actor,d,rows,history,picture,meta=byId[d.type],remote
     ${reviewable&&!actor.assignments&&!actor.siteEntryTypes&&d.result.telegramAllowed!==false?`<details class="inbox"><summary>Test Telegram approval locally</summary><button type="button" id="request-otp">Request test SMS</button><output id="sms-code"></output><label>Six-digit code<input id="otp" inputmode="numeric" maxlength="6"></label><button type="button" id="confirm-otp">Confirm approval</button></details>`:''}
     ${!indent&&history.length?`<section class="record-history"><h2>History</h2><ol>${history.map(h=>`<li>${esc(h.action)} · ${esc(h.actor)} · <time>${esc(h.stamp)}</time>
       ${h.meta ? `<details><summary>Action details</summary><dl>${Object.entries(h.meta).map(([key,value])=>`<dt>${esc(key)}</dt><dd>${display(value)}</dd>`).join('')}</dl></details>` : ''}
-      </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?(d.type==='E4'?dispatchHeading(d):d.type==='E7'?grnHeading(d):purchaseOrderHeading(d)):undefined, remoteApproval,indent&&editable);
+      </li>`).join('')}</ol></section>`:''}`, indent?indentHeading(d):order?(d.type==='E4'?dispatchHeading(d):d.type==='E7'?grnHeading(d):purchaseOrderHeading(d,actor)):undefined, remoteApproval,indent&&editable);
 }

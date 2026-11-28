@@ -2,7 +2,7 @@
 // footer calculation, tolerance and shortage, payment and, last, the record information.
 import { entryDayMin } from './entry-rules.mjs';
 import { esc } from './entry-shell.mjs';
-import { sourceChoices } from './entry-choices.mjs';
+import { purchaseOrderIndents } from './purchase-order-indents.mjs';
 import { formatIndentNumber } from './indent-details.mjs';
 import { review } from './review-masters.mjs';
 import { accountVendors } from './account-vendors.mjs';
@@ -24,9 +24,11 @@ const icons = {
 };
 const rupee = value => '₹ ' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function purchaseOrderHeading(doc) {
-  return `<div class="order-heading"><span class="order-heading-icon" aria-hidden="true">${icons.order}</span>
-    <div><h1>Diesel Purchase Order</h1><p>${doc.rev ? 'Edit this PO for diesel purchase' : 'Create a new PO for diesel purchase'}</p></div></div>`;
+const undersigned = (doc, actor) => doc.data.undersigned || (actor.employee ? actor.employee.name + ' · ' + actor.employee.empId : actor.requestedBy ?? actor.name ?? actor.login ?? '');
+export function purchaseOrderHeading(doc, actor = {}) {
+  return `<div class="order-heading po-heading"><span class="order-heading-icon" aria-hidden="true">${icons.order}</span>
+    <div><h1>Diesel Purchase Order</h1><p>${doc.rev ? 'Edit this PO for diesel purchase' : 'Create a new PO for diesel purchase'}</p></div>
+    <div class="po-employee"><span>Prepared by</span><strong>${esc(undersigned(doc, actor) || 'Employee details unavailable')}</strong></div></div>`;
 }
 
 export function purchaseOrderFields(actor, doc, meta, rows) {
@@ -54,18 +56,15 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
   const readOnly = (label, value, attrs = '') => `<label>${esc(label)}<input type="text" readonly tabindex="-1" ${attrs} value="${esc(value ?? '')}"></label>`;
 
   // Indents with quantity still to order, and how much is left on each.
-  const indentField = field('indent');
-  const ordered = id => rows.filter(row => row.type === 'E2' && row.id !== doc.id && row.data.indent === id && !['Draft', 'Superseded', 'Returned'].includes(row.status))
-    .reduce((sum, row) => sum + Number(row.result.litres ?? 0), 0);
-  const indents = sourceChoices(indentField, doc, rows, actor);
-  const indentChoices = indents.map(row => ({ value: row.id, label: formatIndentNumber(row.number), remaining: Math.max(0, row.result.litres - ordered(row.id)) }));
+  const indentChoices = purchaseOrderIndents(doc, rows, actor);
+  const selectedIndent = indentChoices.find(row => row.value === d.indent);
   // Vendors come from the Account Master: the approved accounts of a live site, otherwise the company's own list.
   const supplierField = field('supplier');
   const vendorChoices = supplierField.options.map(value => ({ value, label: supplierField.optionLabels?.get(value) ?? value }));
   const vendorDetails = meta.accountDetails ?? Object.fromEntries(accountVendors.map(vendor => [vendor.name, { address: vendor.address, contact: vendor.contact }]));
 
   // The undersigned is the signed-in person: their Employee Master name and ID, or their Pulse name when no employee record matches.
-  const employee = actor.employee ? actor.employee.name + ' · ' + actor.employee.empId : actor.requestedBy ?? '';
+  const employee = undersigned(doc, actor);
   const item = meta.orderItem, itemName = item ? item.code + ' · ' + item.name : review.item;
   const created = new Date(doc.created ?? Date.now());
   const stamp = options => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...options }).format(created);
@@ -93,26 +92,26 @@ export function purchaseOrderFields(actor, doc, meta, rows) {
       <label><span>Site${star}</span><select data-order-site data-role="${esc(actor.profile)}"><option value="">Select site</option>${directory.map(row =>
         `<option value="${esc(row.site)}" data-location="${esc(locationName(row.site))}"${row.site === selectedSite ? ' selected' : ''}>${esc(row.name)}</option>`).join('')}</select></label>`;
 
-  return `<div class="order-top">
-    ${card('details', 'Purchase Order Details', `<div class="order-grid three">
+  return `<div class="po-layout">
+    ${card('details', 'Purchase Order Details', `<div class="order-grid po-detail-grid">
       ${placeFields}
       <label><span>PO Date${star}</span><input name="day" type="date" data-required="true" min="${esc(entryDayMin(actor.businessDay ?? doc.day, doc))}" max="${esc(actor.businessDay ?? doc.day)}" value="${esc(doc.day)}"></label>
       ${readOnly('PO No.', formatIndentNumber(doc.number) || '', 'placeholder="Auto-generated"')}
       ${input('deliveryDate', 'Delivery Date', { attrs: `min="${esc(doc.day)}"` })}
-      <div class="span-two">${search('indent', 'Indent No.', indentChoices, d.indent, indents.length ? 'Search indent number' : 'No approved indent with a balance')}</div>
-      <label class="span-three"><span>Undersigned (Employee)${star}</span><input name="undersigned" type="text" readonly tabindex="-1" data-required="true" maxlength="200" value="${esc(d.undersigned || employee)}"></label>
+      <input name="undersigned" type="hidden" value="${esc(employee)}">
     </div>`, 'order')}
+    <div class="po-parties">
+    ${card('indent', 'Indent', `<div class="po-indent-picker" data-order-indents="${esc(JSON.stringify(indentChoices))}" data-indent-site="${esc(selectedSite)}">
+      <label for="order-indent-search"><span>Indent No.${star}</span></label><div class="po-search-control">
+        <input id="order-indent-search" type="search" role="combobox" data-search-for="indent" data-field-picker data-required="true" aria-autocomplete="list" aria-expanded="false" aria-controls="order-indent-options" autocomplete="off" placeholder="${selectedSite ? 'Search approved indent number' : 'Select a site first'}" value="${esc(selectedIndent?.label ?? '')}"${selectedSite ? '' : ' disabled'}>
+        <button type="button" data-indent-toggle tabindex="-1" aria-label="Show approved indents" aria-controls="order-indent-options"${selectedSite ? '' : ' disabled'}>${icon('<path d="m6 9 6 6 6-6"/>')}</button></div>
+      <input type="hidden" name="indent" value="${esc(selectedIndent?.value ?? '')}" data-remaining="${esc(selectedIndent?.remaining ?? '')}">
+      <ul id="order-indent-options" role="listbox" aria-label="Approved indents" hidden></ul>
+      <p class="po-indent-status" data-indent-status role="status">${selectedSite ? 'Approved indents for ' + esc(directory.find(row => row.site === selectedSite)?.name ?? selectedSite) + ' only' : 'Choose a site in Purchase Order Details to see its approved indents.'}</p></div>`, 'layers')}
     ${card('vendor', 'Vendor Details', `${search('supplier', 'Party / Vendor Name', vendorChoices, d.supplier, 'Search the Account Master')}
       <div class="vendor-contact" data-accounts="${esc(JSON.stringify(vendorDetails))}">${icon('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.800 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>')}
         <div><strong>Vendor's Address &amp; Contact</strong><p data-vendor-address>Select a vendor to see its address.</p><p data-vendor-contact></p></div></div>`)}
-    <div class="order-stack">
-    ${card('tax', 'Tax &amp; Supply', `<div class="order-grid three">${select('transactionType', 'Transaction Type', { required: true })}${select('supplyNature', 'Supply Nature', { required: true, offer: ['Non-GST Supplies', 'Taxable Supplies'] })}${select('type', 'PO Type', { required: true })}</div>`)}
-    ${card('freight', 'Freight &amp; Logistics', `<div class="order-grid two">${field('depot').options ? select('depot', 'Lifting Location', { required: !field('depot').optional }) : input('depot', 'Lifting Location', { required: true, type: 'text', attrs: 'maxlength="200" autocomplete="off" placeholder="Enter lifting location"', value: d.depot === review.depot ? '' : d.depot })}
-      ${select('basis', 'Freight Type', { required: true, labels: { Delivered: 'FOR', 'Ex-depot': 'To Pay' } })}
-      ${input('freightContract', 'Freight Contract No.', { attrs: 'maxlength="100" autocomplete="off"' })}
-      ${input('freightRate', 'Freight Rate (₹/L)')}
-      <label class="order-check"><input type="checkbox" data-loading-gross${d.loadingOnGross === 'No' ? '' : ' checked'}><input type="hidden" name="loadingOnGross" value="${d.loadingOnGross === 'No' ? 'No' : 'Yes'}">Landing on Gross</label></div>`)}
-    </div></div>
+    </div>
     ${card('material', 'Material Details', `<div class="order-table"><table><thead><tr><th>#</th><th>Particular (Material Name)</th><th>HSN Code</th><th>Diesel Qty (L)${star}</th>
       <th>Net Rate${star}</th><th>Amount</th><th>Landed Rate</th><th>GRN No.</th></tr></thead>
       <tbody><tr><td>1</td><td><input type="text" readonly tabindex="-1" aria-label="Particular" value="${esc(itemName)}"></td>
@@ -132,6 +131,13 @@ ${footerRows}
       <div><span>Landed Rate (per Litre)</span><output data-order="landed">₹ ${esc(totals.landedRate.toFixed(4))}</output></div>
       <div class="words"><span>PO Amount in Words</span><output data-order="words">${esc(rupeesInWords(totals.total))}</output></div></div>
     </div>
+    <div class="po-commercial">
+    ${card('tax', 'Tax &amp; Supply', `<div class="order-grid three">${select('transactionType', 'Transaction Type', { required: true })}${select('supplyNature', 'Supply Nature', { required: true, offer: ['Non-GST Supplies', 'Taxable Supplies'] })}${select('type', 'PO Type', { required: true })}</div>`)}
+    ${card('freight', 'Freight &amp; Logistics', `<div class="order-grid two">${field('depot').options ? select('depot', 'Lifting Location', { required: !field('depot').optional }) : input('depot', 'Lifting Location', { required: true, type: 'text', attrs: 'maxlength="200" autocomplete="off" placeholder="Enter lifting location"', value: d.depot === review.depot ? '' : d.depot })}
+      ${select('basis', 'Freight Type', { required: true, labels: { Delivered: 'FOR', 'Ex-depot': 'To Pay' } })}
+      ${input('freightContract', 'Freight Contract No.', { attrs: 'maxlength="100" autocomplete="off"' })}${input('freightRate', 'Freight Rate (₹/L)')}
+      <label class="order-check"><input type="checkbox" data-loading-gross${d.loadingOnGross === 'No' ? '' : ' checked'}><input type="hidden" name="loadingOnGross" value="${d.loadingOnGross === 'No' ? 'No' : 'Yes'}">Landing on Gross</label></div>`)}
+    </div>
     <div class="order-terms">
     ${card('tolerance', 'Tolerance &amp; Shortage', `<div class="order-grid two">${input('tolerance', 'Tolerance (%)', { required: true })}
       ${select('shortageFrom', 'Shortage Deduction From', { required: true })}${select('shortageMethod', 'Shortage Deduction Method', { required: true })}
@@ -147,5 +153,5 @@ ${footerRows}
     <div class="order-record">${icons.layers}<strong>Record Information</strong>
       <span>Creation Date <b>${esc(stamp({ day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-'))}</b></span>
       <span>Creation Time <b>${esc(stamp({ hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase())}</b></span>
-      <span>Created By <b>${esc(doc.createdBy ?? actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div>`;
+      <span>Created By <b>${esc(doc.createdBy ?? actor.employee?.name ?? actor.requestedBy ?? doc.role ?? '')}</b></span></div></div>`;
 }

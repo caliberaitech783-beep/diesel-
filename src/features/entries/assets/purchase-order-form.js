@@ -75,18 +75,15 @@ if (form?.querySelector('[name="litres"]')) {
 
   // Indent and vendor are typed into a search box. The hidden field takes the chosen record, or nothing
   // while the text matches no record, so a half-typed name is never saved.
-  const chosen = {};
-  for (const box of form.querySelectorAll('[data-search-for]')) {
+  for (const box of form.querySelectorAll('[data-search-for="supplier"]')) {
     const hidden = el(box.dataset.searchFor), options = [...box.list.options];
     const pick = () => {
       const text = box.value.trim().toLowerCase();
       const match = options.find(option => option.value.toLowerCase() === text);
-      chosen[box.dataset.searchFor] = match;
       box.setCustomValidity(text && !match ? 'Choose one from the list.' : '');
       if (hidden.value !== (match?.dataset.value ?? '')) { hidden.value = match?.dataset.value ?? ''; hidden.dispatchEvent(new Event('change', { bubbles: true })); }
     };
     box.addEventListener('input', pick); box.addEventListener('change', pick);
-    chosen[box.dataset.searchFor] = options.find(option => option.dataset.value === hidden.value);
   }
 
   // Payment: Yes means the full payment is an advance.
@@ -152,7 +149,8 @@ if (form?.querySelector('[name="litres"]')) {
   }
   // Choosing an indent suggests its remaining quantity.
   function indent() {
-    const remaining = chosen.indent?.dataset.remaining;
+    const remaining = el('indent').dataset.remaining;
+    if (remaining) el('litres').max = remaining; else el('litres').removeAttribute('max');
     if (remaining && !el('litres').value) { systemFill(el('litres'), remaining); calculate(); }
   }
   function dates() {
