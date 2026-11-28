@@ -27,6 +27,7 @@ test('ordinary and master-only Pulse users land on the available shared Dashboar
     const finish=await get('/api/sign-in/callback?'+new URLSearchParams({state,code:'c'.repeat(43)}),start.headers.get('set-cookie').split(';')[0]);
     assert.equal(finish.status,303);
     assert.equal(finish.headers.get('location'),'/entries/dashboard');
+    assert.ok(finish.headers.getSetCookie().some(value=>value.startsWith('__Host-diesel_stock_assignment=;')),'plain sign-in clears an earlier site choice');
     const cookie=finish.headers.getSetCookie().find(value=>value.startsWith('__Host-diesel_session=')).split(';')[0];
     assert.equal((await get('/',cookie)).headers.get('location'),'/entries/dashboard');
     const dashboard=await get('/entries/dashboard',cookie);

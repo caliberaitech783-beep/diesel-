@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { roles, roleKey, sites } from '../entries/review-masters.mjs';
+import { siteContextChoice } from '../entries/site-selection.mjs';
 
 const profiles = {
   maker: { name: 'Item maker', canEditMasters: true, canApproveMasters: false },
@@ -38,7 +39,7 @@ export function registerLocalSession(app) {
       && /^[a-zA-Z0-9_-]+$/.test(mac) && timingSafeEqual(Buffer.from(expected), Buffer.from(mac));
     const key = valid ? role : 'maker';
     const activeSite = valid ? site : sites[0];
-    request.dieselActor = { id: activeSite + '-' + key, profile:key, role: profiles[key].name, site: activeSite, ...profiles[key] };
+    request.dieselActor = { id: activeSite + '-' + key, profile:key, role: profiles[key].name, site: activeSite, selectedSite:valid?activeSite:'', ...profiles[key] };
     next();
   });
   app.get(['/login', '/workspace'], (request, response) => {
@@ -56,7 +57,7 @@ export function registerLocalSession(app) {
       <div class="form-footer"><button>Open masters</button></div></form></main></body></html>`);
   });
   app.post('/workspace/role', express.urlencoded({extended:false,limit:'2kb'}), (request, response) => {
-    const { role, site } = request.body || {};
+    const { role, site } = siteContextChoice(request.dieselActor,request.body);
     if (!Object.hasOwn(profiles, role) || !sites.includes(site)) return response.sendStatus(400);
     const value = role + '.' + site;
     response.cookie('diesel_local', value + '.' + signature(value), {httpOnly:true,sameSite:'strict',path:'/'});
