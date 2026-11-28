@@ -34,7 +34,8 @@ test('hosted Entry checks Pulse for every site, file, export and role action and
   const offlineScope=html.match(/data-offline-scope="([a-f0-9]{64})"/)?.[1];
   assert.ok(offlineScope);
   assert.doesNotMatch(await (await request('/entries','b')).text(),new RegExp(offlineScope));
-  const path=html.match(/href="(\/entries\/record\/[a-f0-9-]+)"/)[1];
+  const register=await (await request('/entries/type/E2','a')).text();
+  const path=register.match(/href="(\/entries\/record\/[a-f0-9-]+)"/)[1];
   assert.match(await (await request(path,'a')).text(),/Purchase order/);
   assert.equal((await request(path,'b')).status,404);
   assert.equal((await request('/entries/offline-worker.js','a')).status,404);

@@ -74,7 +74,7 @@ The callback's verified Pulse profile is reused once for the landing page within
 
 Sign-in opens the Dashboard for users of the assigned or shared workspace. Dashboard and Workspace open with the side menu expanded; opening an entry register or form collapses it. Use **Show menu** or **Hide menu** to change it on the current page.
 
-The top-right control selects a site only; it starts at **Select a site** and retains a site you explicitly choose during the session. Pulse still determines your role and permitted sites. With no site filter selected, Dashboard and Workspace show the accessible sites together. New indent and purchase-order site fields start blank; saved records keep their site.
+Entry pages omit the top-right site picker. Pulse still determines your role and permitted sites, and site/location choices remain inside the entry forms. New indent and purchase-order site fields start blank; saved records keep their site. **All entries** uses the same module cards as Workspace; clicking a module opens its register. Existing search and status links continue to open filtered records.
 
 Every Workspace module has only **New entry**, which opens the form directly using a permitted maker assignment. The indent form keeps only **New entry**, aligned to the right, including after saving.
 

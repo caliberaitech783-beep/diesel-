@@ -1,6 +1,7 @@
 import { formatIndentNumber } from './indent-details.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { workspacePage } from './workspace-page.mjs';
+import { allEntriesPage } from './all-entries-page.mjs';
 import { entryCreationContext, mayStartEntry } from './entry-creation.mjs';
 import { deliveryScheduleSites, deliveryScheduleOrders, deliveryScheduleSelection } from './delivery-schedule-orders.mjs';
 import { shellParts } from './entry-shell.mjs';
@@ -109,6 +110,7 @@ export function createEntriesRouter(db, { hosted = false, assigned = false, poli
     next();
   });
   router.get('/',(req,res)=>{
+    if(!Object.keys(req.query).length) return res.send(allEntriesPage(req.dieselActor));
     const actor=req.dieselActor, sources=registerSources(actor,req.query);
     res.send(registerPage(actor,sources.filter(doc=>canRead(doc,{...actor,site:doc.site??actor.site})),null,req.query,sources));
   });

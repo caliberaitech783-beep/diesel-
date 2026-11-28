@@ -123,7 +123,7 @@ test('everyone in the trial sees the records anyone saved, including those from 
   const atSasti = async who => (await request('/workspace/role', who, new URLSearchParams({ site: 'Sasti', role: roleKey('Site In-charge') }))).headers.get('set-cookie').split(';')[0];
 
   const p = await atSasti('p'), q = await atSasti('q');
-  assert.match(await (await request('/entries', 'p', null, p)).text(), new RegExp(old.number), 'a record from a private workspace is brought in');
+  assert.match(await (await request('/entries/type/E1', 'p', null, p)).text(), new RegExp(old.number), 'a record from a private workspace is brought in');
   const other = sites.find(site => !['Sasti', 'Jayant'].includes(site)), id = randomUUID();
   const at = async who => (await request('/workspace/role', who, new URLSearchParams({ site: other, role: roleKey('Site In-charge') }))).headers.get('set-cookie').split(';')[0];
   const p2 = await at('p'), q2 = await at('q');
@@ -132,7 +132,7 @@ test('everyone in the trial sees the records anyone saved, including those from 
   assert.equal(saved.status, 200, await saved.clone().text());
   const seen = await request('/entries/record/' + id, 'q', null, q2);
   assert.equal(seen.status, 200, 'another person opens the record');
-  assert.match(await (await request('/entries', 'q', null, q)).text(), new RegExp(old.number));
+  assert.match(await (await request('/entries/type/E1', 'q', null, q)).text(), new RegExp(old.number));
 });
 
 test('a location added in Diesel, such as a CMPL office, can be chosen for a diesel indent', async t => {

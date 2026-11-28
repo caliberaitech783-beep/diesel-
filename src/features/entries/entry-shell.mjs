@@ -1,7 +1,6 @@
 import { themeHead, themeToggle } from '../theme/theme-toggle.mjs';
 import { byId } from './catalog.mjs';
 import { indentSiteForm } from './indent-fields.mjs';
-import { siteContextOptions } from './site-selection.mjs';
 import { icons, menuEntries, workspaceFor } from './workspace-map.mjs';
 import { masters } from '../masters/catalog.mjs';
 
@@ -93,16 +92,6 @@ function helpDialog(active) {
     <button class="primary">Close</button></form></dialog>`;
 }
 
-function switcher(actor, back) {
-  const choices=siteContextOptions(actor);
-  const selected=String(back).startsWith('/entries/record/')?actor.site:actor.selectedSite??'';
-  const name=choices.find(row=>row.site===selected)?.name??'Select a site';
-  return `<details class="context"><summary><i class="location-mark" aria-hidden="true"></i>${esc(name)}</summary>
-    <form id="site-context" class="switch" method="post" action="/workspace/role"><input type="hidden" name="returnTo" value="${esc(back)}"><input type="hidden" name="siteOnly" value="1">
-    <label>Site<select name="site" required>${option('','Select a site',!selected)}${choices.map(row=>option(row.site,row.name,row.site===selected)).join('')}</select></label>
-    <button class="primary">Use site</button></form></details>`;
-}
-
 export function page(title, actor, active, back, body, heading, remoteApproval = false,indentSiteInForm=false) {
   // Print is offered on a saved record, the one page people print.
   const printable = String(back).startsWith('/entries/record/');
@@ -119,7 +108,7 @@ export function page(title, actor, active, back, body, heading, remoteApproval =
     <header class="masthead"><a class="brand" href="/"><img src="/masters/assets/pulse.png" alt="" width="34" height="34"><span>Caliber <b>Pulse</b></span><em>Diesel</em></a>
     <div class="tools"><a class="pending-bell" id="pending-bell" href="/entries/approvals" title="Waiting for you" hidden>${icons.bell}<b id="pending-count"></b><span class="sr-only">items waiting for you</span></a><span class="today-clock" id="today-clock" hidden>${icons.calendar}<time id="today-date"></time>${icons.clock}<time id="today-time"></time></span><span class="environment">${actor.siteEntryTypes ? (actor.hosted?'Site stock workspace':'Local site stock workspace') : actor.assignments ? 'Role-based pilot · sample data' : actor.trial ? 'Trial workspace · sample data · not live records' : actor.hosted?'Personal review · sample data':'Local review · sample data'}</span>${themeToggle}${actor.assignments ? '<form method="post" action="/api/sign-out"><button>Sign out</button></form>' : ''}</div></header>
     <div class="shell">${navigation(active,actor)}<main id="workspace" tabindex="-1">
-    <div class="context-bar"><div class="crumb"><button type="button" id="rail-show" title="Show the menu" hidden>☰ Show menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools">${printable ? '<button type="button" id="print-page" class="page-tool" title="Print this record" hidden>Print</button>' : ''}<button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div>${active==='E1'?indentSiteForm(actor,indentSiteInForm):switcher(actor,back)}</div>
+    <div class="context-bar"><div class="crumb"><button type="button" id="rail-show" title="Show the menu" hidden>☰ Show menu</button><a href="/">Diesel</a><i aria-hidden="true">/</i><a href="/entries">Entry</a>${active ? `<i aria-hidden="true">/</i><span>${esc(byId[active]?.name ?? sections[active] ?? active)}</span>` : ''}</div><div class="page-tools">${printable ? '<button type="button" id="print-page" class="page-tool" title="Print this record" hidden>Print</button>' : ''}<button type="button" id="help-open" class="page-tool" title="How to use this page" hidden>? Help</button></div></div>${active==='E1'&&indentSiteInForm?indentSiteForm(actor,true):''}
     ${heading ?? `<h1>${esc(title)}</h1>`}${body}<output id="sync-status" aria-live="polite"></output>
     <section id="offline-entries" hidden><h2>Entries waiting to sync</h2><ul></ul></section></main></div>${searchDialog(actor, active)}${helpDialog(active)}</body></html>`;
 }
