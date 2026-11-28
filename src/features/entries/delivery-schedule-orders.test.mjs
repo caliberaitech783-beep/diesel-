@@ -14,7 +14,8 @@ const actor={id:'buyer',site:'Jayant',profile:buyer,assignments:[{site:'Jayant',
 const po=(id,site,status='Posted')=>({id,type:'E2',site,status,day,rev:1,number:'PO-'+id,data:{},result:{litres:500}});
 
 test('Delivery Schedule lists POs across permitted sites under the location without exposing other sites',()=>{
-  const rows=[po('jay','Jayant'),po('dudh','Dudhichua OC'),po('sasti','Sasti'),po('secret','Dudhichua East OC'),po('pending','Jayant','Awaiting approval')];
+  const rows=[po('jay','Jayant'),po('dudh','Dudhichua OC'),po('sasti','Sasti'),po('secret','Dudhichua East OC'),po('pending','Jayant','Awaiting approval'),
+    {...po('private-draft','Jayant','Draft'),maker:'another-account'}];
   const choices=deliveryScheduleOrders(actor,rows,{location,day});
   assert.deepEqual(new Set(choices.map(row=>row.id)),new Set(['jay','dudh','pending']));
   assert.equal(choices.find(row=>row.id==='pending').selectable,false);

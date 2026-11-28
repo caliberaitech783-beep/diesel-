@@ -2,6 +2,7 @@ import { canChooseRole } from './entry-access.mjs';
 import { entrySiteDirectory } from './entry-sites.mjs';
 import { locationName } from './site-locations.mjs';
 import { roleKey } from './review-masters.mjs';
+import { mayViewEntry } from './entry-visibility.mjs';
 
 export const scheduleLocation = site => locationName(site) || site;
 const buyer = roleKey('Procurement Executive');
@@ -19,7 +20,8 @@ export function deliveryScheduleSites(actor) {
 
 export function deliveryScheduleOrders(actor, rows, {location,day,recordId,savedSite}={}) {
   const sites=new Set(deliveryScheduleSites(actor));
-  return rows.filter(row=>row.type==='E2'&&row.rev>0&&sites.has(row.site)&&scheduleLocation(row.site)===location).map(po=>{
+  return rows.filter(row=>row.type==='E2'&&row.rev>0&&sites.has(row.site)&&scheduleLocation(row.site)===location
+    &&mayViewEntry(row,deliveryScheduleActor(actor,row.site))).map(po=>{
     const litres=Number(po.result?.litres??po.data?.litres??Number(po.data?.kl)*1000)||0;
     const allocated=rows.filter(row=>row.type==='E4'&&row.id!==recordId&&row.data?.po===po.id&&!['Draft','Returned','Superseded'].includes(row.status))
       .reduce((sum,row)=>sum+Number(row.result?.litres??0),0);
