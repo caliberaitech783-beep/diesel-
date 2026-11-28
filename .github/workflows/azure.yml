@@ -13,36 +13,31 @@ jobs:
   build:
     name: Test and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Keep releases serial through verification; replace obsolete PR checks.
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/main' && 'diesel-production' || format('diesel-checks-{0}', github.ref) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run build
-      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      - name: Package tested production dependencies
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          npm ci --omit=dev --prefix dist
+          npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+          cp -a node_modules dist/node_modules
           (cd dist && zip -qr ../diesel.zip .)
-      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: diesel
-          path: diesel.zip
-
-  # Every merge to main deploys. Run workflow on main deploys the same way, for a redeploy.
-  deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    concurrency: diesel-production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
       - name: Check Azure configuration
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
           DIESEL_HEALTH_ORIGIN: ${{ vars.DIESEL_HEALTH_ORIGIN }}
@@ -58,24 +53,24 @@ jobs:
             fi
           done
           exit "$missing"
-      - uses: actions/download-artifact@v4
-        with:
-          name: diesel
       - uses: azure/login@v2
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: azure/webapps-deploy@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           package: diesel.zip
       - name: Verify deployed commit and Diesel access
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           DIESEL_HEALTH_ORIGIN: ${{ vars.DIESEL_HEALTH_ORIGIN }}
         run: |
           origin="${DIESEL_HEALTH_ORIGIN%/}"
-          for attempt in {1..12}; do
+          for attempt in {1..30}; do
             if curl --fail --silent --max-time 10 "$origin/healthz" |
               jq -e --arg commit "$GITHUB_SHA" '.status == "ok" and .commit == $commit and .masters == "ready" and .sharedMasters == "ready" and (.openingStock == "setup" or .openingStock == "ready")' >/dev/null; then
               if curl --silent --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "$origin/api/sign-in/start" |
@@ -84,7 +79,7 @@ jobs:
                 exit 0
               fi
             fi
-            sleep 5
+            sleep 2
           done
           echo "::error::Diesel did not serve $GITHUB_SHA with master storage and sign-in available"
           exit 1
