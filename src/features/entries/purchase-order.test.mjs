@@ -265,11 +265,32 @@ test('purchase orders are numbered CMLL/site/PO/financial year/001 and count up 
   const maker=actor('Procurement Executive');
   const save=()=>store.write(randomUUID(),maker,{type:'E2',action:'Submit',rev:0,day,data:{...order,litres:1000,deliveries:'',advanceAmount:undefined}}).number;
   const first=save();
-  assert.match(first,/^CMLL\/CMP\/PO\/\d{2}-\d{2}\/001$/,"numbered by the location Jayant sits under");
+  assert.match(first,/^CMLL\/JOC\/PO\/\d{2}-\d{2}\/001$/,'numbered by the site');
   assert.deepEqual([save(),save()],[first.replace(/001$/,'002'),first.replace(/001$/,'003')]);
   const draft=store.write(randomUUID(),maker,{type:'E2',action:'Save draft',rev:0,day,data:{}});
   assert.equal(draft.number,'','a draft takes no number');
   assert.match(detailPage(maker,store.list('Jayant').find(row=>row.number===first),store.list('Jayant'),[]),new RegExp(first.replaceAll('/','\\/')));
+});
+
+test('PO numbering skips existing site numbers and keeps each site and financial year separate', t=>{
+  const {db,order}=setup(t);
+  let today='2026-03-31';
+  const store=createEntryStore(db,{calendarFor:()=>({day:()=>today})});
+  const save=(site,day)=>{
+    today=day;
+    const maker=actor('Site In-charge',site);
+    const indent=store.write(randomUUID(),maker,{type:'E1',action:'Save indent',rev:0,day,data:{litres:5000,requiredBy:0,reason:review.reasons[0]}});
+    store.approveIndent(indent.id,{sanctioned:5000,by:'Approver'});
+    return store.write(randomUUID(),actor('Procurement Executive',site),{type:'E2',action:'Submit',rev:0,day,
+      data:{...order,indent:indent.id,deliveryDate:day,litres:1000,deliveries:'',advanceAmount:undefined}});
+  };
+  const first=save('Jayant','2026-03-31');
+  assert.equal(first.number,'CMLL/JOC/PO/25-26/001');
+  db.prepare('DELETE FROM entry_review_numbers WHERE site=? AND type=? AND year=?').run('JOC','E2','25-26');
+  assert.equal(save('Jayant OC','2026-03-31').number,'CMLL/JOC/PO/25-26/002','site aliases share the series and existing numbers are never reused');
+  assert.equal(save('Dudhichua OC','2026-03-31').number,'CMLL/DOC/PO/25-26/001','sites under the same office have separate numbers');
+  assert.equal(save('Jayant','2026-04-01').number,'CMLL/JOC/PO/26-27/001','the April financial year starts a new sequence');
+  assert.equal(store.read(first.id,'Jayant').number,first.number,'an assigned PO number is retained');
 });
 
 test('an indent approved on Telegram or in Diesel can be ordered against, up to the sanctioned quantity', t => {
