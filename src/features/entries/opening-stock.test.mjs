@@ -153,6 +153,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   assert.doesNotMatch(await (await request('/entries/record/'+approvedIndent.id,maker)).text(),/HSN code|00123456/);
   const order=await approve(await submit('E2','Procurement Executive',{indent:approvedIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Advance',kl:0.2}));
+  assert.match(order.number,/^CMLL\/JOC\/PO\/\d{2}-\d{2}\/001$/,'site-stock POs use the same site-based pattern as the shared workspace');
   assert.equal(order.result.value,19750);
   assert.equal(order.result.landed,100250);
   const advice=await approve(await submit('E3','Accounts Executive',{po:order.id,amount:19750}));
@@ -173,6 +174,7 @@ test('site Entry reconciles approved opening stock, purchasing and receipts thro
   const directIndent=await approve(await submit('E1','Site In-charge',{litres:120,requiredBy:0}));
   const directOrder=await approve(await submit('E2','Procurement Executive',{indent:directIndent.id,type:'Bulk',supplier:'SUP-10',
     depot:'DEP-1',basis:'Ex-depot',transporter:'LORRY-1',terms:'Credit',kl:0.12}));
+  assert.equal(directOrder.number,order.number.replace(/001$/,'002'),'the next site-stock PO continues the same sequence');
   const directGate=await submit('E5','Site Store',{...gate.data,po:directOrder.id,scenario:'Direct to bowsers',
     truck:'TEST202',invoice:'TEST-002',litres:120,sealPhotos:[proof],billPhoto:[proof]});
   await approve(await submit('E6','Site Store',{gate:directGate.id,instrument:'DIP-1',density:830,temperature:25,decision:'Accept',evidence:[proof]}));

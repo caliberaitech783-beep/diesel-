@@ -7,7 +7,6 @@ import { entryPolicy } from './entry-policy.mjs';
 import { siteDefinition, siteEntryTypes } from './site-masters.mjs';
 import { siteDocumentSeries } from './site-document-number.mjs';
 import { indentSeries, requiredDays, formatIndentNumber } from './indent-details.mjs';
-import { locationOf } from './site-locations.mjs';
 import { transferTarget } from './transfer-destination.mjs';
 import { readingMoment } from './entry-calendar.mjs';
 import { entryReasons, reasonError } from './entry-reasons.mjs';
@@ -59,25 +58,24 @@ export function createEntryStore(db, { policyFor = (_, day) => entryPolicy(undef
       check(!all().some(row=>formatIndentNumber(row.number)===doc.number),'This indent number already exists.');
       return;
     }
+    if (doc.type==='E2') {
+      // Purchase orders run in their own series per site and financial year: CMLL/JOC/PO/26-27/001, 002, 003…
+      // Use the same pattern in the shared and site-stock workspaces.
+      const series=indentSeries(doc), label=series.label.replace('/IND/','/PO/');
+      let number;
+      do {
+        const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,'E2',series.year);
+        number=label+'/'+String(n).padStart(3,'0');
+      } while (all().some(row=>row.number===number));
+      doc.number=number;
+      return;
+    }
     if (siteFor) {
       const series=siteDocumentSeries(doc,siteConfig(doc.type,doc.site,doc.day));
       const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,?) ON CONFLICT(site,type,year) DO UPDATE SET n=MAX(n+1,excluded.n) RETURNING n')
         .get(series.scope,doc.type,series.year,series.next);
       const number=series.label+'/'+String(n).padStart(4,'0');
       check(!all().some(row=>row.number===number),'This document number already exists. Review the approved prefix and series.');
-      doc.number=number;
-      return;
-    }
-    if (doc.type==='E2') {
-      // Purchase orders run in their own series per site and financial year: CMLL/JOC/PO/26-27/001, 002, 003…
-      // The series belongs to the site's location, the office that buys: CMLL/CMP/PO/26-27/001. A site under no location keeps its own.
-      const site=indentSeries(doc), place=locationOf(doc.site);
-      const series=place?{scope:place.code,year:site.year,label:'CMLL/'+place.code+'/IND/'+site.year}:site, label=series.label.replace('/IND/','/PO/');
-      let number;
-      do {
-        const {n}=db.prepare('INSERT INTO entry_review_numbers VALUES(?,?,?,1) ON CONFLICT(site,type,year) DO UPDATE SET n=n+1 RETURNING n').get(series.scope,'E2',series.year);
-        number=label+'/'+String(n).padStart(3,'0');
-      } while (all().some(row=>row.number===number));
       doc.number=number;
       return;
     }
