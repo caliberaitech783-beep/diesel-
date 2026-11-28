@@ -101,3 +101,82 @@
 .order-footer td input[data-foot="round"] { min-width:110px; }
 .order-view .order-dispatch > h2 { display:flex; align-items:center; gap:8px; color:inherit; }
 .order-view .order-dispatch > h2 svg { width:20px; height:20px; color:var(--order-accent); flex:none; }
+
+/* PO entry follows its reading order, left to right within each section. */
+.purchase-order-workspace main { padding-inline:clamp(16px,2vw,30px); padding-bottom:20px; }
+.purchase-order-workspace .context-bar { min-height:50px; }
+.purchase-order-workspace .record-back { margin:0 0 6px; font-size:12px; }
+.purchase-order-workspace .bar { margin-bottom:10px; font-size:12px; }
+.po-heading { margin:4px 0 12px; gap:10px; }
+.po-heading .order-heading-icon { flex-basis:38px; height:38px; border-radius:10px; }
+.po-heading h1 { font-size:25px; }
+.po-employee { margin-left:auto; text-align:right; display:grid; gap:3px; max-width:40%; }
+.po-employee span { color:var(--muted); font-size:11px; font-weight:500; }
+.po-employee strong { font-size:13px; overflow-wrap:anywhere; }
+.po-layout { display:grid; gap:10px; }
+.po-layout .order-card { padding:11px 12px 12px; border-radius:9px; box-shadow:none; }
+.po-layout .order-card legend { margin-bottom:9px; font-size:13px; gap:6px; }
+.po-layout .order-card legend svg { width:17px; height:17px; }
+.po-layout .order-grid { gap:8px 10px; }
+.po-layout .po-detail-grid { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.po-layout .order-card label { font-size:11.5px; gap:4px; }
+.po-layout .order-card :is(input,select) { min-height:32px; padding:5px 8px; font-size:12.5px; border-radius:5px; }
+.po-parties { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; align-items:start; }
+.po-layout .vendor-contact { margin-top:7px; padding:7px 9px; border-radius:6px; gap:7px; font-size:11.5px; }
+.po-layout .vendor-contact strong { font-size:11px; }
+.po-layout .vendor-contact p { margin-top:2px; line-height:1.35; }
+.po-layout .order-table th { padding:6px; font-size:11px; }
+.po-layout .order-table td { padding:5px 6px; font-size:12px; }
+.po-layout output:not(:empty) { margin:0; }
+.po-layout .order-table td input { min-width:80px; }
+.po-layout .order-material td:nth-child(2) input { min-width:170px; }
+.po-layout .order-calc { grid-template-columns:minmax(0,1.6fr) minmax(270px,1fr); margin:0; gap:10px; }
+.po-layout .order-totals { grid-template-columns:repeat(2,minmax(0,1fr)); padding:7px; gap:4px; border-radius:9px; }
+.po-layout .order-totals>div { display:grid; align-content:start; gap:3px; padding:5px 7px; font-size:10.5px; }
+.po-layout .order-totals output { font-size:13px; text-align:left; }
+.po-layout .order-totals .grand { font-size:11px; border-radius:6px; }
+.po-layout .order-totals .grand output { font-size:16px; }
+.po-layout .order-totals .words { grid-column:1/-1; display:flex; gap:10px; margin:0; padding-top:7px; }
+.po-layout .order-totals .words output { font-size:11px; max-width:70%; text-align:right; }
+.po-commercial { display:grid; grid-template-columns:minmax(0,3fr) minmax(0,5fr); gap:10px; align-items:start; }
+.po-commercial .order-freight .order-grid { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.po-layout .order-terms { gap:10px; margin:0; }
+.po-layout .order-tolerance .order-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.po-layout .order-hint { margin-top:7px; padding:5px 8px; font-size:11px; line-height:1.35; }
+.po-layout .order-toggle { gap:6px; margin-bottom:9px; font-size:11.5px; }
+.po-layout .order-toggle span { flex-basis:auto; margin-right:auto; }
+.po-layout .order-toggle button { min-width:46px; min-height:28px; padding:4px 10px; font-size:12px; border-radius:6px; }
+.po-layout .order-schedule-foot { margin-top:7px; }
+.po-layout .order-schedule-foot button { padding:5px 9px; font-size:11px; border-radius:5px; }
+.po-layout .order-record { margin:0; padding:7px 10px; gap:7px 20px; border-radius:7px; font-size:11px; }
+.po-layout .order-record strong { font-size:11px; }
+.po-layout .order-record b { padding:2px 5px; margin-left:4px; font-size:11px; }
+.purchase-order-workspace .order-actions { position:sticky; bottom:0; z-index:8; padding:9px 0; margin:8px 0 0; background:var(--page-bg); border-top:1px solid var(--border); }
+.po-indent-picker { position:relative; clear:both; min-width:0; }
+.po-indent-picker>label { margin-bottom:4px!important; }
+.po-search-control { display:flex; border:1px solid var(--control-border); border-radius:6px; background:var(--surface); }
+.po-search-control:focus-within { outline:2px solid var(--order-accent); outline-offset:1px; }
+.po-search-control input { flex:1; width:0!important; border:0; background:transparent; outline:none!important; }
+.po-search-control button { flex:none; border:0; border-left:1px solid var(--border); padding:4px 9px; background:var(--order-soft); color:var(--order-accent); border-radius:0 5px 5px 0; }
+.po-search-control button svg { width:17px; height:17px; }
+.po-indent-picker [role=listbox] { position:absolute; top:58px; left:0; right:0; z-index:30; max-height:250px; overflow:auto; list-style:none; margin:0; padding:4px; border:1px solid var(--control-border); border-radius:8px; background:var(--surface); box-shadow:0 12px 28px #10234c26; }
+.po-indent-picker [role=option] { display:grid; gap:3px; padding:9px; border-radius:5px; cursor:pointer; }
+.po-indent-picker [role=listbox] li { margin:0; }
+.po-indent-picker [role=option]:hover,.po-indent-picker [aria-selected=true] { background:var(--order-soft); }
+.po-indent-picker [role=option] strong { font-size:12px; }
+.po-indent-picker [role=option] span,.po-indent-status,.po-indent-empty { font-size:11px; line-height:1.4; color:var(--muted); }
+.po-indent-status { margin:7px 0 0; }
+.po-indent-empty { padding:9px; }
+@media(max-width:1000px) {
+  .po-layout .po-detail-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .po-commercial { grid-template-columns:minmax(0,1fr); }
+  .po-commercial .order-freight .order-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .po-layout .order-tolerance .order-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:700px) {
+  .po-heading { flex-wrap:wrap; }.po-employee { max-width:100%; margin-left:48px; text-align:left; }
+  .po-parties,.po-layout .order-calc,.po-layout .order-terms { grid-template-columns:minmax(0,1fr); }
+  .po-layout .po-detail-grid,.po-commercial .order-freight .order-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .po-layout .order-record { gap:6px 12px; }
+}
+@media(max-width:420px) { .po-layout .po-detail-grid,.po-layout .order-grid.three { grid-template-columns:minmax(0,1fr); } }

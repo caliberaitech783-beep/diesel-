@@ -199,15 +199,6 @@ if (entryForm) {
   const visible = field => !field.disabled && !field.readOnly && field.offsetParent !== null;
   const typed = () => [...entryForm.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), select, textarea')]
     .filter(field => field.name && field.form === entryForm && visible(field));
-  // Enter moves to the next field instead of saving a half-filled form.
-  entryForm.addEventListener('keydown', event => {
-    const field = event.target;
-    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || !field.matches('input, select') || field.matches('[type=submit], [type=button], [list]')) return;
-    const list = typed(), next = list[list.indexOf(field) + 1];
-    if (!next) return;
-    event.preventDefault();
-    next.focus();
-  });
   const fresh = entryForm.dataset.rev === '0';
   // Put values into the fields that are on screen, and let the form's own calculations react.
   const fillIn = values => {
@@ -225,7 +216,9 @@ if (entryForm) {
   };
   if (fresh) {
     // A new entry opens ready to type in its first empty field.
-    if (!document.querySelector(':focus:not(body)')) typed().find(field => !field.value && field.tagName !== 'SELECT')?.focus({ preventScroll: true });
+    if (!document.querySelector(':focus:not(body)')) (entryForm.dataset.type === 'E2'
+      ? [...entryForm.querySelectorAll('input:not([type=hidden]), select')].find(field => visible(field) && !field.value)
+      : typed().find(field => !field.value && field.tagName !== 'SELECT'))?.focus({ preventScroll: true });
 
     const note = make('div', { className: 'form-helper', hidden: true });
     entryForm.before(note);
