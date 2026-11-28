@@ -19,7 +19,7 @@ export function registerItemDirectoryRoutes(app, { directory, getActor, startSig
   };
   app.get(itemDirectoryPath+'/records',route(async (req,res,actor)=>{
     const detail = await directory.read(actor,req.query.id,req.query.revision);
-    res.set('Content-Security-Policy',"default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'");
+    res.set('Content-Security-Policy',"default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; frame-src 'self'; frame-ancestors 'self' https://pulse.cmll.in; form-action 'self'; base-uri 'none'");
     res.type('html').send(recordsPage({prefix:itemDirectoryPath,master:masterDefinition('item-master'),actor,
       ...detail,rows:[],editingAllowed:false,approvingAllowed:false,masterSelected:true,dialog:req.query.dialog==='1'}));
   }));
