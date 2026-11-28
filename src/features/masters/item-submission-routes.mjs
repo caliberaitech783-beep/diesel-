@@ -74,7 +74,7 @@ export function registerItemSubmissions(app, { store, getProfile, publicOrigin, 
     if (historical && !record) throw new MasterRecordError('Record revision not found.',404);
     const limit = 50;
     const rows = record || creating ? [] : (await listWithCompany(actor,slug,search,{ request:req })).slice(offset,offset+limit);
-    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'`);
+    res.set('Content-Security-Policy', `default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'${slug === 'item-master' ? ' blob:' : ''}; frame-src 'self'; frame-ancestors 'self' https://pulse.cmll.in; form-action 'self'; base-uri 'none'`);
     res.type('html').send(recordsPage({
       master, rows, actor, record, creating, search, status: '', offset, limit, locationNames: slug === 'diesel-rate-master' ? locationNames?.() : undefined,
       comparison: slug === 'item-master' ? (current?.changes ?? []).findLast(event => event.revision < record?.revision)?.snapshot ?? (record?.revision === 1 ? null : record) : undefined,
